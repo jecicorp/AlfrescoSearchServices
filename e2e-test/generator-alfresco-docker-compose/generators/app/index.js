@@ -4,7 +4,7 @@ var banner = require('./banner')
 
 /**
  * This module buids a Docker Compose template to test
- * Repository and Search Services/Insight Engine with
+ * Repository and Search Services with
  * different configurations.
 */
 module.exports = class extends Generator {
@@ -115,20 +115,6 @@ module.exports = class extends Generator {
         ],
         default: 'WARN'
       },
-      {
-        whenFunction: response => response.alfrescoVersion == 'enterprise',
-        type: 'confirm',
-        name: 'insightEngine',
-        message: 'Would you like to use Insight Engine instead of Search Services?',
-        default: false
-      },
-      {
-        whenFunction: response => response.alfrescoVersion == 'enterprise' && response.insightEngine,
-        type: 'confirm',
-        name: 'zeppelin',
-        message: 'Would you like to deploy Zeppelin?',
-        default: false
-      }
     ];
 
     // Create a chain of promises containing the prompts.
@@ -200,16 +186,10 @@ module.exports = class extends Generator {
       );
 
     // Search Docker Image
-    const searchImageName =
-    (this.props.insightEngine ?
-      'quay.io/alfresco/insight-engine' :
-      'quay.io/alfresco/search-services');
+    const searchImageName = 'quay.io/alfresco/search-services';
 
     // Search Docker Image installation base path
-    const searchBasePath =
-      (this.props.insightEngine ?
-        "alfresco-insight-engine" :
-        "alfresco-search-services");
+    const searchBasePath = "alfresco-search-services";
 
     // Copy Docker Compose applying configuration
     this.fs.copyTpl(
@@ -224,7 +204,6 @@ module.exports = class extends Generator {
         replication: this.props.replication,
         searchSolrHost: (this.props.replication ? "solr6secondary" : "solr6"),
         searchPath: searchBasePath,
-        zeppelin: (this.props.zeppelin ? "true" : "false"),
         sharding: (this.props.sharding ? "true" : "false"),
         shardingMethod: (this.props.shardingMethod),
         gzip: (this.props.gzip ? "true" : "false"),
@@ -299,14 +278,6 @@ module.exports = class extends Generator {
       }
     );
 
-    // Copy Docker Image for Zeppelin applying configuration
-    if (this.props.zeppelin) {
-      this.fs.copy(
-        this.templatePath(imagesDirectory + '/zeppelin'),
-        this.destinationPath('zeppelin')
-      );
-    }
-
     // Add resources for SSL configuration
     if (this.props.httpMode == 'https') {
       // Currently Community 'latest' only supports OLD keystores and trustores format
@@ -323,12 +294,6 @@ module.exports = class extends Generator {
         this.templatePath('keystores/' + subfolder + '/client'),
         this.destinationPath('keystores/client')
       )
-      if (this.props.zeppelin == true) {
-        this.fs.copy(
-          this.templatePath('keystores/' + subfolder + '/zeppelin'),
-          this.destinationPath('keystores/zeppelin')
-        )
-      }
     }
 
     // Copy NGINX Configuration

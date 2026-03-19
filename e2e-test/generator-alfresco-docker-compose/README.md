@@ -1,7 +1,7 @@
 # generator-alfresco-docker-compose
 > Alfresco Docker Compose Generator
 
-This project generates a collection of Docker Compose Templates to test Repository and Search Services/Insight Engine with different configurations.
+This project generates a collection of Docker Compose Templates to test Repository and Search Services with different configurations.
 
 ## Project structure
 
@@ -42,13 +42,10 @@ $ tree generators/app/templates/
 │   │   └── model
 │   │       ├── empty.xml
 │   │       └── sharding-share-config-custom.xml
-│   └── zeppelin
-│       └── Dockerfile
 └── keystores :: 6.x / 7.x
     ├── alfresco
     ├── client
     ├── solr
-    └── zeppelin
 ```
 
 * `.env` includes default values for Docker Compose environment variables
@@ -58,9 +55,8 @@ $ tree generators/app/templates/
   * `model` includes a default content model (Sharding Explicit Routing or empty). This `empty` file is required for Dockerfile to work, so it should not be deleted.
 * `share` includes a Dockerfile template to start Share Web Application
   * `model` includes a default forms model (Sharding Explicit Routing or empty)
-* `search` includes a Dockerfile template to start Search Services and Insight Engine
+* `search` includes a Dockerfile template to start Search Services
 * `config` includes configuration for HTTP Web Proxy (NGINX)
-* `zeppelin` includes a Dockerfile template to start Zeppelin with SSL
 * `keystores` includes every truststore and keystore required for SSL configuration. Included different stores for ACS 6.x and ACS 7.x, as there were changes between this versions
 
 
@@ -129,8 +125,6 @@ When using Community, some different options can be combined:
 When using Enterprise, some options can be added to Community configuration:
 
 * Use dynamic Sharding with 2 SOLR nodes pre-configured (every sharding method is supported)
-* Insight Engine, as Search Services is selected by default
-* Deploy Zeppelin app to use JDBC Connector to SOLR
 
 ```
 ? Would you like to use dynamic Sharding (2 SOLR nodes)? Yes
@@ -143,9 +137,7 @@ When using Enterprise, some options can be added to Community configuration:
   PROPERTY
   LAST_REGISTERED_INDEXING_SHARD
   EXPLICIT_ID_FALLBACK_LRIS
-  EXPLICIT_ID  
-? Would you like to use Insight Engine instead of Search Services? Yes
-? Would you like to deploy Zeppelin? Yes
+  EXPLICIT_ID
 ```
 
 ## Sharding methods default parameters
@@ -209,8 +201,6 @@ $ yo alfresco-docker-compose --acsVersion=6.2 --alfrescoVersion=community --http
 `--httpWebMode`: http or https
 `--protectSolr`: true or false
 `--clustering`: true or false
-`--insightEngine`: true or false
-`--zeppelin`: true or false
 `--sharding`: true or false
 `--shardingMethod`: DB_ID, DB_ID_RANGE, ACL_ID, MOD_ACL_ID, DATE, PROPERTY, LAST_REGISTERED_INDEXING_SHARD, EXPLICIT_ID_FALLBACK_LRIS, EXPLICIT_ID
 
@@ -298,8 +288,6 @@ http://localhost:8080/solr (with HTTP basic auth)
 
 http://localhost:8083/solr
 
-http://localhost:9090/zeppelin
-
 http://localhost:8080/
 
 When using SOLR Replication or Sharding, additionally
@@ -317,8 +305,6 @@ https://localhost:8443/alfresco
 
 https://localhost:8083/solr
 
-http://localhost:9090/zeppelin
-
 http://localhost:8080/
 
 
@@ -329,8 +315,6 @@ https://localhost/share
 https://localhost/alfresco
 
 https://localhost/solr (with HTTP basic auth)
-
-http://localhost:9090/zeppelin
 
 https://localhost/
 
@@ -346,7 +330,5 @@ https://localhost/share
 https://localhost/alfresco
 
 https://localhost:8083/solr
-
-http://localhost:9090/zeppelin
 
 https://localhost/

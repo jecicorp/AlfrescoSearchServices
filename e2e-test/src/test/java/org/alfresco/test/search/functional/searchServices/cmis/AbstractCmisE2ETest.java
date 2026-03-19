@@ -42,7 +42,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
 /**
- * Supertype layer for all InsightEngine E2E tests.
+ * Supertype layer for all Search Services E2E tests.
  *
  * @author agazzarini
  */

@@ -38,7 +38,7 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 
 /**
- * We can use this class for both SearchService and InsightEngine.
+ * We can use this class for SearchService.
  *
  * @author Paul Brodner
  */

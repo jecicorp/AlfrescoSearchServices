@@ -46,8 +46,6 @@ public class TestGroup
 
     public static final String CROSS_LOCALE_SUPPORT_DISABLED = "CROSS_LOCALE_SUPPORT_DISABLED";
 
-    public static final String NOT_INSIGHT_ENGINE = "Not_InsightEngine"; // When Alfresco Insight Engine 1.0 isn't running
-
     public static final String ACS_52n = "ACS_52n"; // Alfresco Content Services 5.2.n
     public static final String ACS_60n = "ACS_60n"; // Alfresco Content Services 6.0 or above
     public static final String ACS_61n = "ACS_61n"; // Alfresco Content Services 6.1 or above

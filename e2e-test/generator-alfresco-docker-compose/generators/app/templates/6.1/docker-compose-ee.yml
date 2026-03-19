@@ -162,34 +162,6 @@ services:
             - ./keystores/solr:/opt/<%=searchPath%>/keystore <% } %>
     <% } %>
 
-    <% if (zeppelin == 'true') { %>
-    zeppelin:
-        build:
-          context: ./zeppelin
-          args:
-            ZEPPELIN_TAG: ${ZEPPELIN_TAG}
-            ALFRESCO_COMMS: <%=secureComms%>
-        mem_limit: 768m
-        environment: <% if (httpMode == 'https') { %>
-            REPO_PROTOCOL: "https" <% } %>
-            REPO_HOST: "alfresco"
-            REPO_PORT: "<%=alfrescoPort%>" <% if (httpMode == 'https') { %>
-            JAVA_OPTS: "
-                -Dalfresco.enable.ssl=true
-                -Dsolr.ssl.checkPeerName=false
-                -Djavax.net.ssl.keyStore=/zeppelin/keystore/ssl.repo.client.keystore
-                -Djavax.net.ssl.keyStorePassword=kT9X6oe68t
-                -Djavax.net.ssl.keyStoreType=JCEKS
-                -Djavax.net.ssl.trustStore=/zeppelin/keystore/ssl.repo.client.truststore
-                -Djavax.net.ssl.trustStorePassword=kT9X6oe68t
-                -Djavax.net.ssl.trustStoreType=JCEKS
-            " <% } %>
-        ports:
-            - 9090:9090 <% if (httpMode == 'https') { %>
-        volumes:
-            - ./keystores/zeppelin:/zeppelin/keystore <% } %>
-    <% } %>
-
     transform-router:
         mem_limit: 512m
         image: quay.io/alfresco/alfresco-transform-router:${TRANSFORM_ROUTER_TAG}

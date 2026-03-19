@@ -1,6 +1,6 @@
 # About
 A python script to generator docker-compose files suitable for use with the automated tests in
-the [Search and Insight E2E tests](https://git.alfresco.com/search_discovery/insightengine/tree/master/e2e-test).
+the [Search Services E2E tests](https://github.com/Alfresco/SearchServices/tree/master/e2e-test).
 
 # Installation
 The script uses Python 3, which can be installed from [python.org](https://www.python.org/downloads/) or using

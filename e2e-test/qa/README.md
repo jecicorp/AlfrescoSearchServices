@@ -1,16 +1,12 @@
 # About
 
-This folder contains code for provisioning ACS with SearchServices or InsightEngine - for testing purposes.
+This folder contains code for provisioning ACS with SearchServices - for testing purposes.
 
 # Content
 
 ```ruby
 .
 ├── README.md
-├── insight                             # INSIGHT ENGINE
-│   ├── docker-compose.yml
-│   └── upgrade
-│       └── Makefile
 └── search                              # SEARCH SERVICES
     ├── Makefile                        # main Makefile - inherited by all Makefiles bellow
     ├── backup

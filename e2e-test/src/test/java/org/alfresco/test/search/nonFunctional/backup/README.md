@@ -1,5 +1,5 @@
 # About
-This suite(s) will test the backup process of SearchService/InsightEngine
+This suite(s) will test the backup process of SearchService
 
 # How to run the backup
 
