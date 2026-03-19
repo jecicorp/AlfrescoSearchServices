@@ -28,7 +28,7 @@ package org.alfresco.test.search.functional.searchServices.search;
 
 import static java.util.List.of;
 
-import static jersey.repackaged.com.google.common.collect.Sets.newHashSet;
+import java.util.HashSet;
 import static org.alfresco.search.TestGroup.ACS_701n;
 import static org.alfresco.search.TestGroup.CROSS_LOCALE_SUPPORT_DISABLED;
 
@@ -110,7 +110,7 @@ public class SearchAFTSInFieldTest extends AbstractE2EFunctionalTest
             // Query string without quotes
             String query = fieldName + ":file.txt";
  
-            Set<String> expectedNames = newHashSet();
+            Set<String> expectedNames = new HashSet<>();
             expectedNames.add("file.txt"); // file1
             expectedNames.add("1-file.txt"); // file2
             expectedNames.add("file1.txt"); // file3
@@ -235,7 +235,7 @@ public class SearchAFTSInFieldTest extends AbstractE2EFunctionalTest
     {
         String query = "PARENT:" + folder1.getNodeRefWithoutVersion();
 
-        Set<String> expectedNames = newHashSet();
+        Set<String> expectedNames = new HashSet<>();
         expectedNames.add(file1.getName());
         expectedNames.add(file2.getName());
         expectedNames.add(file3.getName());
@@ -262,7 +262,7 @@ public class SearchAFTSInFieldTest extends AbstractE2EFunctionalTest
 
         String query = "PRIMARYPARENT:'workspace://SpacesStore/" + folder1.getNodeRef() + "'";
 
-        Set<String> expectedNames = newHashSet();
+        Set<String> expectedNames = new HashSet<>();
         expectedNames.add(file1.getName());
         expectedNames.add(file2.getName());
         expectedNames.add(file3.getName());
@@ -302,7 +302,7 @@ public class SearchAFTSInFieldTest extends AbstractE2EFunctionalTest
         // Check that queries return consistent results with / out ''
         String query = "~name:" + file1.getName();
 
-        Set<String> expectedNames = newHashSet();
+        Set<String> expectedNames = new HashSet<>();
         expectedNames.add(file1.getName());
         expectedNames.add(file2.getName());
         expectedNames.add(file3.getName());
@@ -329,7 +329,7 @@ public class SearchAFTSInFieldTest extends AbstractE2EFunctionalTest
         String query = query1 + " and ! (" + query2 + " or " + query3 + ")";
 
         // Check that expected files are included in the results
-        Set<String> expectedNames = newHashSet();
+        Set<String> expectedNames = new HashSet<>();
         expectedNames.add("file.txt"); // file1
         expectedNames.add("txt file"); // file4
         expectedNames.add("file txt folder"); // folder1

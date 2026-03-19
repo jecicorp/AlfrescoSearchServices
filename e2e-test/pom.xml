@@ -6,14 +6,13 @@
       <version>2.99.0-SNAPSHOT</version>
    </parent>
    <groupId>fr.jeci.alfresco</groupId>
-   <artifactId>search-analytics-e2e-test</artifactId>
-   <name>Search Analytics E2E Tests</name>
-   <description>Test Project to test Search Service and Analytics Features on a complete setup of Alfresco, Share</description>
+   <artifactId>search-services-e2e-test</artifactId>
+   <name>Search Services E2E Tests</name>
+   <description>Test Project to test Search Service on a complete setup of Alfresco, Share</description>
    <properties>
       <tas.rest.api.version>23.1.0.168</tas.rest.api.version>
       <tas.cmis.api.version>23.1.0.101</tas.cmis.api.version>
       <tas.utility.version>4.0.4</tas.utility.version>
-      <rm.version>3.3.1</rm.version>
       <suiteXmlFile>src/test/resources/SearchSuite.xml</suiteXmlFile>
       <test.exclude />
       <test.include />
@@ -91,38 +90,9 @@
          <artifactId>guava</artifactId>
       </dependency>
       <dependency>
-         <groupId>org.alfresco</groupId>
-         <artifactId>alfresco-governance-services-automation-enterprise-rest-api</artifactId>
-         <version>${rm.version}</version>
-         <scope>test</scope>
-         <exclusions>
-            <exclusion>
-               <groupId>org.alfresco.tas</groupId>
-               <artifactId>restapi-test</artifactId>
-            </exclusion>
-         </exclusions>
-      </dependency>
-      <dependency>
          <groupId>com.fasterxml.jackson.core</groupId>
          <artifactId>jackson-databind</artifactId>
          <version>${dependency.jackson.version}</version>
-      </dependency>
-      <dependency>
-         <groupId>org.alfresco</groupId>
-         <artifactId>alfresco-governance-services-automation-community-rest-api</artifactId>
-         <version>${rm.version}</version>
-         <classifier>tests</classifier>
-         <scope>test</scope>
-         <exclusions>
-            <exclusion>
-               <groupId>com.fasterxml.jackson.core</groupId>
-               <artifactId>jackson-databind</artifactId>
-            </exclusion>
-            <exclusion>
-               <groupId>org.alfresco.tas</groupId>
-               <artifactId>restapi-test</artifactId>
-            </exclusion>
-         </exclusions>
       </dependency>
       <!-- alfresco tester settings -->
       <dependency>
@@ -154,26 +124,6 @@
    </dependencies>
 
     <repositories>
-        <repository>
-            <id>alfresco-enterprise-releases</id>
-            <url>https://artifacts.alfresco.com/nexus/content/repositories/enterprise-releases</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-        <repository>
-            <id>alfresco-enterprise-snapshots</id>
-            <url>https://artifacts.alfresco.com/nexus/content/repositories/enterprise-snapshots</url>
-            <releases>
-                <enabled>false</enabled>
-            </releases>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
-        </repository>
         <repository>
             <id>alfresco-public-releases</id>
             <url>https://artifacts.alfresco.com/nexus/content/groups/public</url>

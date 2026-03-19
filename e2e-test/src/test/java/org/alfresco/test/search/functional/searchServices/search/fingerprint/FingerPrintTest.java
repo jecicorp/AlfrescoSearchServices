@@ -26,7 +26,7 @@
 
 package org.alfresco.test.search.functional.searchServices.search.fingerprint;
 
-import static jersey.repackaged.com.google.common.collect.Sets.newHashSet;
+import java.util.HashSet;
 import static org.testng.Assert.assertTrue;
 
 import java.util.Set;
@@ -142,7 +142,7 @@ public class FingerPrintTest extends AbstractE2EFunctionalTest
         int count = response.getEntries().size();
         assertTrue(count > 1);
 
-        Set<String> expectedNames = newHashSet();
+        Set<String> expectedNames = new HashSet<>();
         expectedNames.add(fileBanana.getName());
         expectedNames.add(fileTaco.getName());
         expectedNames.add(fileCat.getName());
@@ -163,7 +163,7 @@ public class FingerPrintTest extends AbstractE2EFunctionalTest
         int count = response.getEntries().size();
         assertTrue(count >= 1);
         
-        Set<String> expectedNames = newHashSet();
+        Set<String> expectedNames = new HashSet<>();
         expectedNames.add(fileTaco.getName());
         
         testSearchQueryUnordered(fingerprintQuery, expectedNames, SearchLanguage.AFTS);
@@ -182,7 +182,7 @@ public class FingerPrintTest extends AbstractE2EFunctionalTest
         int count = response.getEntries().size();
         assertTrue(count > 1);
         
-        Set<String> expectedNames = newHashSet();
+        Set<String> expectedNames = new HashSet<>();
         expectedNames.add(fileTaco.getName());
         expectedNames.add(fileBanana.getName());
         expectedNames.add(fileCat.getName());
