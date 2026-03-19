@@ -1,0 +1,49 @@
+[env]
+MAVEN_CLI_OPTS = "--batch-mode --errors --fail-at-end --show-version -DinstallAtEnd=true -DdeployAtEnd=true"
+
+[tools]
+java = "temurin-17"
+maven = "3.9.9"
+
+[tasks.build]
+description = "Build sans tests"
+run = "mvn $MAVEN_CLI_OPTS package -Dmaven.test.skip=true"
+
+[tasks.test]
+description = "Tests unitaires (sans e2e)"
+run = "mvn $MAVEN_CLI_OPTS test -pl search-services/alfresco-solrclient-lib,search-services/alfresco-search -am"
+
+[tasks.install]
+description = "Install dans le repo local (sans e2e)"
+run = "mvn $MAVEN_CLI_OPTS install -DskipTests -pl search-services/alfresco-solrclient-lib,search-services/alfresco-search,search-services/packaging -am"
+
+[tasks."e2e:generate"]
+description = "Génère le docker-compose pour la stack e2e"
+dir = "e2e-test/python-generator"
+run = """
+python3 generator.py \
+  --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
+  --search=alfresco/alfresco-search-services:latest \
+  --postgres=postgres:16 \
+  --transformer=AIOTransformers \
+  --output=../../target/e2e-stack
+echo "Stack générée dans target/e2e-stack/"
+echo "Lancer avec : mise run e2e:up"
+"""
+
+[tasks."e2e:up"]
+description = "Démarre la stack e2e (ACS + Solr + Postgres)"
+run = "docker compose -f target/e2e-stack/docker-compose.yml up --build -d"
+
+[tasks."e2e:down"]
+description = "Arrête la stack e2e"
+run = "docker compose -f target/e2e-stack/docker-compose.yml down"
+
+[tasks."e2e:logs"]
+description = "Affiche les logs de la stack e2e"
+run = "docker compose -f target/e2e-stack/docker-compose.yml logs -f"
+
+[tasks."e2e:test"]
+description = "Lance les tests e2e (stack doit être up)"
+run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test"
+

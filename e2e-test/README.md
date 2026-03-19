@@ -1,37 +1,64 @@
-# Setup
-The automated test project requires a running instance of ACS Repo and Search Services at the least.
-For more details about the related projects or their deployment see: [Search-Discovery] (https://git.alfresco.com/search_discovery) and (https://github.com/Alfresco/SearchServices).
+# Search Services E2E Tests
 
-# Prerequisites
-Java 11
+Automated tests for Alfresco Search Services requiring a running ACS + Solr stack.
 
-Maven 3.2.0
+## Prerequisites
 
-Alfresco Content Services 5.2.2 or above
+- Java 17
+- Maven 3.9+
+- Docker and Docker Compose
+- A running ACS + Search Services environment
 
-Search Services 1.2.0 or above
+## Quick Start with mise
 
-# Bring the Test Environment up
-
-1. ACS + Search Services Healthcheck: Please ensure that repo admin console > Search Services uses the right port and shows tracking status.
-    
-2. Solr Healthcheck can be performed using solr admin console at:
-
-```
-    <protocol>://<repo-host-ip>:<solr-port>/solr/#
-
-    e.g. http://localhost:8983/solr/#
-```
-
-# Compile the project
-`mvn clean install -DskipTests`
+```bash
+# Generate and start the test stack
+mise run e2e:generate
+mise run e2e:up
+mise run e2e:logs        # Wait until all services are healthy
 
 # Run the tests
-`mvn clean install`
+mise run e2e:test
 
-# Run a specific class of tests
-`mvn clean install -Dtest=<class>`
+# Stop the stack
+mise run e2e:down
+```
 
-e.g.
+## Manual Setup
 
-`mvn clean install -Dtest=CustomModelTest`
+### Generate the Docker Compose stack
+
+```bash
+cd e2e-test/python-generator
+python3 generator.py \
+  --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
+  --search=alfresco/alfresco-search-services:latest \
+  --postgres=postgres:16 \
+  --transformer=AIOTransformers \
+  --output=../../target/e2e-stack
+```
+
+See all options with `python3 generator.py -h`.
+
+### Start the stack
+
+```bash
+docker compose -f target/e2e-stack/docker-compose.yml up --build -d
+```
+
+### Health checks
+
+1. ACS Repo: ensure the admin console > Search Services shows tracking status.
+2. Solr: check the admin console at `http://localhost:8983/solr/#`
+
+### Run the tests
+
+```bash
+mvn test -pl e2e-test
+```
+
+### Run a specific test class
+
+```bash
+mvn test -pl e2e-test -Dtest=CustomModelTest
+```

@@ -10,19 +10,19 @@
         <project.timestamp>${maven.build.timestamp}</project.timestamp>
     </properties>
     <parent>
-        <groupId>org.alfresco</groupId>
-        <artifactId>alfresco-search-parent</artifactId>
-        <version>2.0.19-SNAPSHOT</version>
+        <groupId>fr.jeci.alfresco</groupId>
+        <artifactId>alfresco-solr-search-parent</artifactId>
+        <version>2.99.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <dependencies>
         <dependency>
-            <groupId>org.alfresco</groupId>
+            <groupId>fr.jeci.alfresco</groupId>
             <artifactId>alfresco-search</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.alfresco</groupId>
+            <groupId>fr.jeci.alfresco</groupId>
             <artifactId>alfresco-search</artifactId>
             <version>${project.version}</version>
             <classifier>libs</classifier>
@@ -87,7 +87,7 @@
                         <configuration>
                             <artifactItems>
                                 <artifactItem>
-                                    <groupId>org.alfresco</groupId>
+                                    <groupId>fr.jeci.alfresco</groupId>
                                     <artifactId>alfresco-search</artifactId>
                                     <version>${project.version}</version>
                                     <outputDirectory>${project.build.directory}/alfresco-search</outputDirectory>
@@ -104,7 +104,7 @@
                         <configuration>
                             <artifactItems>
                                 <artifactItem>
-                                    <groupId>org.alfresco</groupId>
+                                    <groupId>fr.jeci.alfresco</groupId>
                                     <artifactId>alfresco-search</artifactId>
                                     <version>${project.version}</version>
                                     <classifier>libs</classifier>
@@ -126,7 +126,7 @@
                         <configuration>
                             <artifactItems>
                                 <artifactItem>
-                                    <groupId>org.alfresco</groupId>
+                                    <groupId>fr.jeci.alfresco</groupId>
                                     <artifactId>alfresco-search</artifactId>
                                     <version>${project.version}</version>
                                     <outputDirectory>${project.build.directory}/solr-libs/libs</outputDirectory>

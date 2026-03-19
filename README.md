@@ -1,49 +1,88 @@
-## Alfresco Search Services and Insight Engine
+# Alfresco Search Services (JECI Fork)
 
-This repository includes the source code for Alfresco Search Services and Insight Engine products.
+Community fork of Alfresco Search Services. Enterprise components (Insight Engine, Zeppelin, governance services) have been removed.
 
-**Alfresco Search Services** provides searching capabilities to Alfresco Content Services by leveraging [Apache SOLR](https://lucene.apache.org/solr/) core features. This product is used for both Enterprise and Community releases of Alfresco Content Services and it lives in [GitHub](https://github.com/Alfresco/SearchServices).
+## Prerequisites
 
-The official documentation for this product can be found at [Alfresco Search Services](https://docs.alfresco.com/search-community/concepts/search-home.html).
-
-**Insight Engine** works together with *Alfresco Search Services* to provide extended capabilities to Alfresco Content Services (like a JDBC connector and Zeppelin integration). This product is licensed only in Enterprise mode, so the source code lives in our private *GitLab* and it's only available for Enterprise customers.
-
-The official documentation for this product can be found at [Alfresco Search and Insight Engine](https://docs.alfresco.com/sie/concepts/Search-Insight-Engine-overview.html).
-
-> ⚠ The previous master branch has been renamed to `bak-master` and is deprecated. The current master used to be called `release/V2.0.x`.
-
-
-### Alfresco Search Services
-
-Getting the code using a Git client.
+- Java 17 (Temurin)
+- Maven 3.9+
+- [mise](https://mise.jdx.dev/) (recommended, auto-configures Java and Maven)
 
 ```bash
-$ git clone https://github.com/Alfresco/SearchServices.git
+mise install
 ```
 
-Build the project using Maven.
+## Build
 
 ```bash
-$ cd SearchServices/search-services
-$ mvn clean install
+# Full build without tests
+mise run build
+
+# Or directly with Maven
+mvn package -Dmaven.test.skip=true
 ```
 
-All the resources required to run Alfresco Search Services will be available under `search-services/packaging/target` folder, including the distribution ZIP for local installations.
+## Unit Tests
 
-The Docker Image source code is available at `search-services/packaging/src/docker`. The building for the Docker Image is available in the public repository of Alfresco at Docker Hub:
+```bash
+# Unit tests (alfresco-search + alfresco-solrclient-lib)
+mise run test
 
-[https://hub.docker.com/r/alfresco/alfresco-search-services](https://hub.docker.com/r/alfresco/alfresco-search-services)
+# Or directly with Maven
+mvn test -pl search-services/alfresco-solrclient-lib,search-services/alfresco-search -am
+```
 
-*Note* The root `pom.xml` living in this folder is used for packaging Search Services and Insight Engine together. This file includes URLs not available for Community users, but it allows the `search-services` module without accessing to these resources.
+## End-to-End Tests
 
-More details are available at [search-services](/search-services) folder.
+E2E tests require a full ACS + Solr stack via Docker Compose.
 
-### Insight Engine
+```bash
+# 1. Generate the docker-compose
+mise run e2e:generate
 
-**Following resources will not be available for Community users**
+# 2. Start the stack
+mise run e2e:up
 
-More details are available at [insight-engine](/insight-engine) folder.
+# 3. Follow logs (wait until everything is ready)
+mise run e2e:logs
 
-## Contributing guide
+# 4. Run the tests
+mise run e2e:test
+
+# 5. Stop the stack
+mise run e2e:down
+```
+
+The generator is configurable via `e2e-test/python-generator/generator.py -h`.
+
+## Project Structure
+
+```
+.
+├── pom.xml                         # Parent POM (alfresco-search-parent)
+├── mise.toml                       # mise configuration (Java, Maven, tasks)
+├── search-services/
+│   ├── pom.xml                     # search-services parent POM
+│   ├── alfresco-solrclient-lib/    # Solr client for Alfresco
+│   ├── alfresco-search/            # Solr search engine (main module)
+│   └── packaging/                  # Distribution assembly
+└── e2e-test/                       # End-to-end tests
+    ├── python-generator/           # Docker Compose generator (Python)
+    └── generator-alfresco-docker-compose/  # Docker Compose generator (Yeoman)
+```
+
+## Install to Local Repository
+
+```bash
+mise run install
+```
+
+## Resources
+
+The distribution ZIP is available under `search-services/packaging/target` after building.
+
+Docker image source is in `search-services/packaging/src/docker`.
+
+## Contributing
 
 Please use [this guide](CONTRIBUTING.md) to make a contribution to the project.
