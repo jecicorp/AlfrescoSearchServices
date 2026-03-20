@@ -4,13 +4,13 @@
 FROM alfresco/alfresco-base-java:jre17-rockylinux9@sha256:16692e52ef8c3d60606d5c27d95eada9266f9fad8b70f38ad5674a7cbe24e49e
 LABEL creator="Alfresco" maintainer="Alfresco"
 
-ENV DIST_DIR /opt/alfresco-search-services
-ENV SOLR_ZIP ${project.build.finalName}.zip
-ENV LANG C.UTF-8
+ENV DIST_DIR=/opt/alfresco-search-services
+ENV SOLR_ZIP=${project.build.finalName}.zip
+ENV LANG=C.UTF-8
 
 # Get values from ENV VARS or use default values if ENV VARS are not specified
-ENV SOLR_DATA_DIR_ROOT=${SOLR_DATA_DIR_ROOT:-$DIST_DIR/data}
-ENV SOLR_SOLR_MODEL_DIR=${SOLR_SOLR_MODEL_DIR:-$DIST_DIR/data/alfrescoModels}
+ENV SOLR_DATA_DIR_ROOT=$DIST_DIR/data
+ENV SOLR_SOLR_MODEL_DIR=$DIST_DIR/data/alfrescoModels
 
 ARG USERNAME=solr
 ARG USERID=33007
