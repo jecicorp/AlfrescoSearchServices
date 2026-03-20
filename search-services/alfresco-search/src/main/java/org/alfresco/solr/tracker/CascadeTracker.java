@@ -45,6 +45,7 @@ import java.util.concurrent.Semaphore;
 import com.google.common.collect.Lists;
 import org.alfresco.httpclient.AuthenticationException;
 import org.alfresco.solr.InformationServer;
+import org.alfresco.solr.SolrInformationServer;
 import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.Transaction;
@@ -109,7 +110,7 @@ public class CascadeTracker extends ActivatableTracker
     protected void doTrack(String iterationId) throws IOException, JSONException
     {
         // MetadataTracker must wait until ModelTracker has run
-        ModelTracker modelTracker = this.infoSrv.getAdminHandler().getTrackerRegistry().getModelTracker();
+        ModelTracker modelTracker = ((SolrInformationServer) this.infoSrv).getAdminHandler().getTrackerRegistry().getModelTracker();
         if (modelTracker != null && modelTracker.hasModels())
         {
             trackRepository(iterationId);

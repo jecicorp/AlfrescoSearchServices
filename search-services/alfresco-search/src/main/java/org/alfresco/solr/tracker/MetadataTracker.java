@@ -31,6 +31,7 @@ import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.httpclient.AuthenticationException;
 import org.alfresco.solr.BoundedDeque;
 import org.alfresco.solr.InformationServer;
+import org.alfresco.solr.SolrInformationServer;
 import org.alfresco.solr.NodeReport;
 import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.adapters.IOpenBitSet;
@@ -232,7 +233,7 @@ public class MetadataTracker extends ActivatableTracker
     protected void doTrack(String iterationId)
             throws AuthenticationException, IOException, JSONException {
         // MetadataTracker must wait until ModelTracker has run
-        ModelTracker modelTracker = this.infoSrv.getAdminHandler().getTrackerRegistry().getModelTracker();
+        ModelTracker modelTracker = ((SolrInformationServer) this.infoSrv).getAdminHandler().getTrackerRegistry().getModelTracker();
         if (modelTracker != null && modelTracker.hasModels())
         {
             trackRepository();

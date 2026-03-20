@@ -36,6 +36,7 @@ import org.alfresco.httpclient.AuthenticationException;
 import org.alfresco.repo.index.shard.ShardState;
 import org.alfresco.solr.AlfrescoCoreAdminHandler;
 import org.alfresco.solr.InformationServer;
+import org.alfresco.solr.SolrInformationServer;
 import org.alfresco.solr.NodeReport;
 import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.client.GetNodesParameters;
@@ -84,7 +85,7 @@ public class MetadataTrackerTest
     private SOLRAPIClient repositoryClient;
 
     @Mock
-    private InformationServer srv;
+    private SolrInformationServer srv;
 
     @Spy
     private Properties props;

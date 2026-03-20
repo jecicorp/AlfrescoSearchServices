@@ -478,7 +478,7 @@ public class SolrInformationServerTest
         }).when(handler).handleRequest(any(SolrQueryRequest.class), any(SolrQueryResponse.class));
 
         // Call the method under test.
-        NamedList<Object> report = new NamedList<>();
+        Map<String, Object> report = new java.util.LinkedHashMap<>();
         infoServer.addContentOutdatedAndUpdatedCounts(report);
 
         // Check the report.

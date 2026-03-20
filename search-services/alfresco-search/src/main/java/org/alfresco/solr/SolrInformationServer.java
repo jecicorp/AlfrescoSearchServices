@@ -658,7 +658,6 @@ public class SolrInformationServer implements InformationServer
                 dateFieldDestructuringHasBeenEnabledOnThisInstance ? "enabled" : "disabled");
     }
 
-    @Override
     public AlfrescoCoreAdminHandler getAdminHandler()
     {
         return this.adminHandler;
@@ -720,7 +719,7 @@ public class SolrInformationServer implements InformationServer
      * </pre>
      */
     @Override
-    public void addContentOutdatedAndUpdatedCounts(NamedList<Object> report)
+    public void addContentOutdatedAndUpdatedCounts(Map<String, Object> report)
     {
         try (SolrQueryRequest request = newSolrQueryRequest())
         {
@@ -756,8 +755,8 @@ public class SolrInformationServer implements InformationServer
                         .map(Number::longValue)
                         .orElse(0L);
 
-            report.add("Node count whose content is in sync", numFound - outdated);
-            report.add("Node count whose content needs to be updated", outdated);
+            report.put("Node count whose content is in sync", numFound - outdated);
+            report.put("Node count whose content needs to be updated", outdated);
         }
     }
 

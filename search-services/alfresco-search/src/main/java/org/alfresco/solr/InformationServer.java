@@ -46,7 +46,6 @@ import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.Transaction;
 import org.alfresco.solr.tracker.IndexHealthReport;
 import org.alfresco.solr.tracker.TrackerStats;
-import org.apache.solr.common.util.NamedList;
 import org.json.JSONException;
 
 /**
@@ -163,10 +162,10 @@ public interface InformationServer extends InformationServerCollectionProvider
     void addCommonNodeReportInfo(NodeReport nodeReport);
 
     /**
-     * Adds to the input report container (a {@link NamedList}) the counts of nodes/documents whose content is
+     * Adds to the input report container the counts of nodes/documents whose content is
      * outdated and updated (i.e. in synch with the CMS).
      */
-    void addContentOutdatedAndUpdatedCounts(NamedList<Object> ihr);
+    void addContentOutdatedAndUpdatedCounts(Map<String, Object> report);
 
     IndexHealthReport reportAclTransactionsInIndex(Long minAclTxId, IOpenBitSet aclTxIdsInDb, long maxAclTxId);
 
@@ -175,8 +174,6 @@ public interface InformationServer extends InformationServerCollectionProvider
     AclChangeSet getMaxAclChangeSetIdAndCommitTimeInIndex();
     
     Transaction getMaxTransactionIdAndCommitTimeInIndex();
-
-    AlfrescoCoreAdminHandler getAdminHandler();
 
     void initSkippingDescendantDocs();
     

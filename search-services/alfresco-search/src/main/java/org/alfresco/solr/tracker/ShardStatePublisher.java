@@ -31,6 +31,7 @@ import org.alfresco.repo.index.shard.ShardState;
 import org.alfresco.repo.index.shard.ShardStateBuilder;
 import org.alfresco.solr.AlfrescoCoreAdminHandler;
 import org.alfresco.solr.InformationServer;
+import org.alfresco.solr.SolrInformationServer;
 import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.apache.commons.codec.EncoderException;
@@ -145,7 +146,7 @@ public class ShardStatePublisher extends AbstractTracker
     {
         TrackerState transactionsTrackerState = getTrackerState();
         TrackerState changeSetsTrackerState =
-                of(infoSrv.getAdminHandler())
+                of(((SolrInformationServer) infoSrv).getAdminHandler())
                         .map(AlfrescoCoreAdminHandler::getTrackerRegistry)
                         .map(registry -> registry.getTrackerForCore(coreName, AclTracker.class))
                         .map(Tracker::getTrackerState)

@@ -224,7 +224,9 @@ class HandlerReportHelper
             ihr.add("Last indexed transaction commit date", CachingDateFormat.getDateFormat().format(lastTxDate));
             ihr.add("Last TX id before holes", metaState.getLastIndexedTxIdBeforeHoles());
 
-            srv.addContentOutdatedAndUpdatedCounts(ihr);
+            Map<String, Object> contentCounts = new java.util.LinkedHashMap<>();
+            srv.addContentOutdatedAndUpdatedCounts(contentCounts);
+            contentCounts.forEach(ihr::add);
 
             return ihr;
         }
@@ -270,7 +272,7 @@ class HandlerReportHelper
         Date end = new Date(now.getTime() + remainingTxTimeMillis);
         Duration remainingTx = new Duration(now, end);
 
-        NamedList<Object> ftsSummary = new SimpleOrderedMap<>();
+        Map<String, Object> ftsSummary = new java.util.LinkedHashMap<>();
         long remainingContentTimeMillis = 0;
         srv.addContentOutdatedAndUpdatedCounts(ftsSummary);
         long cleanCount =
@@ -417,7 +419,7 @@ class HandlerReportHelper
         end = new Date(now.getTime() + remainingChangeSetTimeMillis);
         Duration remainingChangeSet = new Duration(now, end);
 
-        NamedList<Object> ftsSummary = new SimpleOrderedMap<>();
+        Map<String, Object> ftsSummary = new java.util.LinkedHashMap<>();
         long remainingContentTimeMillis = 0;
         srv.addContentOutdatedAndUpdatedCounts(ftsSummary);
         long cleanCount =
