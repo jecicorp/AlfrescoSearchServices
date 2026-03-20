@@ -145,7 +145,8 @@ import org.alfresco.service.cmr.security.AuthorityType;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.AlfrescoSolrDataModel.FieldInstance;
 import org.alfresco.solr.AlfrescoSolrDataModel.IndexedField;
-import org.alfresco.solr.AlfrescoSolrDataModel.TenantDbId;
+import org.alfresco.solr.client.ContentPropertySpecs;
+import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.solr.adapters.IOpenBitSet;
 import org.alfresco.solr.adapters.ISimpleOrderedMap;
 import org.alfresco.solr.adapters.SolrOpenBitSetAdapter;
@@ -1012,11 +1013,11 @@ public class SolrInformationServer implements InformationServer
                             enabledIndexCustomContent
                                 ? document.getFields().stream()
                                     .filter(field -> field.name().startsWith(AlfrescoSolrDataModel.CONTENT_S_LOCALE_PREFIX))
-                                    .map(field -> new AlfrescoSolrDataModel.ContentPropertySpecs(field.name(),field.stringValue()))
+                                    .map(field -> new ContentPropertySpecs(field.name(),field.stringValue()))
                                     .collect(toList())
                                 : ofNullable(document.getField(CONTENT_LOCALE_FIELD))
                                     .map(IndexableField::stringValue)
-                                    .map(value -> new AlfrescoSolrDataModel.ContentPropertySpecs(CONTENT_LOCALE_FIELD, value))
+                                    .map(value -> new ContentPropertySpecs(CONTENT_LOCALE_FIELD, value))
                                     .map(Collections::singletonList)
                                     .orElse(emptyList()));
 

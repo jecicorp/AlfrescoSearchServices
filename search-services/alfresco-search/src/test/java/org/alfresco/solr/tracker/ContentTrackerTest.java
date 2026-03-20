@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import org.alfresco.solr.AlfrescoSolrDataModel.TenantDbId;
+import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.solr.SolrInformationServer;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.junit.Assert;

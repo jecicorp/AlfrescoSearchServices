@@ -27,7 +27,7 @@
 package org.alfresco.solr.tracker;
 
 import com.google.common.collect.Lists;
-import org.alfresco.solr.AlfrescoSolrDataModel.TenantDbId;
+import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.solr.InformationServer;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.slf4j.Logger;

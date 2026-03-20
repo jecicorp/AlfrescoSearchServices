@@ -89,6 +89,8 @@ import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.AlfrescoClientDataModelServicesFactory.DictionaryKey;
 import org.alfresco.solr.client.AlfrescoModel;
+import org.alfresco.solr.client.ContentPropertySpecs;
+import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.solr.query.Lucene4QueryBuilderContextSolrImpl;
 import org.alfresco.solr.query.Solr4QueryParser;
 import org.alfresco.solr.tracker.pool.DefaultTrackerPoolFactory;
@@ -130,44 +132,6 @@ import static org.alfresco.solr.SolrInformationServer.UNIT_OF_TIME_YEAR_FIELD_SU
  */
 public class AlfrescoSolrDataModel implements QueryConstants
 {
-    public static class ContentPropertySpecs {
-        public final String fieldName;
-        public final String locale;
-
-        public ContentPropertySpecs(String fieldName, String locale) {
-            this.fieldName = fieldName;
-            this.locale = locale;
-        }
-    }
-
-    public static class TenantDbId
-    {
-        public String tenant;
-        public Long dbId;
-
-        private List<ContentPropertySpecs> contentPropertySpecsList;
-
-        public Map<String, Object> optionalBag = new HashMap<>();
-
-        public void setProperty(String name, Object value)
-        {
-            optionalBag.put(name, value);
-        }
-
-        public boolean hasAtLeastOneContentProperty() {
-            return contentPropertySpecsList != null && !contentPropertySpecsList.isEmpty();
-        }
-
-        public void addContentPropertiesSpecs(List<ContentPropertySpecs> specsList)
-        {
-            contentPropertySpecsList = Collections.unmodifiableList(specsList);
-        }
-
-        public Stream<ContentPropertySpecs> contentPropertySpecsStream() {
-            return contentPropertySpecsList.stream();
-        }
-    }
-
     public enum FieldUse
     {
         FTS,          // Term/Phrase/Range/Fuzzy/Prefix/Proximity
