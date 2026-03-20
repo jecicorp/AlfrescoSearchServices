@@ -210,7 +210,7 @@ def makeSearchNode(outputDirectory, nodeName, externalPort, params, communicatio
         dockerfileTemplate = f.read()
     dockerfileString = Template(dockerfileTemplate).substitute(allParams)
     if not os.path.isdir('{}/{}'.format(outputDirectory, nodeName)):
-        os.mkdir('{}/{}'.format(outputDirectory, nodeName))
+        os.makedirs('{}/{}'.format(outputDirectory, nodeName), exist_ok=True)
     with open('{}/{}/Dockerfile'.format(outputDirectory, nodeName), 'w') as f:
         dockerfileTemplate = f.write(dockerfileString)
 
@@ -347,7 +347,7 @@ if __name__ == '__main__':
         dockerfileTemplate = f.read()
     dockerfileString = Template(dockerfileTemplate).substitute(params)
     if not os.path.isdir('{}/{}'.format(args.output, 'alfresco')):
-        os.mkdir('{}/{}'.format(args.output, 'alfresco'))
+        os.makedirs('{}/{}'.format(args.output, 'alfresco'), exist_ok=True)
     with open('{}/{}/Dockerfile'.format(args.output, 'alfresco'), 'w') as f:
         dockerfileTemplate = f.write(dockerfileString)
 

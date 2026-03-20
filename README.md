@@ -37,19 +37,25 @@ mvn test -pl search-services/alfresco-solrclient-lib,search-services/alfresco-se
 E2E tests require a full ACS + Solr stack via Docker Compose.
 
 ```bash
-# 1. Generate the docker-compose
+# 1. Install the project (builds the distribution ZIP)
+mise run install
+
+# 2. Build the local Docker image from the distribution
+mise run e2e:build-image
+
+# 3. Generate the docker-compose (uses the local image)
 mise run e2e:generate
 
-# 2. Start the stack
+# 4. Start the stack
 mise run e2e:up
 
-# 3. Follow logs (wait until everything is ready)
+# 5. Follow logs (wait until everything is ready)
 mise run e2e:logs
 
-# 4. Run the tests
+# 6. Run the tests
 mise run e2e:test
 
-# 5. Stop the stack
+# 7. Stop the stack
 mise run e2e:down
 ```
 

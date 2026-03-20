@@ -31,8 +31,6 @@ import static java.util.Optional.ofNullable;
 import static lombok.AccessLevel.PROTECTED;
 import static org.testng.Assert.assertEquals;
 
-import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -44,13 +42,10 @@ import org.alfresco.dataprep.SiteService.Visibility;
 import org.alfresco.rest.core.RestProperties;
 import org.alfresco.rest.core.RestWrapper;
 import org.alfresco.rest.exception.EmptyJsonResponseException;
-import org.alfresco.rest.exception.EmptyRestModelCollectionException;
 import org.alfresco.rest.model.RestRequestSpellcheckModel;
 import org.alfresco.rest.search.Pagination;
 import org.alfresco.rest.search.RestRequestHighlightModel;
 import org.alfresco.rest.search.RestRequestQueryModel;
-import org.alfresco.rest.search.RestShardInfoModel;
-import org.alfresco.rest.search.RestShardInfoModelCollection;
 import org.alfresco.rest.search.SearchRequest;
 import org.alfresco.rest.search.SearchResponse;
 import org.alfresco.utility.LogFactory;
@@ -122,8 +117,6 @@ public abstract class AbstractE2EFunctionalTest extends AbstractTestNGSpringCont
 
     protected static String unique_searchString;
 
-    protected static String shardingMethod = "DB_ID";
-    protected int shardCount = 0;
 
     protected static final String SEARCH_LANGUAGE_CMIS = "cmis";
 
@@ -132,15 +125,7 @@ public abstract class AbstractE2EFunctionalTest extends AbstractTestNGSpringCont
         AFTS
     }
 
-    protected enum ShardingMethod {
-        DB_ID,
-        DB_ID_RANGE,
-        MOD_ACL_ID,
-        ACL_ID,
-        DATE,
-        PROPERTY,
-        EXPLICIT_ID
-    }
+
 
     @BeforeSuite (alwaysRun = true)
     public void beforeSuite() throws Exception
@@ -661,49 +646,4 @@ public abstract class AbstractE2EFunctionalTest extends AbstractTestNGSpringCont
         }
     }
 
-    /**
-     * Method returns the sharding method used for the core by the 1st shard instance registered with ACS
-     * @return String sharding Method
-     * @throws JsonProcessingException
-     * @throws EmptyRestModelCollectionException
-     */
-    public String getShardMethod() throws JsonProcessingException, EmptyRestModelCollectionException
-    {
-        RestShardInfoModelCollection info = getShardInfo();
-
-        return shardingMethod = ofNullable(info)
-                .map(RestShardInfoModelCollection::getEntries)
-                .map(Collection::iterator).filter(Iterator::hasNext)
-                .map(Iterator::next)
-                .map(RestShardInfoModel::getModel)
-                .map(RestShardInfoModel::getShardMethod)
-                .orElseThrow(() -> new RuntimeException("Cannot retrieve the shard method in use."));
-    }
-
-    /**
-     * Method returns the shardCount for the 1st core (of the shard instance) that registers with ACS
-     * @return shard Count
-     * @throws JsonProcessingException
-     * @throws EmptyRestModelCollectionException
-     */
-    public int getShardCount() throws JsonProcessingException, EmptyRestModelCollectionException
-    {
-        RestShardInfoModelCollection info = getShardInfo();
-
-        return shardCount = ofNullable(info)
-                .map(RestShardInfoModelCollection::getEntries)
-                .map(Collection::iterator)
-                .filter(Iterator::hasNext)
-                .map(Iterator::next)
-                .map(RestShardInfoModel::getModel)
-                .map(RestShardInfoModel::getNumberOfShards)
-                .orElseThrow( () -> new RuntimeException("Cannot retrieve the number of shards registered."));
-    }
-
-    public RestShardInfoModelCollection getShardInfo() throws JsonProcessingException, EmptyRestModelCollectionException
-    {
-        RestShardInfoModelCollection info = restClient.authenticateUser(dataUser.getAdminUser()).withShardInfoAPI().getInfo();
-
-        return info;
-    }
 }

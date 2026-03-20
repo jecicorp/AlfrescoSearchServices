@@ -12,7 +12,13 @@ Automated tests for Alfresco Search Services requiring a running ACS + Solr stac
 ## Quick Start with mise
 
 ```bash
-# Generate and start the test stack
+# Build and install the project first
+mise run install
+
+# Build the local Docker image from the distribution ZIP
+mise run e2e:build-image
+
+# Generate and start the test stack (uses the local image)
 mise run e2e:generate
 mise run e2e:up
 mise run e2e:logs        # Wait until all services are healthy
@@ -26,13 +32,23 @@ mise run e2e:down
 
 ## Manual Setup
 
+### Build the Docker image
+
+```bash
+# Build the distribution ZIP first
+mvn install -DskipTests -pl search-services/alfresco-solrclient-lib,search-services/alfresco-search,search-services/packaging -am
+
+# Build the Docker image from the packaging output
+docker build -t alfresco/alfresco-search-services:local search-services/packaging/target/docker-resources/
+```
+
 ### Generate the Docker Compose stack
 
 ```bash
 cd e2e-test/python-generator
 python3 generator.py \
   --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
-  --search=alfresco/alfresco-search-services:latest \
+  --search=alfresco/alfresco-search-services:local \
   --postgres=postgres:16 \
   --transformer=AIOTransformers \
   --output=../../target/e2e-stack
