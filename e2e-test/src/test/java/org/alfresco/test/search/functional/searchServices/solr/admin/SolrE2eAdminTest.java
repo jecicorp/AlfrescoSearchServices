@@ -757,10 +757,6 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
         Assert.assertEquals(actionStatus, "error");
     }
     
-    /**
-     * This test will fail if it's executed twice
-     * @throws Exception
-     */
     @Test(priority = 37)
     public void testNewCore() throws Exception
     {
@@ -768,14 +764,18 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
         String storeRef = "workspace://SpacesStore";
         String template = "rerank";
 
+        // Remove core if it already exists to make the test idempotent.
+        restClient.withParams("coreName=" + core, "storeRef=" + storeRef)
+                .withSolrAdminAPI().getAction("removeCore");
+
         RestResponse response = restClient.withParams("coreName=" + core, "storeRef=" + storeRef, "template=" + template)
                 .withSolrAdminAPI().getAction("newCore");
-        
+
         checkResponseStatusOk(response);
-        
+
         String actionStatus = response.getResponse().body().jsonPath().get("action.status");
         Assert.assertEquals(actionStatus, "success");
-        
+
         String actionCore = response.getResponse().body().jsonPath().get("action.core");
         Assert.assertEquals(actionCore, core, "Created core name is expected in action.core,");
     }
@@ -848,28 +848,28 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
         Assert.assertEquals(actionStatus, "success");
     }
     
-    /**
-     * This test will fail if it's executed twice
-     * @throws Exception
-     */
     @Test(priority = 42)
     public void testNewDefaultCore() throws Exception
     {
         String core = "newDefaultCore";
         String storeRef = "workspace://SpacesStore";
         String template = "rerank";
-        
+
+        // Remove core if it already exists to make the test idempotent.
+        restClient.withParams("coreName=" + core, "storeRef=" + storeRef)
+                .withSolrAdminAPI().getAction("removeCore");
+
         RestResponse response = restClient
                 .withParams("coreName=" + core, "storeRef=" + storeRef, "template=" + template)
                 .withSolrAdminAPI().getAction("newDefaultIndex");
-        
+
         checkResponseStatusOk(response);
 
         String actionStatus = response.getResponse().body().jsonPath().get("action.status");
         Assert.assertEquals(actionStatus, "success");
-        
+
         String actionCore = response.getResponse().body().jsonPath().get("action.core");
-        Assert.assertEquals(actionCore, core, "Created core name is expected in action.core,");     
+        Assert.assertEquals(actionCore, core, "Created core name is expected in action.core,");
     }
     
     /**
