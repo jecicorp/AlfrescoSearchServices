@@ -15,6 +15,7 @@
     </properties>
     <modules>
         <module>alfresco-solrclient-lib</module>
+        <module>alfresco-indexing-trackers</module>
         <module>alfresco-search</module>
         <module>packaging</module>
     </modules>
