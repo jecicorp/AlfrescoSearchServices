@@ -117,12 +117,7 @@ class HandlerReportHelper
         NamedList<Object> payload = new SimpleOrderedMap<>();
         payload.add("Node DBID", nodeReport.getDbid());
 
-        boolean isOnMasterOrStandaloneMode =
-                tracker instanceof MetadataTracker
-                        || (tracker instanceof ShardStatePublisher
-                                && ((ShardStatePublisher)tracker).isOnMasterOrStandalone());
-
-        if (isOnMasterOrStandaloneMode)
+        if (tracker instanceof MetadataTracker)
         {
             ofNullable(nodeReport.getDbTx()).ifPresent(value -> payload.add("DB TX", value));
             ofNullable(nodeReport.getDbNodeStatus()).map(Object::toString).ifPresent(value -> payload.add("DB TX Status", value));
@@ -242,8 +237,7 @@ class HandlerReportHelper
         NamedList<Object> coreSummary = new SimpleOrderedMap<>();
         coreSummary.addAll((SimpleOrderedMap<Object>) srv.getCoreStats());
 
-        ShardStatePublisher statePublisher = trackerRegistry.getTrackerForCore(cname, ShardStatePublisher.class);
-        TrackerState trackerState = statePublisher.getTrackerState();
+        TrackerState trackerState = srv.getTrackerInitialState();
         long lastIndexTxCommitTime = trackerState.getLastIndexedTxCommitTime();
 
         long lastIndexedTxId = trackerState.getLastIndexedTxId();
@@ -323,7 +317,7 @@ class HandlerReportHelper
         ModelTracker modelTrkr = trackerRegistry.getModelTracker();
         TrackerState modelTrkrState = modelTrkr.getTrackerState();
         coreSummary.add("ModelTracker Active", modelTrkrState.isRunning());
-        coreSummary.add("NodeState Publisher Active", trackerState.isRunning());
+        coreSummary.add("Slave Core Active", trackerState.isRunning());
 
         // TX
 

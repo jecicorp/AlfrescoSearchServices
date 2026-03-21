@@ -36,7 +36,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import java.util.Properties;
 
-import static org.alfresco.repo.index.shard.ShardMethodEnum.*;
 import static org.alfresco.solr.AlfrescoSolrUtils.*;
 
 /**
@@ -73,10 +72,6 @@ public class AdminHandlerDistributedIT extends AbstractAlfrescoDistributedIT
         assertNotNull(coreAdminHandler);
 
         SolrCore testingCore = createCoreUsingTemplate(coreContainer, coreAdminHandler, CORE_NAME, "rerank", 1, 1);
-        Properties props = testingCore.getCoreDescriptor().getSubstitutableProperties();
-        //The default sharding method is DB_ID
-        assertEquals(DB_ID.toString(), props.get("shard.method"));
-
         //Call custom actions
         SolrQueryResponse response = callHandler(coreAdminHandler, testingCore, "check");
         assertNotNull(response);
@@ -87,9 +82,5 @@ public class AdminHandlerDistributedIT extends AbstractAlfrescoDistributedIT
         NamedList<Object> report = (NamedList<Object>) response.getValues().get("report");
         assertNotNull(report.get(CORE_NAME));
 
-        //Create a core using ACL_ID sharding
-        testingCore = createCoreUsingTemplate(coreContainer, coreAdminHandler, CORE_NAME+"aclId", "rerank", 1, 1,"property.shard.method",ACL_ID.toString());
-        props = testingCore.getCoreDescriptor().getSubstitutableProperties();
-        assertEquals(ACL_ID.toString(), props.get("shard.method"));
     }
 }

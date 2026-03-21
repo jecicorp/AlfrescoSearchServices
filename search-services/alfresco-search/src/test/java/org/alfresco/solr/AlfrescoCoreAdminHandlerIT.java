@@ -58,11 +58,8 @@ import java.util.stream.Collectors;
 import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.solr.adapters.IOpenBitSet;
 import org.alfresco.solr.tracker.AclTracker;
-import org.alfresco.solr.tracker.DocRouter;
 import org.alfresco.solr.tracker.IndexHealthReport;
 import org.alfresco.solr.tracker.MetadataTracker;
-import org.alfresco.solr.tracker.PropertyRouter;
-import org.alfresco.solr.tracker.ShardStatePublisher;
 import org.alfresco.solr.tracker.TrackerRegistry;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.CoreAdminParams;
@@ -219,44 +216,11 @@ public class AlfrescoCoreAdminHandlerIT
     }
 
     @Test
-    public void coreIsMaster_thenCoreStatePublisherInstanceCorrespondsToShardStatePublisher()
+    public void nodeStatusChecker_returnsMetadataTracker()
     {
-        ShardStatePublisher coreStatePublisher = mock(ShardStatePublisher.class);
-
-        when(trackerRegistry.getTrackerForCore(anyString(), eq(ShardStatePublisher.class)))
-                .thenReturn(coreStatePublisher);
-
-        assertSame(coreStatePublisher, alfrescoCoreAdminHandler.nodeStatusChecker("ThisIsTheCoreName"));
-    }
-
-    @Test
-    public void coreIsSlave_thenCoreStatePublisherInstanceCorrespondsToShardStatePublisher()
-    {
-        ShardStatePublisher coreStateTracker = mock(ShardStatePublisher.class);
-
-        when(trackerRegistry.getTrackerForCore(anyString(), eq(ShardStatePublisher.class))).thenReturn(coreStateTracker);
-
-        assertSame(coreStateTracker, alfrescoCoreAdminHandler.nodeStatusChecker("ThisIsTheCoreName"));
-    }
-
-    @Test
-    public void coreIsSlave_thenDocRouterIsNull()
-    {
-        String coreName = "aCore";
-        when(trackerRegistry.getTrackerForCore(eq(coreName), eq(MetadataTracker.class))).thenReturn(null);
-        assertNull(alfrescoCoreAdminHandler.getDocRouter("aCore"));
-    }
-
-    @Test
-    public void coreIsMaster_thenDocRouterIsProperlyReturned()
-    {
-        DocRouter expectedRouter = new PropertyRouter("someProperty_.{1,35}");
-
-        MetadataTracker coreStatePublisher = mock(MetadataTracker.class);
-        when(coreStatePublisher.getDocRouter()).thenReturn(expectedRouter);
-        when(trackerRegistry.getTrackerForCore(anyString(), eq(MetadataTracker.class))).thenReturn(coreStatePublisher);
-
-        assertSame(expectedRouter, alfrescoCoreAdminHandler.getDocRouter("aCore"));
+        MetadataTracker metadataTracker = mock(MetadataTracker.class);
+        when(trackerRegistry.getTrackerForCore(anyString(), eq(MetadataTracker.class))).thenReturn(metadataTracker);
+        assertSame(metadataTracker, alfrescoCoreAdminHandler.nodeStatusChecker("ThisIsTheCoreName"));
     }
 
     @Test

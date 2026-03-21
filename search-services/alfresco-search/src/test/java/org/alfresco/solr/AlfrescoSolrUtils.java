@@ -78,7 +78,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.alfresco.model.ContentModel;
-import org.alfresco.repo.index.shard.ShardState;
 import org.alfresco.repo.tenant.TenantService;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.NodeRef;
@@ -930,36 +929,6 @@ public class AlfrescoSolrUtils
         NamedList<Object> coreSummary = (NamedList<Object>) summary.get(coreName);
         assertNotNull(coreSummary);
         assertTrue("There must be a searcher for "+coreName, ((Integer)coreSummary.get("Number of Searchers")) > 0);
-    }
-
-    /**
-     * Asserts that the input {@link ShardState} and the CoreAdmin.SUMMARY response give the same information.
-     *
-     * @param state the {@link ShardState} instance.
-     * @param core the target {@link SolrCore} instance.
-     */
-    public static void assertShardAndCoreSummaryConsistency(ShardState state, SolrCore core) {
-        SolrParams params =
-                new ModifiableSolrParams()
-                        .add(CoreAdminParams.CORE, core.getName())
-                        .add(CoreAdminParams.ACTION, "SUMMARY");
-
-        SolrQueryRequest request = new LocalSolrQueryRequest(core, params);
-        SolrQueryResponse response = new SolrQueryResponse();
-        coreAdminHandler(core).handleRequest(request, response);
-
-        NamedList<?> summary =
-                ofNullable(response.getValues())
-                        .map(values -> values.get("Summary"))
-                        .map(NamedList.class::cast)
-                        .map(values -> values.get(core.getName()))
-                        .map(NamedList.class::cast)
-                        .orElseGet(NamedList::new);
-
-        assertEquals(state.getLastIndexedChangeSetId(), summary.get("Id for last Change Set in index"));
-        assertEquals(state.getLastIndexedChangeSetCommitTime(), summary.get("Last Index Change Set Commit Time"));
-        assertEquals(state.getLastIndexedTxCommitTime(), summary.get("Last Index TX Commit Time"));
-        assertEquals(state.getLastIndexedTxId(), summary.get("Id for last TX in index"));
     }
 
     public static AlfrescoCoreAdminHandler coreAdminHandler(SolrCore core) {

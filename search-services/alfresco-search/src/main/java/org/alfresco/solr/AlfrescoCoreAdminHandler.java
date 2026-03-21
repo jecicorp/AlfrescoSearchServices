@@ -35,9 +35,6 @@ import org.alfresco.solr.config.ConfigUtil;
 import org.alfresco.solr.tracker.AbstractTracker;
 import org.alfresco.solr.tracker.AclTracker;
 import org.alfresco.solr.tracker.ActivatableTracker;
-import org.alfresco.solr.tracker.ShardStatePublisher;
-import org.alfresco.solr.tracker.DBIDRangeRouter;
-import org.alfresco.solr.tracker.DocRouter;
 import org.alfresco.solr.tracker.IndexHealthReport;
 import org.alfresco.solr.tracker.MetadataTracker;
 import org.alfresco.solr.tracker.SolrTrackerScheduler;
@@ -445,17 +442,22 @@ public class AlfrescoCoreAdminHandler extends CoreAdminHandler
                 case "ACLTXREPORT":
                     rsp.add(REPORT, actionACLTXREPORT(params));
                     break;
-                // Get a detailed report including storage and sizing for a Shards configured
-                // with Shard DB_ID_RANGE method. If SOLR is not using this configuration,
-                // "expand = -1" is returned
                 case "RANGECHECK":
-                    rsp.getValues().addAll(rangeCheck(params));
+                {
+                    NamedList<Object> response = new SimpleOrderedMap<>();
+                    response.add("expand", -1);
+                    response.add("exception", "Sharding has been removed. RANGECHECK is no longer supported.");
+                    rsp.getValues().addAll(response);
                     break;
-                // Expand the range for a Shard configured with DB_ID_RANGE having more than 75%
-                // space used. This configuration is not persisted in solrcore.properties
+                }
                 case "EXPAND":
-                    rsp.getValues().addAll(expand(params));
+                {
+                    NamedList<Object> response = new SimpleOrderedMap<>();
+                    response.add("expand", -1);
+                    response.add("exception", "Sharding has been removed. EXPAND is no longer supported.");
+                    rsp.getValues().addAll(response);
                     break;
+                }
                 // Get a detailed report for a core or for every core. This action accepts
                 // filtering based on commitTime, txid and acltxid
                 case "REPORT":
@@ -1177,217 +1179,6 @@ public class AlfrescoCoreAdminHandler extends CoreAdminHandler
     }
 
     /**
-     * Get a detailed report including storage and sizing for a Shards configured with Shard DB_ID_RANGE method.
-     * If SOLR is not using this configuration,"expand = -1" is returned
-     *
-     * Synchronous execution
-     *
-     * @param params
-     * - core, The name of the SOLR Core
-     * @return Response including the action result:
-     * - report: An Object with the report details
-     * - error: When mandatory parameters are not set, an error node is returned
-     *
-     * @throws IOException
-     */
-    private NamedList<Object> rangeCheck(SolrParams params) throws IOException
-    {
-        NamedList<Object> response = new SimpleOrderedMap<>();
-
-        String coreName = coreName(params);
-        if (coreName == null)
-        {
-            response.add(ACTION_STATUS_ERROR, "No " + CoreAdminParams.CORE + " parameter set.");
-            return response;
-        }
-
-        if (isMasterOrStandalone(coreName))
-        {
-            InformationServer informationServer = informationServers.get(coreName);
-
-            DocRouter docRouter = getDocRouter(coreName);
-
-            if(docRouter instanceof DBIDRangeRouter)
-            {
-                DBIDRangeRouter dbidRangeRouter = (DBIDRangeRouter) docRouter;
-
-                if(!dbidRangeRouter.getInitialized())
-                {
-                    response.add("expand", 0);
-                    response.add("exception", "DBIDRangeRouter not initialized yet.");
-                    return response;
-                }
-
-                long startRange = dbidRangeRouter.getStartRange();
-                long endRange = dbidRangeRouter.getEndRange();
-
-                long maxNodeId = informationServer.maxNodeId();
-                long minNodeId = informationServer.minNodeId();
-                long nodeCount = informationServer.nodeCount();
-
-                long bestGuess = -1;  // -1 means expansion cannot be done. Either because expansion
-                // has already happened or we're above safe range
-
-                long range = endRange - startRange; // We want this many nodes on the server
-
-                long midpoint = startRange + ((long) (range * .5));
-
-                long safe = startRange + ((long) (range * .75));
-
-                long offset = maxNodeId-startRange;
-
-                double density = 0;
-
-                if(offset > 0)
-                {
-                    density = ((double)nodeCount) / ((double)offset); // This is how dense we are so far.
-                }
-
-                if (!dbidRangeRouter.getExpanded())
-                {
-                    if(maxNodeId <= safe)
-                    {
-                        if (maxNodeId >= midpoint)
-                        {
-                            if(density >= 1 || density == 0)
-                            {
-                                //This is fully dense shard or an empty shard.
-                                // If it does happen, no expand is required.
-                                bestGuess=0;
-                            }
-                            else
-                            {
-                                double multiplier = 1/density;
-                                bestGuess = (long)(range*multiplier)-range; // This is how much to add
-                            }
-                        }
-                        else
-                        {
-                            bestGuess = 0; // We're below the midpoint so it's to early to make a guess.
-                        }
-                    }
-                }
-
-                response.add("start", startRange);
-                response.add("end", endRange);
-                response.add("nodeCount", nodeCount);
-                response.add("minDbid", minNodeId);
-                response.add("maxDbid", maxNodeId);
-                response.add("density", Math.abs(density));
-                response.add("expand", bestGuess);
-                response.add("expanded", dbidRangeRouter.getExpanded());
-            }
-            else
-            {
-                response.add("expand", -1);
-                response.add("exception", "ERROR: Wrong document router type:" + docRouter.getClass().getSimpleName());
-            }
-        }
-        else
-        {
-            addAlertMessage(response);
-        }
-        return response;
-    }
-
-    /**
-     * Expand the range for a Shard configured with DB_ID_RANGE having more than 75%
-     * space used. This configuration is not persisted in solrcore.properties
-     *
-     * Synchronous execution
-     *
-     * @param params
-     * - core, mandatory: The name of the SOLR Core
-     * - add, mandatory: the number of nodes to be added to the End Range limit
-     * @return Response including the action result:
-     * - expand: The number of the new End Range limit or -1 if the action failed
-     * - exception: Error message if expand is -1
-     * - error: When mandatory parameters are not set, an error node is returned
-     *
-     * @throws IOException
-     */
-    private synchronized NamedList<Object> expand(SolrParams params) throws IOException
-    {
-        NamedList<Object> response = new SimpleOrderedMap<>();
-
-        String coreName = coreName(params);
-        if (coreName == null)
-        {
-            response.add(ACTION_STATUS_ERROR, "No " + CoreAdminParams.CORE + " parameter set.");
-            return response;
-        }
-
-        if (isMasterOrStandalone(coreName))
-        {
-            InformationServer informationServer = informationServers.get(coreName);
-            DocRouter docRouter = getDocRouter(coreName);
-
-            if(docRouter instanceof DBIDRangeRouter)
-            {
-                long expansion = Long.parseLong(params.get("add"));
-                DBIDRangeRouter dbidRangeRouter = (DBIDRangeRouter)docRouter;
-
-                if(!dbidRangeRouter.getInitialized())
-                {
-                    response.add("expand", -1);
-                    response.add("exception", "DBIDRangeRouter not initialized yet.");
-                    return response;
-                }
-
-                if(dbidRangeRouter.getExpanded())
-                {
-                    response.add("expand", -1);
-                    response.add("exception", "dbid range has already been expanded.");
-                    return response;
-                }
-
-                long currentEndRange = dbidRangeRouter.getEndRange();
-                long startRange = dbidRangeRouter.getStartRange();
-                long maxNodeId = informationServer.maxNodeId();
-
-                long range = currentEndRange - startRange;
-                long safe = startRange + ((long) (range * .75));
-
-                if(maxNodeId > safe)
-                {
-                    response.add("expand", -1);
-                    response.add("exception", "Expansion cannot occur if max DBID in the index is more then 75% of range.");
-                    return response;
-                }
-
-                long newEndRange = expansion+dbidRangeRouter.getEndRange();
-                try
-                {
-                    informationServer.capIndex(newEndRange);
-                    informationServer.hardCommit();
-                    dbidRangeRouter.setEndRange(newEndRange);
-                    dbidRangeRouter.setExpanded(true);
-                    assert newEndRange == dbidRangeRouter.getEndRange();
-                    response.add("expand", dbidRangeRouter.getEndRange());
-                }
-                catch(Throwable t)
-                {
-                    response.add("expand", -1);
-                    response.add("exception", t.getMessage());
-                    LOGGER.error("exception expanding", t);
-                    return response;
-                }
-            }
-            else
-            {
-                response.add("expand", -1);
-                response.add("exception", "Wrong document router type:" + docRouter.getClass().getSimpleName());
-                return response;
-            }
-        }
-        else
-        {
-            addAlertMessage(response);
-        }
-        return response;
-    }
-
-    /**
      * Get a detailed report for a core or for every core. This action accepts
      * filtering based on commitTime, txid and acltxid
      *
@@ -2060,13 +1851,6 @@ public class AlfrescoCoreAdminHandler extends CoreAdminHandler
         }
     }
 
-    DocRouter getDocRouter(String cname)
-    {
-        return ofNullable(trackerRegistry.getTrackerForCore(cname, MetadataTracker.class))
-                .map(MetadataTracker::getDocRouter)
-                .orElse(null);
-    }
-
     public ConcurrentHashMap<String, InformationServer> getInformationServers()
     {
         return this.informationServers;
@@ -2101,18 +1885,13 @@ public class AlfrescoCoreAdminHandler extends CoreAdminHandler
 
     /**
      * Returns, for the given core, the tracker which is in charge to check the nodes status.
-     * Depending on the shard nature, master/standalone or slave, the tracker instance could be different.
-     * In addition, also the information that a given tracker returns about a given node, could differ (e.g.
-     * minimal in case of a slave node, detailed for master or standalone nodes).
      *
      * @param coreName the owning core name.
      * @return the component which is in charge to check the nodes status.
      */
     AbstractTracker nodeStatusChecker(String coreName)
     {
-        return isMasterOrStandalone(coreName)
-                    ? trackerRegistry.getTrackerForCore(coreName, MetadataTracker.class)
-                    : trackerRegistry.getTrackerForCore(coreName, ShardStatePublisher.class);
+        return trackerRegistry.getTrackerForCore(coreName, MetadataTracker.class);
     }
 
     /**

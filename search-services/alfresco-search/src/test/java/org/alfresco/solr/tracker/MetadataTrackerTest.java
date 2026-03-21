@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Properties;
 
 import org.alfresco.httpclient.AuthenticationException;
-import org.alfresco.repo.index.shard.ShardState;
 import org.alfresco.solr.AlfrescoCoreAdminHandler;
 import org.alfresco.solr.InformationServer;
 import org.alfresco.solr.SolrInformationServer;
@@ -135,8 +134,7 @@ public class MetadataTrackerTest
                     .thenReturn(txs).thenReturn(mock(Transactions.class));
         when(repositoryClient.getTransactions(anyLong(), anyLong(), anyLong(), anyLong(), anyInt(), isNull())).thenReturn(txs)
         .thenReturn(txs).thenReturn(mock(Transactions.class));
-        when(repositoryClient.getTransactions(anyLong(), anyLong(), anyLong(), anyLong(), anyInt(), any(ShardState.class))).thenReturn(txs)
-        .thenReturn(txs).thenReturn(mock(Transactions.class));
+
 
         List<Node> nodes = new ArrayList<>();
         Node node = new Node();
@@ -164,7 +162,7 @@ public class MetadataTrackerTest
         when(txs.getTransactions()).thenReturn(txsList);
 
         when(repositoryClient.getTransactions(anyLong(), anyLong(), anyLong(), anyLong(), anyInt(), isNull())).thenReturn(txs);
-        when(repositoryClient.getTransactions(anyLong(), anyLong(), anyLong(), anyLong(), anyInt(), any(ShardState.class))).thenReturn(txs);
+
         when(repositoryClient.getTransactions(anyLong(), anyLong(), anyLong(), anyLong(), anyInt())).thenReturn(txs);
 
         this.metadataTracker.doTrack("AnIterationId");

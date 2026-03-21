@@ -97,7 +97,6 @@ public class AclTracker extends ActivatableTracker
     private ConcurrentLinkedQueue<Long> aclsToReindex = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<Long> aclsToIndex = new ConcurrentLinkedQueue<>();
     private ConcurrentLinkedQueue<Long> aclsToPurge = new ConcurrentLinkedQueue<>();
-    private DocRouter docRouter;
 
     private ForkJoinPool forkJoinPool;
 
@@ -138,8 +137,6 @@ public class AclTracker extends ActivatableTracker
         }
         aclBatchSize = Integer.parseInt(p.getProperty("alfresco.aclBatchSize",
                 String.valueOf(DEFAULT_ACL_BATCH_SIZE)));
-        docRouter = DocRouterFactory.getRouter(p, shardMethod);
-
         aclTrackerParallelism = Integer.parseInt(p.getProperty("alfresco.acl.tracker.maxParallelism",
                 String.valueOf(DEFAULT_ACL_TRACKER_MAX_PARALLELISM)));
         forkJoinPool = new ForkJoinPool(aclTrackerParallelism);
@@ -903,31 +900,17 @@ public class AclTracker extends ActivatableTracker
         @Override
         protected void doWork() throws IOException, AuthenticationException, JSONException
         {
-            List<Acl> filteredAcls = filterAcls(acls);
-            if(filteredAcls.size() > 0)
+            if(!acls.isEmpty())
             {
-                List<AclReaders> readers = client.getAclReaders(filteredAcls);
+                List<AclReaders> readers = client.getAclReaders(acls);
                 indexAcl(readers, true);
             }
         }
-        
+
         @Override
         protected void onFail(Throwable failCausedBy)
         {
         	setRollback(true, failCausedBy);
-        }
-        
-        private List<Acl> filterAcls(List<Acl> acls)
-        {
-            ArrayList<Acl> filteredList = new ArrayList<>(acls.size());
-            for(Acl acl : acls)
-            {
-                if(docRouter.routeAcl(shardCount, shardInstance, acl))
-                {
-                    filteredList.add(acl);
-                }
-            }
-            return filteredList;
         }
     }
 

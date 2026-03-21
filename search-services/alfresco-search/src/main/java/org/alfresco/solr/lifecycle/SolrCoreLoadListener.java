@@ -52,7 +52,6 @@ import org.alfresco.solr.tracker.CommitTracker;
 import org.alfresco.solr.tracker.ContentTracker;
 import org.alfresco.solr.tracker.MetadataTracker;
 import org.alfresco.solr.tracker.ModelTracker;
-import org.alfresco.solr.tracker.ShardStatePublisher;
 import org.alfresco.solr.tracker.SolrTrackerScheduler;
 import org.alfresco.solr.tracker.Tracker;
 import org.alfresco.solr.tracker.TrackerRegistry;
@@ -194,13 +193,6 @@ public class SolrCoreLoadListener extends AbstractSolrEventListener
         {
             LOGGER.info("SearchServices Core Trackers have been explicitly disabled on core \"{}\" through \"enable.alfresco.tracking\" configuration property.", core.getName());
 
-            ShardStatePublisher statePublisher = new ShardStatePublisher(false, coreProperties, repositoryClient, core.getName(), informationServer);
-            trackerRegistry.register(core.getName(), statePublisher);
-            scheduler.schedule(statePublisher, core.getName(), coreProperties);
-            trackers.add(statePublisher);
-
-            LOGGER.info("SearchServices Slave Node Provider have been created and scheduled for core \"{}\".", core.getName());
-
             return;
         }
 
@@ -208,13 +200,6 @@ public class SolrCoreLoadListener extends AbstractSolrEventListener
         if (owningCoreIsSlave)
         {
             LOGGER.info("SearchServices Core Trackers have been disabled on core \"{}\" because it is a slave core.", core.getName());
-
-            ShardStatePublisher statePublisher = new ShardStatePublisher(false, coreProperties, repositoryClient, core.getName(), informationServer);
-            trackerRegistry.register(core.getName(), statePublisher);
-            scheduler.schedule(statePublisher, core.getName(), coreProperties);
-            trackers.add(statePublisher);
-
-            LOGGER.info("SearchServices Slave Node Provider have been created and scheduled for Core instance {} with name {}.", core.hashCode(), core.getName());
 
             return;
         }
@@ -268,15 +253,6 @@ public class SolrCoreLoadListener extends AbstractSolrEventListener
                         trackerRegistry,
                         scheduler);
 
-        ShardStatePublisher coreStateTracker =
-                registerAndSchedule(
-                        new ShardStatePublisher(true, props, repositoryClient, core.getName(), srv),
-                        core,
-                        props,
-                        trackerRegistry,
-                        scheduler
-                );
-
         List<Tracker> trackers = new ArrayList<>();
 
         String cascadeTrackerEnabledProp = ofNullable((String) props.get(CASCADE_TRACKER_ENABLED)).orElse("true");
@@ -297,7 +273,7 @@ public class SolrCoreLoadListener extends AbstractSolrEventListener
         //The ContentTracker will likely have the longest runs so put it first to ensure the MetadataTracker is not paused while
         //waiting for the ContentTracker to release it's lock.
         //The aclTracker will likely have the shortest runs so put it last.
-        trackers.addAll(asList(contentTracker, metadataTracker, aclTracker, coreStateTracker));
+        trackers.addAll(asList(contentTracker, metadataTracker, aclTracker));
         return trackers;
     }
 

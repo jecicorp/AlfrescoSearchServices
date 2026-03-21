@@ -28,30 +28,17 @@ package org.alfresco.solr.tracker;
 
 import static java.util.Optional.ofNullable;
 
-import static org.alfresco.repo.index.shard.ShardMethodEnum.DB_ID;
-import static org.alfresco.solr.tracker.DocRouterFactory.SHARD_KEY_KEY;
-
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.Semaphore;
 
-import org.alfresco.opencmis.dictionary.CMISStrictDictionaryService;
-import org.alfresco.repo.dictionary.NamespaceDAO;
-import org.alfresco.repo.index.shard.ShardMethodEnum;
-import org.alfresco.repo.search.impl.QueryParserUtils;
-import org.alfresco.service.cmr.dictionary.DictionaryService;
-import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.cmr.repository.StoreRef;
-import org.alfresco.service.namespace.QName;
-import org.alfresco.solr.AlfrescoSolrDataModel;
 import org.alfresco.solr.IndexTrackingShutdownException;
 import org.alfresco.solr.InformationServer;
 import org.alfresco.solr.NodeReport;
 import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.client.SOLRAPIClient;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,11 +65,7 @@ public abstract class AbstractTracker implements Tracker
     private volatile boolean shutdown = false;
 
     protected volatile TrackerState state;
-    protected int shardCount;
-    protected int shardInstance;
-    ShardMethodEnum shardMethod;
     protected boolean transformContent;
-    String shardTemplate;
     protected volatile boolean rollback;
     /**
      * When rollback is set, original error is also gathered in order to provide detailed logging.
@@ -90,24 +73,6 @@ public abstract class AbstractTracker implements Tracker
     protected Throwable rollbackCausedBy;
     protected final Type type;
     protected final String trackerId;
-
-    DocRouter docRouter;
-
-    /**
-     * The property to use for determining the shard.
-     * Note that this property is not used by all trackers, it is actually managed by the {@link ShardStatePublisher} and
-     * {@link MetadataTracker}. We put this property here because otherwise we should introduce another supertype layer
-     * for those two trackers.
-     */
-    protected Optional<QName> shardProperty = Optional.empty();
-
-    /**
-     * The string representation of the shard key.
-     * Note that this property is not used by all trackers, it is actually managed by the {@link ShardStatePublisher} and
-     * {@link MetadataTracker}. We put this property here because otherwise we should introduce another supertype layer
-     * for those two trackers.
-     */
-    protected Optional<String> shardKey;
 
     /**
      * Default constructor, strictly for testing.
@@ -128,26 +93,14 @@ public abstract class AbstractTracker implements Tracker
         storeRef = new StoreRef(p.getProperty("alfresco.stores", "workspace://SpacesStore"));
         batchCount = Integer.parseInt(p.getProperty("alfresco.batch.count", "5000"));
         maxLiveSearchers =  Integer.parseInt(p.getProperty("alfresco.maxLiveSearchers", "2"));
-        
-        shardCount =  Integer.parseInt(p.getProperty("shard.count", "1"));
-        shardInstance =  Integer.parseInt(p.getProperty("shard.instance", "0"));
-        shardMethod = ShardMethodEnum.getShardMethod(p.getProperty("shard.method", DB_ID.name()));
 
-        shardTemplate =  p.getProperty("alfresco.template", "");
-        
         transformContent = Boolean.parseBoolean(p.getProperty("alfresco.index.transformContent", "true"));
 
         this.trackerStats = this.infoSrv.getTrackerStats();
-        
+
         this.type = type;
 
         this.trackerId = type + "@" + hashCode();
-
-        shardKey = ofNullable(p.getProperty(SHARD_KEY_KEY));
-
-        firstUpdateShardProperty();
-
-        docRouter = DocRouterFactory.getRouter(p, shardMethod);
     }
 
     /**
@@ -401,53 +354,6 @@ public abstract class AbstractTracker implements Tracker
     }
 
     /**
-     * Set the shard property using the shard key.
-     */
-    void updateShardProperty()
-    {
-        shardKey.ifPresent(shardKeyName -> {
-            Optional<QName> updatedShardProperty = getShardProperty(shardKeyName);
-            if (!shardProperty.equals(updatedShardProperty))
-            {
-                if (updatedShardProperty.isEmpty())
-                {
-                    LOGGER.warn("The model defining {} property has been disabled", shardKeyName);
-                }
-                else
-                {
-                    LOGGER.info("New {} property found for {}", SHARD_KEY_KEY, shardKeyName);
-                }
-            }
-            shardProperty = updatedShardProperty;
-        });
-    }
-
-    /**
-     * Given the field name, returns the name of the property definition.
-     * If the property definition is not found, Empty optional is returned.
-     *
-     * @param field the field name.
-     * @return the name of the associated property definition if present, Optional.Empty() otherwise
-     */
-    static Optional<QName> getShardProperty(String field)
-    {
-        if (StringUtils.isBlank(field))
-        {
-            throw new IllegalArgumentException("Sharding property " + SHARD_KEY_KEY + " has not been set.");
-        }
-
-        AlfrescoSolrDataModel dataModel = AlfrescoSolrDataModel.getInstance();
-        NamespaceDAO namespaceDAO = dataModel.getNamespaceDAO();
-        DictionaryService dictionaryService = dataModel.getDictionaryService(CMISStrictDictionaryService.DEFAULT);
-        PropertyDefinition propertyDef = QueryParserUtils.matchPropertyDefinition("http://www.alfresco.org/model/content/1.0",
-                namespaceDAO,
-                dictionaryService,
-                field);
-
-        return ofNullable(propertyDef).map(PropertyDefinition::getName);
-    }
-
-    /**
      * Returns information about the {@link org.alfresco.solr.client.Node} associated with the given dbid.
      *
      * @param dbid the node identifier.
@@ -463,24 +369,4 @@ public abstract class AbstractTracker implements Tracker
         return nodeReport;
     }
 
-    /**
-     * Returns the {@link DocRouter} instance in use on this node.
-     *
-     * @return the {@link DocRouter} instance in use on this node.
-     */
-    public DocRouter getDocRouter()
-    {
-        return this.docRouter;
-    }
-
-    private void firstUpdateShardProperty()
-    {
-        shardKey.ifPresent( shardKeyName -> {
-            updateShardProperty();
-            if (shardProperty.isEmpty())
-            {
-                LOGGER.warn("Sharding property {} was set to {}, but no such property was found.", SHARD_KEY_KEY, shardKeyName);
-            }
-        });
-    }
 }

@@ -64,8 +64,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static org.alfresco.repo.index.shard.ShardMethodEnum.DB_ID_RANGE;
-
 /*
  * This tracks two things: transactions and metadata nodes
  * @author Ahmed Owian
@@ -120,18 +118,6 @@ public class MetadataTracker extends ActivatableTracker
      * {@link org.alfresco.solr.client.SOLRAPIClient#GET_NEXT_TX_COMMIT_TIME}
      */
     private boolean nextTxCommitTimeServiceAvailable = false;
-    
-    /**
-     * Check if txInteravlCommitTimeService is available in the repository.
-     * This service returns the minimum and the maximum commit time for transactions in a node id range,
-     * so method sharding DB_ID_RANGE can skip transactions not relevant for the DB ID range.
-     *
-     * {@link org.alfresco.solr.client.SOLRAPIClient#GET_TX_INTERVAL_COMMIT_TIME}
-     */
-    private boolean txIntervalCommitTimeServiceAvailable = false;
-    /** Whether the cascade tracking is enabled. */
-    private boolean cascadeTrackerEnabled = true;
-    
     /**
      * Transaction Id range to get the first transaction in database. 
      * 0-2000 by default.
@@ -174,7 +160,6 @@ public class MetadataTracker extends ActivatableTracker
                 p.getProperty("solr.initial.transaction.range", DEFAULT_INITIAL_TRANSACTION_RANGE)
                         .split("-");
 
-        cascadeTrackerEnabled = informationServer.cascadeTrackingEnabled();
         minTxnIdRange = new Pair<>(Long.valueOf(minTxninitialRangeString[0]), Long.valueOf(minTxninitialRangeString[1]));
         forkJoinPool = new ForkJoinPool(matadataTrackerParallelism);
 
@@ -201,25 +186,6 @@ public class MetadataTracker extends ActivatableTracker
                 LOGGER.error("Checking nextTxCommitTimeService failed.", e);
             }
     
-            // Try invoking txIntervalCommitTime service
-            if (shardMethod.equals(DB_ID_RANGE))
-            {
-                try
-                {
-                    client.getTxIntervalCommitTime(coreName, 0L, 0L);
-                    txIntervalCommitTimeServiceAvailable = true;
-                }
-                catch (NoSuchMethodException e)
-                {
-                    LOGGER.warn("txIntervalCommitTimeServiceAvailable is not available. " +
-                            "Upgrade your ACS Repository version " +
-                            "to use this feature with DB_ID_RANGE sharding: {} ", e.getMessage());
-                }
-                catch (Exception e)
-                {
-                    LOGGER.error("Checking txIntervalCommitTimeServiceAvailable failed.", e);
-                }
-            }
         }
     
     }
@@ -270,28 +236,12 @@ public class MetadataTracker extends ActivatableTracker
     {
         checkShutdown();
 
-
         // Check we are tracking the correct repository
         TrackerState state = super.getTrackerState();
         if(state.getTrackerCycles() == 0)
         {
             //We have a new tracker state so do the checks.
             checkRepoAndIndexConsistency(state);
-        }
-
-        if(docRouter instanceof DBIDRangeRouter)
-        {
-            DBIDRangeRouter dbidRangeRouter = (DBIDRangeRouter)docRouter;
-            long indexCap = infoSrv.getIndexCap();
-            long endRange = dbidRangeRouter.getEndRange();
-            assert(indexCap == -1 || indexCap >= endRange);
-
-            if(indexCap > endRange) {
-                dbidRangeRouter.setExpanded(true);
-                dbidRangeRouter.setEndRange(indexCap);
-            }
-
-            dbidRangeRouter.setInitialized(true);
         }
 
         checkShutdown();
@@ -327,64 +277,34 @@ public class MetadataTracker extends ActivatableTracker
         
         if (!state.isCheckedFirstTransactionTime())
         {
-            
-            // On Shards configured with DB_ID_RANGE, the first indexed transaction can be
-            // different from the first transaction in the repository as some transactions
-            // are skipped if they are not related with the range of the Shard.
-            // Getting the minCommitTime for the Shard is enough in order to check
-            // that the first transaction is present.
-            long minCommitTime = 0L;
-            if (docRouter instanceof DBIDRangeRouter && txIntervalCommitTimeServiceAvailable)
+            firstTransactions = client.getTransactions(0L, minTxnIdRange.getFirst(),
+                            null, minTxnIdRange.getSecond(), 1);
+            if (!firstTransactions.getTransactions().isEmpty())
             {
-                try
+                Transaction firstTransaction = firstTransactions.getTransactions().get(0);
+                long firstTxId = firstTransaction.getId();
+                long firstTransactionCommitTime = firstTransaction.getCommitTimeMs();
+                int setSize = this.infoSrv.getTxDocsSize(Long.toString(firstTxId),
+                        Long.toString(firstTransactionCommitTime));
+
+                if (setSize == 0)
                 {
-                    DBIDRangeRouter dbIdRangeRouter = (DBIDRangeRouter) docRouter;
-                    Pair<Long, Long> commitTimes = client.getTxIntervalCommitTime(coreName,
-                            dbIdRangeRouter.getStartRange(), dbIdRangeRouter.getEndRange());
-                    minCommitTime = commitTimes.getFirst();
+                    LOGGER.error("First transaction was not found with the correct timestamp.");
+                    LOGGER.error("SOLR has successfully connected to your repository however the SOLR indexes" +
+                            " and repository database do not match.");
+                    LOGGER.error("If this is a new or rebuilt database your SOLR indexes also need to be " +
+                            "re-built to match the database.");
+                    LOGGER.error("You can also check your SOLR connection details in solrcore.properties.");
+                    throw new AlfrescoRuntimeException("Initial transaction not found with correct timestamp");
                 }
-                catch (NoSuchMethodException e)
+                else if (setSize == 1)
                 {
-                    LOGGER.warn("txIntervalCommitTimeServiceAvailable is not available." +
-                            " If you are using DB_ID_RANGE shard method, "
-                            + "upgrade your ACS Repository version in order to use the skip transactions feature: {} ",
-                            e.getMessage());
+                    state.setCheckedFirstTransactionTime(true);
+                    LOGGER.info("Verified first transaction and timestamp in index");
                 }
-            }
-            
-            // When a Shard with DB_ID_RANGE method is empty, minCommitTime is -1.
-            // No firstTransaction checking is required for this case.
-            if (minCommitTime != -1L) {
-            
-                firstTransactions = client.getTransactions(minCommitTime, minTxnIdRange.getFirst(),
-                                null, minTxnIdRange.getSecond(), 1);
-                if (!firstTransactions.getTransactions().isEmpty())
+                else
                 {
-                    Transaction firstTransaction = firstTransactions.getTransactions().get(0);
-                    long firstTxId = firstTransaction.getId();
-                    long firstTransactionCommitTime = firstTransaction.getCommitTimeMs();
-                    int setSize = this.infoSrv.getTxDocsSize(Long.toString(firstTxId),
-                            Long.toString(firstTransactionCommitTime));
-                    
-                    if (setSize == 0)
-                    {
-                        LOGGER.error("First transaction was not found with the correct timestamp.");
-                        LOGGER.error("SOLR has successfully connected to your repository however the SOLR indexes" +
-                                " and repository database do not match.");
-                        LOGGER.error("If this is a new or rebuilt database your SOLR indexes also need to be " +
-                                "re-built to match the database.");
-                        LOGGER.error("You can also check your SOLR connection details in solrcore.properties.");
-                        throw new AlfrescoRuntimeException("Initial transaction not found with correct timestamp");
-                    }
-                    else if (setSize == 1)
-                    {
-                        state.setCheckedFirstTransactionTime(true);
-                        LOGGER.info("Verified first transaction and timestamp in index");
-                    }
-                    else
-                    {
-                        LOGGER.warn("Duplicate initial transaction found with correct timestamp");
-                    }
+                    LOGGER.warn("Duplicate initial transaction found with correct timestamp");
                 }
             }
         }
@@ -450,10 +370,6 @@ public class MetadataTracker extends ActivatableTracker
                     gnp.setTransactionIds(txs);
                     gnp.setStoreProtocol(storeRef.getProtocol());
                     gnp.setStoreIdentifier(storeRef.getIdentifier());
-                    updateShardProperty();
-
-                    shardProperty.ifPresent(gnp::setShardProperty);
-
                     gnp.setCoreName(coreName);
 
                     List<Node> nodes = client.getNodes(gnp, (int) info.getUpdates());
@@ -633,43 +549,12 @@ public class MetadataTracker extends ActivatableTracker
         }
     }
 
+    /**
+     * Without sharding, all nodes are accepted for indexing.
+     */
     private List<Node> filterNodes(List<Node> nodes)
     {
-        List<Node> filteredList = new ArrayList<>(nodes.size());
-        for(Node node : nodes)
-        {
-            if(docRouter.routeNode(shardCount, shardInstance, node))
-            {
-                filteredList.add(node);
-            }
-            else if (cascadeTrackerEnabled)
-            {
-                if(node.getStatus() == SolrApiNodeStatus.UPDATED)
-                {
-                    Node doCascade = new Node();
-                    doCascade.setAclId(node.getAclId());
-                    doCascade.setId(node.getId());
-                    doCascade.setNodeRef(node.getNodeRef());
-                    doCascade.setStatus(SolrApiNodeStatus.NON_SHARD_UPDATED);
-                    doCascade.setTenant(node.getTenant());
-                    doCascade.setTxnId(node.getTxnId());
-                    filteredList.add(doCascade);
-                }
-                else // DELETED & UNKNOWN
-                {
-                    // Make sure anything no longer relevant to this shard is deleted.
-                    Node doDelete = new Node();
-                    doDelete.setAclId(node.getAclId());
-                    doDelete.setId(node.getId());
-                    doDelete.setNodeRef(node.getNodeRef());
-                    doDelete.setStatus(SolrApiNodeStatus.NON_SHARD_DELETED);
-                    doDelete.setTenant(node.getTenant());
-                    doDelete.setTxnId(node.getTxnId());
-                    filteredList.add(doDelete);
-                }
-            }
-        }
-        return filteredList;
+        return nodes;
     }
 
     private void purgeTransactions() throws IOException, JSONException
@@ -801,82 +686,6 @@ public class MetadataTracker extends ActivatableTracker
         return transactions;
     }
 
-    /**
-     * When using DB_ID_RANGE, fromCommitTime cannot be before the commit time of the first transaction
-     * for the DB_ID_RANGE to be indexed and commit time of the last transaction cannot be lower than fromCommitTime.
-     * When there isn't nodes in that range, -1 is returned as commit times
-     *
-     * @param fromCommitTime Starting commit time to get transactions from Repository
-     * @param txnsFound List of transactions previously found
-     * @return List of transactions to be indexed
-     */
-    private Transactions getDBIDRangeTransactions(Long fromCommitTime, BoundedDeque<Transaction> txnsFound)
-            throws NoSuchMethodException, AuthenticationException, IOException, JSONException, EncoderException
-    {
-        boolean shardOutOfRange = false;
-
-        DBIDRangeRouter dbIdRangeRouter = (DBIDRangeRouter) docRouter;
-        Pair<Long, Long> commitTimes = client.getTxIntervalCommitTime(coreName,
-                dbIdRangeRouter.getStartRange(), dbIdRangeRouter.getEndRange());
-        Long shardMinCommitTime = commitTimes.getFirst();
-        Long shardMaxCommitTime = commitTimes.getSecond();
-
-        // Node Range it's not still available in repository
-        if (shardMinCommitTime == -1)
-        {
-            LOGGER.debug(
-                    "{}-[CORE {}] [DB_ID_RANGE] No nodes in range [{}-{}] "
-                            + "exist in the repository. Indexing only latest transaction.",
-                    Thread.currentThread().getId(), coreName, dbIdRangeRouter.getStartRange(),
-                    dbIdRangeRouter.getEndRange());
-            shardOutOfRange = true;
-        }
-        if (fromCommitTime > shardMaxCommitTime)
-        {
-            LOGGER.debug(
-                    "{}-[CORE {}] [DB_ID_RANGE] Last commit time is greater that max commit time in in range [{}-{}]. "
-                            + "Indexing only latest transaction if necessary.",
-                    Thread.currentThread().getId(), coreName, dbIdRangeRouter.getStartRange(),
-                    dbIdRangeRouter.getEndRange());
-            shardOutOfRange = true;
-        }
-        // Initial commit time for Node Range is greater than calculated from commit time
-        if (fromCommitTime < shardMinCommitTime)
-        {
-            LOGGER.debug("{}-[CORE {}] [DB_ID_RANGE] Skipping transactions from {} to {}",
-                    Thread.currentThread().getId(), coreName, fromCommitTime, shardMinCommitTime);
-            fromCommitTime = shardMinCommitTime;
-        }
-
-        Transactions transactions = getSomeTransactions(txnsFound, fromCommitTime, timeStep, maxNumberOfTransactions,
-                                           state.getTimeToStopIndexing());
-
-
-        // When transactions are out of Shard range, only the latest transaction needs to be indexed
-        // in order to preserve the state up-to-date of the MetadataTracker
-        if (shardOutOfRange)
-        {
-            Transaction latestTransaction = new Transaction();
-            latestTransaction.setCommitTimeMs(transactions.getMaxTxnCommitTime());
-            latestTransaction.setId(transactions.getMaxTxnId());
-
-            if (isTransactionToBeIndexed(latestTransaction))
-            {
-                transactions = new Transactions(Collections.singletonList(latestTransaction), transactions.getMaxTxnCommitTime(),
-                    transactions.getMaxTxnId());
-                LOGGER.debug("{}:{}-[CORE {}] [DB_ID_RANGE] Latest transaction to be indexed {}",
-                        Thread.currentThread().getId(), coreName, latestTransaction);
-            }
-            else
-            {
-                // All up do date, don't return transactions
-                return new Transactions(Collections.emptyList(), 0L, 0L);
-            }
-        }
-
-        return transactions;
-    }
-
     boolean isTransactionToBeIndexed(Transaction transaction)
     {
         try
@@ -941,16 +750,8 @@ public class MetadataTracker extends ActivatableTracker
 
                 Long fromCommitTime = getTxFromCommitTime(txnsFound,state.getLastGoodTxCommitTimeInIndex());
 
-                // Get transaction list to be indexed
-                if (docRouter instanceof DBIDRangeRouter && txIntervalCommitTimeServiceAvailable)
-                {
-                    transactions = getDBIDRangeTransactions(fromCommitTime, txnsFound);
-                }
-                else
-                {
-                    transactions = getSomeTransactions(txnsFound, fromCommitTime, timeStep, maxNumberOfTransactions,
-                            state.getTimeToStopIndexing());
-                }
+                transactions = getSomeTransactions(txnsFound, fromCommitTime, timeStep, maxNumberOfTransactions,
+                        state.getTimeToStopIndexing());
 
                 long idTrackerCycle = System.currentTimeMillis();
                 long lagCutoff = state.getTimeToStopIndexing();
@@ -1184,9 +985,6 @@ public class MetadataTracker extends ActivatableTracker
         gnp.setTransactionIds(txIds);
         gnp.setStoreProtocol(storeRef.getProtocol());
         gnp.setStoreIdentifier(storeRef.getIdentifier());
-        updateShardProperty();
-        shardProperty.ifPresent(gnp::setShardProperty);
-
         gnp.setCoreName(coreName);
         List<Node> nodes = client.getNodes(gnp, Integer.MAX_VALUE);
 
