@@ -29,7 +29,6 @@ package org.alfresco.solr.tracker;
 import java.util.Collection;
 import java.util.Properties;
 
-import org.alfresco.solr.AlfrescoCoreAdminHandler;
 import org.quartz.CronScheduleBuilder;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
@@ -55,14 +54,14 @@ public class SolrTrackerScheduler
     protected final static Logger log = LoggerFactory.getLogger(SolrTrackerScheduler.class);
     protected Scheduler scheduler;
 
-    public SolrTrackerScheduler(AlfrescoCoreAdminHandler adminHandler)
+    public SolrTrackerScheduler(String schedulerName)
     {
         // TODO: pick scheduler properties from SOLR config or file ...
         try
         {
             StdSchedulerFactory factory = new StdSchedulerFactory();
             Properties properties = new Properties();
-            properties.setProperty("org.quartz.scheduler.instanceName", adminHandler.toString());
+            properties.setProperty("org.quartz.scheduler.instanceName", schedulerName);
             properties.setProperty("org.quartz.threadPool.class", "org.quartz.simpl.SimpleThreadPool");
             properties.setProperty("org.quartz.threadPool.threadCount", "40");
             properties.setProperty("org.quartz.threadPool.makeThreadsDaemons", "true");

@@ -38,7 +38,9 @@ import java.util.Properties;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import org.alfresco.indexing.tracker.DataModelCallback;
 import org.alfresco.opencmis.dictionary.CMISStrictDictionaryService;
+import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.AlfrescoCoreAdminHandler;
 import org.alfresco.solr.AlfrescoSolrDataModel;
 import org.alfresco.solr.SolrInformationServer;
@@ -314,7 +316,21 @@ public class SolrCoreLoadListener extends AbstractSolrEventListener
         if (mTracker == null)
         {
             LOGGER.debug("Creating a new Model Tracker instance.");
-            mTracker = new ModelTracker(solrHome, props, repositoryClient, coreName, srv);
+            DataModelCallback dataModelCallback = new DataModelCallback()
+            {
+                @Override
+                public void afterInitModels()
+                {
+                    AlfrescoSolrDataModel.getInstance().afterInitModels();
+                }
+
+                @Override
+                public void removeModel(QName modelName)
+                {
+                    AlfrescoSolrDataModel.getInstance().removeModel(modelName);
+                }
+            };
+            mTracker = new ModelTracker(solrHome, props, repositoryClient, coreName, srv, dataModelCallback);
             trackerRegistry.setModelTracker(mTracker);
 
             LOGGER.info("Model Tracker: ensuring first model sync.");

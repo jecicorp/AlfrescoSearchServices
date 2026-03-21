@@ -213,7 +213,7 @@ public class AlfrescoCoreAdminHandler extends CoreAdminHandler
 
         trackerRegistry = new TrackerRegistry();
         informationServers = new ConcurrentHashMap<>();
-        this.scheduler = new SolrTrackerScheduler(this);
+        this.scheduler = new SolrTrackerScheduler(this.toString());
 
         String createDefaultCores = ConfigUtil.locateProperty(ALFRESCO_DEFAULTS, "");
         int numShards = Integer.parseInt(ConfigUtil.locateProperty(NUM_SHARDS, "1"));

@@ -38,7 +38,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
-import org.alfresco.solr.AlfrescoCoreAdminHandler;
+import org.alfresco.indexing.tracker.DataModelCallback;
+import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.InformationServer;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.junit.After;
@@ -60,8 +61,6 @@ import org.quartz.impl.matchers.GroupMatcher;
 @RunWith(MockitoJUnitRunner.class)
 public class SolrTrackerSchedulerTest
 {
-    @Mock
-    private AlfrescoCoreAdminHandler adminHandler;
     private SolrTrackerScheduler trackerScheduler;
     private String CORE_NAME = "coreName";
     private Scheduler spiedQuartzScheduler;
@@ -74,7 +73,7 @@ public class SolrTrackerSchedulerTest
     @Before
     public void setUp() throws Exception
     {
-        this.trackerScheduler = new SolrTrackerScheduler(adminHandler);
+        this.trackerScheduler = new SolrTrackerScheduler("testScheduler");
         this.spiedQuartzScheduler = spy(this.trackerScheduler.scheduler);
         this.trackerScheduler.scheduler = spiedQuartzScheduler;
         props = new Properties();
@@ -208,7 +207,12 @@ public class SolrTrackerSchedulerTest
     {
         String exp = "0/20 * * * * ? *";
         props.put("alfresco.model.tracker.cron", exp);
-        ModelTracker modelTracker = new ModelTracker("alfresco", props, client, CORE_NAME, informationServer);
+        DataModelCallback noOpCallback = new DataModelCallback()
+        {
+            @Override public void afterInitModels() { }
+            @Override public void removeModel(QName modelName) { }
+        };
+        ModelTracker modelTracker = new ModelTracker("alfresco", props, client, CORE_NAME, informationServer, noOpCallback);
         this.trackerScheduler.schedule(modelTracker, CORE_NAME, props);
         verify(spiedQuartzScheduler).scheduleJob(any(JobDetail.class), any(Trigger.class));
         checkCronExpression(exp);

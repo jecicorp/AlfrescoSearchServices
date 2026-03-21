@@ -49,13 +49,12 @@ import org.alfresco.repo.dictionary.M2Namespace;
 import org.alfresco.service.cmr.dictionary.ModelDefinition.XMLBindingType;
 import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.namespace.QName;
-import org.alfresco.solr.AlfrescoSolrDataModel;
+import org.alfresco.indexing.tracker.DataModelCallback;
 import org.alfresco.solr.InformationServer;
 import org.alfresco.solr.client.AlfrescoModel;
 import org.alfresco.solr.client.AlfrescoModelDiff;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.config.ConfigUtil;
-import org.apache.solr.core.SolrResourceLoader;
 import org.json.JSONException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,6 +108,7 @@ public class ModelTracker extends AbstractTracker
     private final Set<String> indexedFields = new HashSet<>();
     private final Set<String> ignoredFields = new HashSet<>();
 
+    private final DataModelCallback dataModelCallback;
     private ReentrantReadWriteLock modelLock = new ReentrantReadWriteLock();
     private volatile boolean hasModels = false;
     private File alfrescoModelDir;
@@ -128,10 +128,11 @@ public class ModelTracker extends AbstractTracker
     }
 
     public ModelTracker(String solrHome, Properties p, SOLRAPIClient client, String coreName,
-                InformationServer informationServer)
+                InformationServer informationServer, DataModelCallback dataModelCallback)
     {
         super(p, client, coreName, informationServer, Tracker.Type.MODEL);
-        String normalSolrHome = SolrResourceLoader.normalizeDir(solrHome);
+        this.dataModelCallback = dataModelCallback;
+        String normalSolrHome = solrHome.endsWith("/") ? solrHome : solrHome + "/";
         alfrescoModelDir = new File(ConfigUtil.locateProperty("solr.model.dir", normalSolrHome+"alfrescoModels"));
         LOGGER.info("Alfresco Model dir {}", alfrescoModelDir);
         if (!alfrescoModelDir.exists())
@@ -208,7 +209,7 @@ public class ModelTracker extends AbstractTracker
 
         if(modelMap.size() > 0)
         {
-            AlfrescoSolrDataModel.getInstance().afterInitModels();
+            dataModelCallback.afterInitModels();
         }
     }
 
@@ -218,6 +219,11 @@ public class ModelTracker extends AbstractTracker
     ModelTracker()
     {
         super(Tracker.Type.MODEL);
+        this.dataModelCallback = new DataModelCallback()
+        {
+            @Override public void afterInitModels() { }
+            @Override public void removeModel(QName modelName) { }
+        };
     }
 
     @Override
@@ -373,7 +379,7 @@ public class ModelTracker extends AbstractTracker
                 	}
                 	finally
                 	{
-                		AlfrescoSolrDataModel.getInstance().removeModel(modelDiff.getModelName());
+                		dataModelCallback.removeModel(modelDiff.getModelName());
                 	}
                     break;
             }

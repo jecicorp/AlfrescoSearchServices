@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
+import org.alfresco.indexing.tracker.DataModelCallback;
 import org.alfresco.httpclient.AuthenticationException;
 import org.alfresco.repo.dictionary.M2Model;
 import org.alfresco.repo.dictionary.NamespaceDAO;
@@ -112,7 +113,12 @@ public class ModelTrackerIT
         when(props.getProperty("shard.instance", "0")).thenReturn("0");
         when(this.srv.getTrackerStats()).thenReturn(trackerStats);
         System.setProperty("solr.model.dir", alfrescoModelDir.getAbsolutePath());
-        this.modelTracker = new ModelTracker(null, props, repositoryClient, coreName, srv);
+        DataModelCallback noOpCallback = new DataModelCallback()
+        {
+            @Override public void afterInitModels() { }
+            @Override public void removeModel(QName modelName) { }
+        };
+        this.modelTracker = new ModelTracker(null, props, repositoryClient, coreName, srv, noOpCallback);
     }
 
     @After
