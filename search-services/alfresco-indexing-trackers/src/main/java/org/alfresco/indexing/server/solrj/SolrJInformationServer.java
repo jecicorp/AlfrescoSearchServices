@@ -92,13 +92,13 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public IOpenBitSet getOpenBitSetInstance()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getOpenBitSetInstance");
+        return new JavaBitSetAdapter();
     }
 
     @Override
     public <T> ISimpleOrderedMap<T> getSimpleOrderedMapInstance()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getSimpleOrderedMapInstance");
+        return new LinkedHashMapOrderedMap<>();
     }
 
     // --- InformationServer methods ---
