@@ -30,7 +30,7 @@ import java.util.Collection;
 import java.util.Properties;
 
 import org.alfresco.solr.client.SOLRAPIQueueClient;
-import org.alfresco.solr.tracker.Tracker;
+import org.alfresco.indexing.tracker.Tracker;
 import org.apache.solr.SolrTestCaseJ4;
 import org.junit.After;
 import org.junit.Assert;

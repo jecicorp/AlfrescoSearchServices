@@ -26,6 +26,12 @@
 
 package org.alfresco.solr.tracker;
 
+import org.alfresco.indexing.server.InformationServer;
+import org.alfresco.indexing.tracker.MetadataTracker;
+import org.alfresco.indexing.tracker.ModelTracker;
+import org.alfresco.indexing.tracker.TrackerRegistry;
+
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,7 +40,7 @@ import java.util.Properties;
 
 import org.alfresco.httpclient.AuthenticationException;
 import org.alfresco.solr.AlfrescoCoreAdminHandler;
-import org.alfresco.solr.InformationServer;
+import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.SolrInformationServer;
 import org.alfresco.solr.NodeReport;
 import org.alfresco.solr.TrackerState;

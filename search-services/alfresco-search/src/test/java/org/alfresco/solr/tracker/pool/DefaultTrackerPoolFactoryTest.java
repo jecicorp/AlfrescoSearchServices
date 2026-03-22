@@ -26,6 +26,9 @@
 
 package org.alfresco.solr.tracker.pool;
 
+import org.alfresco.indexing.tracker.pool.DefaultTrackerPoolFactory;
+import org.alfresco.indexing.tracker.pool.TrackerPoolFactory;
+
 import static org.junit.Assert.assertEquals;
 
 import java.util.Properties;

@@ -26,6 +26,21 @@
 
 package org.alfresco.solr.tracker;
 
+import org.alfresco.indexing.server.InformationServer;
+import org.alfresco.indexing.tracker.AbstractTracker;
+import org.alfresco.indexing.tracker.AbstractWorker;
+import org.alfresco.indexing.tracker.AclTracker;
+import org.alfresco.indexing.tracker.ActivatableTracker;
+import org.alfresco.indexing.tracker.CascadeTracker;
+import org.alfresco.indexing.tracker.CommitTracker;
+import org.alfresco.indexing.tracker.ContentTracker;
+import org.alfresco.indexing.tracker.MetadataTracker;
+import org.alfresco.indexing.tracker.ModelTracker;
+import org.alfresco.indexing.tracker.Tracker;
+import org.alfresco.indexing.tracker.TrackerJob;
+import org.alfresco.indexing.tracker.TrackerRegistry;
+import org.alfresco.indexing.tracker.TrackerScheduler;
+
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;

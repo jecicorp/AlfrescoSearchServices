@@ -26,6 +26,10 @@
 
 package org.alfresco.solr.tracker;
 
+import org.alfresco.indexing.tracker.Tracker;
+import org.alfresco.indexing.tracker.TrackerJob;
+
+
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 

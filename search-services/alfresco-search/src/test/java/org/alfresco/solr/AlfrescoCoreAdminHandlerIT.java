@@ -26,6 +26,8 @@
 
 package org.alfresco.solr;
 
+import org.alfresco.indexing.server.InformationServer;
+
 import static java.util.Arrays.asList;
 
 import static java.util.Collections.emptyList;
@@ -57,10 +59,10 @@ import java.util.stream.Collectors;
 
 import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.solr.adapters.IOpenBitSet;
-import org.alfresco.solr.tracker.AclTracker;
+import org.alfresco.indexing.tracker.AclTracker;
 import org.alfresco.solr.tracker.IndexHealthReport;
-import org.alfresco.solr.tracker.MetadataTracker;
-import org.alfresco.solr.tracker.TrackerRegistry;
+import org.alfresco.indexing.tracker.MetadataTracker;
+import org.alfresco.indexing.tracker.TrackerRegistry;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;

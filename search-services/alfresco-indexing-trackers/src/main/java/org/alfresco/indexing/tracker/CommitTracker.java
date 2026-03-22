@@ -4,27 +4,27 @@
  * %%
  * Copyright (C) 2005 - 2020 Alfresco Software Limited
  * %%
- * This file is part of the Alfresco software. 
- * If the software was purchased under a paid Alfresco license, the terms of 
- * the paid license agreement will prevail.  Otherwise, the software is 
+ * This file is part of the Alfresco software.
+ * If the software was purchased under a paid Alfresco license, the terms of
+ * the paid license agreement will prevail.  Otherwise, the software is
  * provided under the following open source license terms:
- * 
+ *
  * Alfresco is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Alfresco is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
 
-package org.alfresco.solr.tracker;
+package org.alfresco.indexing.tracker;
 
 import static java.util.Optional.empty;
 import static java.util.Optional.ofNullable;
@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.alfresco.solr.InformationServer;
+import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +60,7 @@ public class CommitTracker extends AbstractTracker
     private AtomicInteger rollbackCount = new AtomicInteger(0);
 
     protected final static Logger LOGGER = LoggerFactory.getLogger(CommitTracker.class);
-    
+
     // Share run and write locks across all CommitTracker threads
     private static Map<String, Semaphore> RUN_LOCK_BY_CORE = new ConcurrentHashMap<>();
     private static Map<String, Semaphore> WRITE_LOCK_BY_CORE = new ConcurrentHashMap<>();
@@ -107,7 +107,7 @@ public class CommitTracker extends AbstractTracker
         commitInterval = Long.parseLong(p.getProperty("alfresco.commitInterval", "60000")); // Default: commit once per minute
         newSearcherInterval = Integer.parseInt(p.getProperty("alfresco.newSearcherInterval", "120000")); // Default: Open searchers every two minutes
         lastSearcherOpened = lastCommit = System.currentTimeMillis();
-        
+
         RUN_LOCK_BY_CORE.put(coreName, new Semaphore(1, true));
         WRITE_LOCK_BY_CORE.put(coreName, new Semaphore(1, true));
     }
@@ -161,24 +161,11 @@ public class CommitTracker extends AbstractTracker
 
             if(metadataTracker.getRollback() || aclTracker.getRollback())
             {
-                /*
-                * The metadataTracker and aclTracker will return true if an unhandled exception has occurred during indexing.
-                *
-                * The doRollback method rolls the index back to the state that it was in at the last commit. This will undo
-                * all the work that has been done by other trackers after the last commit.
-                *
-                * The state of the other trackers is then set to null so the trackers will initialize their state from
-                * the index, rather then the in-memory state. This keeps the trackers in-sync with index if their work is
-                * rolled back.
-                */
                 doRollback();
                 return;
             }
 
             // The disable-indexing command should happen while the commit tracker is here.
-            // In that case the (disable-indexing) command clears the maintenance work as much as possible,
-            // however, there's a chance that some work will be still executed: for that reason the check is repeated
-            // later (see below) and in case a rollback is executed
             if (hasMaintenance)
             {
                 maintenance();
@@ -220,17 +207,17 @@ public class CommitTracker extends AbstractTracker
             }
 
             infoSrv.rollback();
-            
+
             // Log reasons why the rollback is performed
             if (aclTracker.getRollbackCausedBy() != null)
             {
-                LOGGER.warn("Rollback performed due to ACL Tracker error", aclTracker.getRollbackCausedBy());                
+                LOGGER.warn("Rollback performed due to ACL Tracker error", aclTracker.getRollbackCausedBy());
             }
             if (metadataTracker.getRollbackCausedBy() != null)
             {
                 LOGGER.warn("Rollback performed due to Metadata Tracker error", metadataTracker.getRollbackCausedBy());
             }
-            
+
         }
         catch (Exception e)
         {

@@ -4,34 +4,33 @@
  * %%
  * Copyright (C) 2005 - 2025 Alfresco Software Limited
  * %%
- * This file is part of the Alfresco software. 
- * If the software was purchased under a paid Alfresco license, the terms of 
- * the paid license agreement will prevail.  Otherwise, the software is 
+ * This file is part of the Alfresco software.
+ * If the software was purchased under a paid Alfresco license, the terms of
+ * the paid license agreement will prevail.  Otherwise, the software is
  * provided under the following open source license terms:
- * 
+ *
  * Alfresco is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Alfresco is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
 
-package org.alfresco.solr.tracker;
+package org.alfresco.indexing.tracker;
 
 import com.google.common.collect.Lists;
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.httpclient.AuthenticationException;
 import org.alfresco.solr.BoundedDeque;
-import org.alfresco.solr.InformationServer;
-import org.alfresco.solr.SolrInformationServer;
+import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.NodeReport;
 import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.adapters.IOpenBitSet;
@@ -41,6 +40,7 @@ import org.alfresco.solr.client.Node.SolrApiNodeStatus;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.Transaction;
 import org.alfresco.solr.client.Transactions;
+import org.alfresco.solr.tracker.IndexHealthReport;
 import org.alfresco.util.Pair;
 import org.apache.commons.codec.EncoderException;
 import org.json.JSONException;
@@ -112,14 +112,14 @@ public class MetadataTracker extends ActivatableTracker
     /**
      * Check if nextTxCommitTimeService is available in the repository.
      * This service is used to find the next available transaction commit time from a given time,
-     * so periods of time where no document updating is happening can be skipped while getting 
+     * so periods of time where no document updating is happening can be skipped while getting
      * pending transactions list.
      *
      * {@link org.alfresco.solr.client.SOLRAPIClient#GET_NEXT_TX_COMMIT_TIME}
      */
     private boolean nextTxCommitTimeServiceAvailable = false;
     /**
-     * Transaction Id range to get the first transaction in database. 
+     * Transaction Id range to get the first transaction in database.
      * 0-2000 by default.
      */
     private Pair<Long, Long> minTxnIdRange;
@@ -165,7 +165,7 @@ public class MetadataTracker extends ActivatableTracker
 
         RUN_LOCK_BY_CORE.put(coreName, new Semaphore(1, true));
         WRITE_LOCK_BY_CORE.put(coreName, new Semaphore(1, true));
-        
+
         // In order to apply performance optimizations, checking the availability of Repo Web Scripts is required.
         // As these services are available from ACS 6.2
         if (checkRepoServicesAvailability)
@@ -185,9 +185,9 @@ public class MetadataTracker extends ActivatableTracker
             {
                 LOGGER.error("Checking nextTxCommitTimeService failed.", e);
             }
-    
+
         }
-    
+
     }
 
     MetadataTracker()
@@ -199,7 +199,7 @@ public class MetadataTracker extends ActivatableTracker
     protected void doTrack(String iterationId)
             throws AuthenticationException, IOException, JSONException {
         // MetadataTracker must wait until ModelTracker has run
-        ModelTracker modelTracker = ((SolrInformationServer) this.infoSrv).getAdminHandler().getTrackerRegistry().getModelTracker();
+        ModelTracker modelTracker = this.infoSrv.getTrackerRegistry().getModelTracker();
         if (modelTracker != null && modelTracker.hasModels())
         {
             trackRepository();
@@ -258,7 +258,7 @@ public class MetadataTracker extends ActivatableTracker
     private void checkRepoAndIndexConsistency(TrackerState state) throws AuthenticationException, IOException, JSONException
     {
         Transactions firstTransactions = null;
-        if (state.getLastGoodTxCommitTimeInIndex() == 0) 
+        if (state.getLastGoodTxCommitTimeInIndex() == 0)
         {
             state.setCheckedLastTransactionTime(true);
             state.setCheckedFirstTransactionTime(true);
@@ -274,7 +274,7 @@ public class MetadataTracker extends ActivatableTracker
                 setLastTxCommitTimeAndTxIdInTrackerState(firstTransactions);
             }
         }
-        
+
         if (!state.isCheckedFirstTransactionTime())
         {
             firstTransactions = client.getTransactions(0L, minTxnIdRange.getFirst(),
@@ -317,7 +317,7 @@ public class MetadataTracker extends ActivatableTracker
                 firstTransactions = client.getTransactions(null, minTxnIdRange.getFirst(),
                         null, minTxnIdRange.getSecond(), 1);
             }
-            
+
             setLastTxCommitTimeAndTxIdInTrackerState(firstTransactions);
             Long maxTxnCommitTimeInRepo = firstTransactions.getMaxTxnCommitTime();
             Long maxTxnIdInRepo = firstTransactions.getMaxTxnId();
@@ -345,11 +345,11 @@ public class MetadataTracker extends ActivatableTracker
             }
         }
     }
-    
+
     private void indexTransactions() throws IOException, AuthenticationException, JSONException
     {
         long startElapsed = System.nanoTime();
-        
+
         int docCount = 0;
         boolean requiresCommit = false;
         while (transactionsToIndex.peek() != null)
@@ -429,7 +429,6 @@ public class MetadataTracker extends ActivatableTracker
 
         if(requiresCommit) {
             checkShutdown();
-            //this.infoSrv.commit();
         }
     }
 
@@ -498,13 +497,12 @@ public class MetadataTracker extends ActivatableTracker
         if (docCount > 0)
         {
             checkShutdown();
-            //this.infoSrv.commit();
             long endElapsed = System.nanoTime();
             trackerStats.addElapsedNodeTime(docCount, endElapsed - startElapsed);
         }
     }
 
-    
+
     private void reindexNodes() throws IOException, AuthenticationException, JSONException
     {
         while (nodesToReindex.peek() != null)
@@ -526,7 +524,7 @@ public class MetadataTracker extends ActivatableTracker
             checkShutdown();
         }
     }
-    
+
     private void reindexNodesByQuery() throws IOException, AuthenticationException, JSONException
     {
         boolean requiresCommit = false;
@@ -545,7 +543,6 @@ public class MetadataTracker extends ActivatableTracker
         if(requiresCommit)
         {
             checkShutdown();
-            //this.infoSrv.commit();
         }
     }
 
@@ -572,7 +569,7 @@ public class MetadataTracker extends ActivatableTracker
             }
             checkShutdown();
         }
-        
+
         if(requiresCommit)
         {
             checkShutdown();
@@ -646,7 +643,7 @@ public class MetadataTracker extends ActivatableTracker
                 int maxResults, long endTime)
             throws AuthenticationException, IOException, JSONException, EncoderException, NoSuchMethodException
     {
-        
+
         Transactions transactions;
         // step forward in time until we find something or hit the time bound
         // max id unbounded
@@ -656,7 +653,7 @@ public class MetadataTracker extends ActivatableTracker
             return client.getTransactions(startTime,
                                           null,
                                           startTime + timeStep,
-                                          null, 
+                                          null,
                                           maxResults);
         }
 
@@ -665,7 +662,7 @@ public class MetadataTracker extends ActivatableTracker
             transactions = client.getTransactions(startTime, null, startTime + timeStep,
                     null, maxResults);
             startTime += timeStep;
-            
+
             // If no transactions are found, advance the time window to the next available transaction commit time
             if (nextTxCommitTimeServiceAvailable && transactions.getTransactions().size() == 0)
             {
@@ -839,7 +836,7 @@ public class MetadataTracker extends ActivatableTracker
                     long idTxBatch = System.currentTimeMillis();
                     nodeBatches.addAll(buildBatchOfTransactions(batch, idTrackerCycle, idTxBatch));
                 }
-                
+
                 // Counter used to identify the worker inside the parallel stream processing
                 final AtomicInteger counterBatch = new AtomicInteger(0);
                 long idThread = Thread.currentThread().getId();
@@ -897,7 +894,7 @@ public class MetadataTracker extends ActivatableTracker
             {
                 getWriteLock().release();
             }
-        
+
         }
         while (!reachedLagBoundary && (transactions.getTransactions().size() > 0));
 
@@ -961,9 +958,9 @@ public class MetadataTracker extends ActivatableTracker
      *
      */
     private List<List<Node>> buildBatchOfTransactions(List<Transaction> txBatch, long idTrackerCycle, long idTxBatch)
-            throws AuthenticationException, IOException, JSONException, ExecutionException, InterruptedException 
+            throws AuthenticationException, IOException, JSONException, ExecutionException, InterruptedException
     {
-        
+
         // Skip transactions without modifications (updates, deletes)
         ArrayList<Long> txIds = new ArrayList<>();
         for (Transaction tx : txBatch)
@@ -973,13 +970,13 @@ public class MetadataTracker extends ActivatableTracker
                 txIds.add(tx.getId());
             }
         }
-        
+
         // Skip getting nodes when no transactions left
         if (txIds.size() == 0)
         {
             return Collections.emptyList();
         }
-        
+
         // Get Nodes Id properties for every transaction
         GetNodesParameters gnp = new GetNodesParameters();
         gnp.setTransactionIds(txIds);
@@ -1012,7 +1009,7 @@ public class MetadataTracker extends ActivatableTracker
         long idThread;
         long idTrackerCycle;
         int idWorker;
-        
+
         // Link logger messages to parent Class MetadataTracker
         protected Logger LOGGER = LoggerFactory.getLogger(MetadataTracker.class);
 
@@ -1027,7 +1024,7 @@ public class MetadataTracker extends ActivatableTracker
 
         @Override
         protected void doWork() throws IOException, AuthenticationException, JSONException
-        { 
+        {
             List<Node> filteredNodes = filterNodes(nodes);
             if(filteredNodes.size() > 0)
             {
@@ -1039,7 +1036,7 @@ public class MetadataTracker extends ActivatableTracker
                         idThread, idTrackerCycle, idWorker, coreName);
             }
         }
-        
+
         @Override
         protected void onFail(Throwable failCausedBy)
         {

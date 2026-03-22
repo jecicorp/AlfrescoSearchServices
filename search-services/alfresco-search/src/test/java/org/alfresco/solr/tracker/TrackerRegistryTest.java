@@ -26,6 +26,14 @@
 
 package org.alfresco.solr.tracker;
 
+import org.alfresco.indexing.tracker.Tracker;
+import org.alfresco.indexing.tracker.AclTracker;
+import org.alfresco.indexing.tracker.MetadataTracker;
+import org.alfresco.indexing.tracker.ContentTracker;
+import org.alfresco.indexing.tracker.ModelTracker;
+import org.alfresco.indexing.tracker.TrackerRegistry;
+
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;

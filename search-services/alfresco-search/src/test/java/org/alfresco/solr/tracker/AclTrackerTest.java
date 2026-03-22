@@ -25,10 +25,14 @@
  */
 package org.alfresco.solr.tracker;
 
+import org.alfresco.indexing.server.InformationServer;
+import org.alfresco.indexing.tracker.AclTracker;
+
+
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 
-import static org.alfresco.solr.tracker.AclTracker.INITIAL_MAX_ACL_CHANGE_SET_ID;
+import static org.alfresco.indexing.tracker.AclTracker.INITIAL_MAX_ACL_CHANGE_SET_ID;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -36,7 +40,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.openMocks;
 
 import org.alfresco.error.AlfrescoRuntimeException;
-import org.alfresco.solr.InformationServer;
+import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclChangeSets;

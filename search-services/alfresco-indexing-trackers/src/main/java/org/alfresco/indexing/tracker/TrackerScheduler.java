@@ -4,27 +4,27 @@
  * %%
  * Copyright (C) 2005 - 2020 Alfresco Software Limited
  * %%
- * This file is part of the Alfresco software. 
- * If the software was purchased under a paid Alfresco license, the terms of 
- * the paid license agreement will prevail.  Otherwise, the software is 
+ * This file is part of the Alfresco software.
+ * If the software was purchased under a paid Alfresco license, the terms of
+ * the paid license agreement will prevail.  Otherwise, the software is
  * provided under the following open source license terms:
- * 
+ *
  * Alfresco is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Alfresco is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
 
-package org.alfresco.solr.tracker;
+package org.alfresco.indexing.tracker;
 
 import java.util.Collection;
 import java.util.Properties;
@@ -44,17 +44,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This is a decorator of the Quartz Scheduler object to add Solr-specific functionality.
+ * This is a decorator of the Quartz Scheduler object to add tracker-specific functionality.
  * @author Ahmed Owian
  */
-public class SolrTrackerScheduler
+public class TrackerScheduler
 {
     private static final String DEFAULT_CRON = "0/10 * * * * ? *";
     public static final String SOLR_JOB_GROUP = "Solr";
-    protected final static Logger log = LoggerFactory.getLogger(SolrTrackerScheduler.class);
+    protected final static Logger log = LoggerFactory.getLogger(TrackerScheduler.class);
     protected Scheduler scheduler;
 
-    public SolrTrackerScheduler(String schedulerName)
+    public TrackerScheduler(String schedulerName)
     {
         // TODO: pick scheduler properties from SOLR config or file ...
         try
@@ -75,7 +75,7 @@ public class SolrTrackerScheduler
         }
         catch (SchedulerException e)
         {
-            logError("SolrTrackerScheduler", e);
+            logError("TrackerScheduler", e);
         }
     }
 
@@ -92,7 +92,7 @@ public class SolrTrackerScheduler
 
     /**
      * Schedules individual trackers based on the solrcore properties.
-     * 
+     *
      * @author Michael Suzuki
      * @param tracker the tracker to bo scheduled.
      * @param coreName the owning core name.
@@ -135,7 +135,7 @@ public class SolrTrackerScheduler
             case NODE_STATE_PUBLISHER:
                 cron = getCron(props,"alfresco.nodestate.tracker.cron");
                 break;
-            default: 
+            default:
                 cron = props.getProperty("alfresco.cron",DEFAULT_CRON);
                 break;
             }
@@ -144,7 +144,7 @@ public class SolrTrackerScheduler
             scheduler.scheduleJob(job, trigger);
         }
         catch (SchedulerException e)
-        {   
+        {
             logError("Tracker", e);
         }
     }

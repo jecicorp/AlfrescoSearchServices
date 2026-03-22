@@ -26,6 +26,9 @@
 
 package org.alfresco.solr.tracker;
 
+import org.alfresco.indexing.tracker.AbstractTracker;
+
+
 import org.alfresco.repo.search.adaptor.QueryConstants;
 import org.alfresco.solr.AbstractAlfrescoDistributedIT;
 import org.alfresco.solr.client.Acl;

@@ -47,7 +47,7 @@ import org.alfresco.httpclient.AuthenticationException;
 import org.alfresco.repo.dictionary.M2Model;
 import org.alfresco.repo.dictionary.NamespaceDAO;
 import org.alfresco.service.namespace.QName;
-import org.alfresco.solr.InformationServer;
+import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.client.AlfrescoModel;
 import org.alfresco.solr.client.AlfrescoModelDiff;
 import org.alfresco.solr.client.AlfrescoModelDiff.TYPE;

@@ -4,34 +4,34 @@
  * %%
  * Copyright (C) 2005 - 2020 Alfresco Software Limited
  * %%
- * This file is part of the Alfresco software. 
- * If the software was purchased under a paid Alfresco license, the terms of 
- * the paid license agreement will prevail.  Otherwise, the software is 
+ * This file is part of the Alfresco software.
+ * If the software was purchased under a paid Alfresco license, the terms of
+ * the paid license agreement will prevail.  Otherwise, the software is
  * provided under the following open source license terms:
- * 
+ *
  * Alfresco is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Alfresco is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
 
-package org.alfresco.solr.tracker;
+package org.alfresco.indexing.tracker;
 
 import static java.util.stream.Collectors.joining;
-
-import static org.alfresco.solr.utils.Utils.notNullOrEmpty;
+import static java.util.Collections.emptyList;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -44,8 +44,7 @@ import java.util.concurrent.Semaphore;
 
 import com.google.common.collect.Lists;
 import org.alfresco.httpclient.AuthenticationException;
-import org.alfresco.solr.InformationServer;
-import org.alfresco.solr.SolrInformationServer;
+import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.Transaction;
@@ -110,7 +109,7 @@ public class CascadeTracker extends ActivatableTracker
     protected void doTrack(String iterationId) throws IOException, JSONException
     {
         // MetadataTracker must wait until ModelTracker has run
-        ModelTracker modelTracker = ((SolrInformationServer) this.infoSrv).getAdminHandler().getTrackerRegistry().getModelTracker();
+        ModelTracker modelTracker = this.infoSrv.getTrackerRegistry().getModelTracker();
         if (modelTracker != null && modelTracker.hasModels())
         {
             trackRepository(iterationId);
@@ -156,9 +155,9 @@ public class CascadeTracker extends ActivatableTracker
         {
             this.infoServer.cascadeNodes(nodes, true);
         }
-        
+
         @Override
-        protected void onFail(Throwable failCausedBy) 
+        protected void onFail(Throwable failCausedBy)
         {
             setRollback(true, failCausedBy);
         }
@@ -221,7 +220,8 @@ public class CascadeTracker extends ActivatableTracker
 
                                 if (LOGGER.isTraceEnabled())
                                 {
-                                    String nodes = notNullOrEmpty(batch).stream()
+                                    Collection<NodeMetaData> safeBatch = batch != null ? batch : emptyList();
+                                    String nodes = safeBatch.stream()
                                             .map(NodeMetaData::getId)
                                             .map(Object::toString)
                                             .collect(joining(","));

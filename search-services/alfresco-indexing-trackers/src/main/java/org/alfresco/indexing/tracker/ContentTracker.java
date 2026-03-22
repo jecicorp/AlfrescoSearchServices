@@ -4,36 +4,37 @@
  * %%
  * Copyright (C) 2005 - 2020 Alfresco Software Limited
  * %%
- * This file is part of the Alfresco software. 
- * If the software was purchased under a paid Alfresco license, the terms of 
- * the paid license agreement will prevail.  Otherwise, the software is 
+ * This file is part of the Alfresco software.
+ * If the software was purchased under a paid Alfresco license, the terms of
+ * the paid license agreement will prevail.  Otherwise, the software is
  * provided under the following open source license terms:
- * 
+ *
  * Alfresco is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Alfresco is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
 
-package org.alfresco.solr.tracker;
+package org.alfresco.indexing.tracker;
 
 import com.google.common.collect.Lists;
 import org.alfresco.solr.client.TenantDbId;
-import org.alfresco.solr.InformationServer;
+import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -41,12 +42,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Semaphore;
 
-import static org.alfresco.solr.utils.Utils.notNullOrEmpty;
-
 /**
  * This tracker queries for docs with unclean content, and then updates them.
  * Similar to org.alfresco.repo.search.impl.lucene.ADMLuceneIndexerImpl
- * 
+ *
  * @author Ahmed Owian
  */
 public class ContentTracker extends ActivatableTracker
@@ -58,7 +57,7 @@ public class ContentTracker extends ActivatableTracker
 
     private int contentTrackerParallelism;
     private int contentUpdateBatchSize;
-    
+
     // Share run and write locks across all ContentTracker threads
     private static final Map<String, Semaphore> RUN_LOCK_BY_CORE = new ConcurrentHashMap<>();
     private static final Map<String, Semaphore> WRITE_LOCK_BY_CORE = new ConcurrentHashMap<>();
@@ -92,12 +91,12 @@ public class ContentTracker extends ActivatableTracker
         RUN_LOCK_BY_CORE.put(coreName, new Semaphore(1, true));
         WRITE_LOCK_BY_CORE.put(coreName, new Semaphore(1, true));
     }
-    
+
     ContentTracker()
     {
        super(Tracker.Type.CONTENT);
     }
-    
+
     @Override
     protected void doTrack(String iterationId) throws Exception
     {
@@ -114,7 +113,11 @@ public class ContentTracker extends ActivatableTracker
                 {
                     getWriteLock().acquire();
 
-                    List<TenantDbId> docs = notNullOrEmpty(this.infoSrv.getDocsWithUncleanContent());
+                    List<TenantDbId> docs = this.infoSrv.getDocsWithUncleanContent();
+                    if (docs == null)
+                    {
+                        docs = Collections.emptyList();
+                    }
                     if (docs.isEmpty())
                     {
                         LOGGER.trace("No unclean document has been detected in the current ContentTracker cycle.");
@@ -191,7 +194,7 @@ public class ContentTracker extends ActivatableTracker
 
             infoServer.updateContent(docRef);
         }
-        
+
         @Override
         protected void onFail(Throwable failCausedBy)
         {

@@ -169,6 +169,8 @@ import org.alfresco.solr.client.StringPropertyValue;
 import org.alfresco.solr.client.Transaction;
 import org.alfresco.solr.config.ConfigUtil;
 import org.alfresco.solr.logging.Log;
+import org.alfresco.indexing.server.InformationServer;
+import org.alfresco.indexing.tracker.TrackerRegistry;
 import org.alfresco.solr.tracker.IndexHealthReport;
 import org.alfresco.solr.tracker.TrackerStats;
 import org.alfresco.solr.utils.Utils;
@@ -661,6 +663,12 @@ public class SolrInformationServer implements InformationServer
     public AlfrescoCoreAdminHandler getAdminHandler()
     {
         return this.adminHandler;
+    }
+
+    @Override
+    public TrackerRegistry getTrackerRegistry()
+    {
+        return this.adminHandler != null ? this.adminHandler.getTrackerRegistry() : null;
     }
 
     @Override

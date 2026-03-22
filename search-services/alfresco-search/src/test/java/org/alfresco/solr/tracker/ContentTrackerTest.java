@@ -26,6 +26,10 @@
 
 package org.alfresco.solr.tracker;
 
+import org.alfresco.indexing.tracker.Tracker;
+import org.alfresco.indexing.tracker.ContentTracker;
+
+
 import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;

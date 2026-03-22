@@ -4,27 +4,27 @@
  * %%
  * Copyright (C) 2005 - 2020 Alfresco Software Limited
  * %%
- * This file is part of the Alfresco software. 
- * If the software was purchased under a paid Alfresco license, the terms of 
- * the paid license agreement will prevail.  Otherwise, the software is 
+ * This file is part of the Alfresco software.
+ * If the software was purchased under a paid Alfresco license, the terms of
+ * the paid license agreement will prevail.  Otherwise, the software is
  * provided under the following open source license terms:
- * 
+ *
  * Alfresco is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Alfresco is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
 
-package org.alfresco.solr;
+package org.alfresco.indexing.server;
 
 import java.io.IOException;
 import java.util.List;
@@ -44,8 +44,13 @@ import org.alfresco.solr.client.AlfrescoModel;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.Transaction;
+import org.alfresco.solr.InformationServerCollectionProvider;
+import org.alfresco.solr.AclReport;
+import org.alfresco.solr.NodeReport;
+import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.tracker.IndexHealthReport;
 import org.alfresco.solr.tracker.TrackerStats;
+import org.alfresco.indexing.tracker.TrackerRegistry;
 import org.json.JSONException;
 
 /**
@@ -94,7 +99,7 @@ public interface InformationServer extends InformationServerCollectionProvider
     void maintainCap(long nodeId) throws Exception;
 
     void indexNode(Node node, boolean overwrite) throws IOException, AuthenticationException, JSONException;
-    
+
     void indexNodes(List<Node> nodes, boolean overwrite) throws IOException, AuthenticationException, JSONException;
 
     void cascadeNodes(List<NodeMetaData> nodes, boolean overwrite) throws IOException, AuthenticationException, JSONException;
@@ -170,13 +175,13 @@ public interface InformationServer extends InformationServerCollectionProvider
     IndexHealthReport reportAclTransactionsInIndex(Long minAclTxId, IOpenBitSet aclTxIdsInDb, long maxAclTxId);
 
     int getAclTxDocsSize(String aclTxId, String aclTxCommitTime) throws IOException;
-    
+
     AclChangeSet getMaxAclChangeSetIdAndCommitTimeInIndex();
-    
+
     Transaction getMaxTransactionIdAndCommitTimeInIndex();
 
     void initSkippingDescendantDocs();
-    
+
     void registerTrackerThread();
 
     void unregisterTrackerThread();
@@ -184,9 +189,9 @@ public interface InformationServer extends InformationServerCollectionProvider
     void reindexNodeByQuery(String query) throws IOException, AuthenticationException, JSONException;
 
     int getPort();
-    
+
     String getHostName();
-    
+
     String getBaseUrl();
 
     /**
@@ -195,4 +200,13 @@ public interface InformationServer extends InformationServerCollectionProvider
      * @return true if cascade tracking is enabled (note that this is the default behaviour if not specified in the properties file).
      */
     boolean cascadeTrackingEnabled();
+
+    /**
+     * Returns the TrackerRegistry associated with this InformationServer.
+     * This allows trackers to look up other trackers (e.g. ModelTracker) without
+     * casting to a Solr-specific implementation.
+     *
+     * @return the TrackerRegistry, or null if not yet initialized
+     */
+    TrackerRegistry getTrackerRegistry();
 }

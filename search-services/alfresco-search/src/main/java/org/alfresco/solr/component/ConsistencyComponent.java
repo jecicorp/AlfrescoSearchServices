@@ -27,9 +27,9 @@
 package org.alfresco.solr.component;
 
 import org.alfresco.solr.AlfrescoCoreAdminHandler;
-import org.alfresco.solr.InformationServer;
+import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.TrackerState;
-import org.alfresco.solr.tracker.MetadataTracker;
+import org.alfresco.indexing.tracker.MetadataTracker;
 import org.apache.solr.common.params.ShardParams;
 import org.apache.solr.handler.component.ResponseBuilder;
 import org.apache.solr.handler.component.SearchComponent;

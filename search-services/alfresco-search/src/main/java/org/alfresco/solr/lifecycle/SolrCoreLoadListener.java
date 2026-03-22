@@ -48,15 +48,15 @@ import org.alfresco.solr.SolrKeyResourceLoader;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.SOLRAPIClientFactory;
 import org.alfresco.solr.security.SecretSharedPropertyCollector;
-import org.alfresco.solr.tracker.AclTracker;
-import org.alfresco.solr.tracker.CascadeTracker;
-import org.alfresco.solr.tracker.CommitTracker;
-import org.alfresco.solr.tracker.ContentTracker;
-import org.alfresco.solr.tracker.MetadataTracker;
-import org.alfresco.solr.tracker.ModelTracker;
-import org.alfresco.solr.tracker.SolrTrackerScheduler;
-import org.alfresco.solr.tracker.Tracker;
-import org.alfresco.solr.tracker.TrackerRegistry;
+import org.alfresco.indexing.tracker.AclTracker;
+import org.alfresco.indexing.tracker.CascadeTracker;
+import org.alfresco.indexing.tracker.CommitTracker;
+import org.alfresco.indexing.tracker.ContentTracker;
+import org.alfresco.indexing.tracker.MetadataTracker;
+import org.alfresco.indexing.tracker.ModelTracker;
+import org.alfresco.indexing.tracker.TrackerScheduler;
+import org.alfresco.indexing.tracker.Tracker;
+import org.alfresco.indexing.tracker.TrackerRegistry;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.StrUtils;
 import org.apache.solr.core.AbstractSolrEventListener;
@@ -131,7 +131,7 @@ public class SolrCoreLoadListener extends AbstractSolrEventListener
         coreProperties.putAll(informationServer.getProps());
         admin.getInformationServers().put(core.getName(), informationServer);
 
-        final SolrTrackerScheduler scheduler = admin.getScheduler();
+        final TrackerScheduler scheduler = admin.getScheduler();
 
         // Prevents other threads from registering the ModelTracker at the same time
         // Create model tracker and load all the persisted models
@@ -227,7 +227,7 @@ public class SolrCoreLoadListener extends AbstractSolrEventListener
     List<Tracker> createAndScheduleCoreTrackers(SolrCore core,
                                                 TrackerRegistry trackerRegistry,
                                                 Properties props,
-                                                SolrTrackerScheduler scheduler,
+                                                TrackerScheduler scheduler,
                                                 SOLRAPIClient repositoryClient,
                                                 SolrInformationServer srv)
     {
@@ -290,7 +290,7 @@ public class SolrCoreLoadListener extends AbstractSolrEventListener
      * @param <T> the tracker instance.
      * @return the registered and scheduled tracker instance.
      */
-    private <T extends Tracker> T registerAndSchedule(T tracker, SolrCore core, Properties properties, TrackerRegistry registry, SolrTrackerScheduler scheduler)
+    private <T extends Tracker> T registerAndSchedule(T tracker, SolrCore core, Properties properties, TrackerRegistry registry, TrackerScheduler scheduler)
     {
         registry.register(core.getName(), tracker);
         scheduler.schedule(tracker, core.getName(), properties);
@@ -310,7 +310,7 @@ public class SolrCoreLoadListener extends AbstractSolrEventListener
                                     String solrHome,
                                     SOLRAPIClient repositoryClient,
                                     SolrInformationServer srv,
-                                    SolrTrackerScheduler scheduler)
+                                    TrackerScheduler scheduler)
     {
         ModelTracker mTracker = trackerRegistry.getModelTracker();
         if (mTracker == null)
@@ -365,7 +365,7 @@ public class SolrCoreLoadListener extends AbstractSolrEventListener
      * @param scheduler The scheduler
      * @param coreHasBeenReloaded a flag indicating if we are on a Core RELOAD scenario.
      */
-    void shutdownTrackers(SolrCore core, Collection<Tracker> coreTrackers, SolrTrackerScheduler scheduler, boolean coreHasBeenReloaded)
+    void shutdownTrackers(SolrCore core, Collection<Tracker> coreTrackers, TrackerScheduler scheduler, boolean coreHasBeenReloaded)
     {
         coreTrackers.forEach(tracker -> shutdownTracker(core, tracker, scheduler, coreHasBeenReloaded));
     }
@@ -382,7 +382,7 @@ public class SolrCoreLoadListener extends AbstractSolrEventListener
      * @param scheduler the scheduler.
      * @param coreHasBeenReloaded a flag indicating if we are on a Core RELOAD scenario.
      */
-    private void shutdownTracker(SolrCore core, Tracker tracker, SolrTrackerScheduler scheduler, boolean coreHasBeenReloaded)
+    private void shutdownTracker(SolrCore core, Tracker tracker, TrackerScheduler scheduler, boolean coreHasBeenReloaded)
     {
         // In case of reload the input core is not the owner: the owner is instead the previous (closed) core and we don't have its reference here.
         String coreReference = core.getName() + (coreHasBeenReloaded ? "" : ", instance " + core.hashCode());

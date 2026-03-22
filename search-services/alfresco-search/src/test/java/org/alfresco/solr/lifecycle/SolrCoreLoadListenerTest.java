@@ -29,10 +29,10 @@ package org.alfresco.solr.lifecycle;
 import static java.util.Arrays.asList;
 
 import static org.alfresco.solr.SolrInformationServer.CASCADE_TRACKER_ENABLED;
-import static org.alfresco.solr.tracker.Tracker.Type.ACL;
-import static org.alfresco.solr.tracker.Tracker.Type.CASCADE;
-import static org.alfresco.solr.tracker.Tracker.Type.CONTENT;
-import static org.alfresco.solr.tracker.Tracker.Type.METADATA;
+import static org.alfresco.indexing.tracker.Tracker.Type.ACL;
+import static org.alfresco.indexing.tracker.Tracker.Type.CASCADE;
+import static org.alfresco.indexing.tracker.Tracker.Type.CONTENT;
+import static org.alfresco.indexing.tracker.Tracker.Type.METADATA;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -52,14 +52,14 @@ import java.util.stream.Collectors;
 
 import org.alfresco.solr.SolrInformationServer;
 import org.alfresco.solr.client.SOLRAPIClient;
-import org.alfresco.solr.tracker.AclTracker;
-import org.alfresco.solr.tracker.CascadeTracker;
-import org.alfresco.solr.tracker.ContentTracker;
-import org.alfresco.solr.tracker.MetadataTracker;
-import org.alfresco.solr.tracker.SolrTrackerScheduler;
-import org.alfresco.solr.tracker.Tracker;
-import org.alfresco.solr.tracker.Tracker.Type;
-import org.alfresco.solr.tracker.TrackerRegistry;
+import org.alfresco.indexing.tracker.AclTracker;
+import org.alfresco.indexing.tracker.CascadeTracker;
+import org.alfresco.indexing.tracker.ContentTracker;
+import org.alfresco.indexing.tracker.MetadataTracker;
+import org.alfresco.indexing.tracker.TrackerScheduler;
+import org.alfresco.indexing.tracker.Tracker;
+import org.alfresco.indexing.tracker.Tracker.Type;
+import org.alfresco.indexing.tracker.TrackerRegistry;
 import org.apache.solr.core.SolrConfig;
 import org.apache.solr.core.SolrCore;
 import org.junit.Before;
@@ -84,7 +84,7 @@ public class SolrCoreLoadListenerTest
     private SolrCore core;
 
     @Mock
-    private SolrTrackerScheduler scheduler;
+    private TrackerScheduler scheduler;
 
     @Mock
     private SOLRAPIClient api;

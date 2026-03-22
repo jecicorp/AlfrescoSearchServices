@@ -32,14 +32,15 @@ import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.solr.adapters.IOpenBitSet;
 import org.alfresco.solr.client.SOLRAPIClientFactory;
 import org.alfresco.solr.config.ConfigUtil;
-import org.alfresco.solr.tracker.AbstractTracker;
-import org.alfresco.solr.tracker.AclTracker;
-import org.alfresco.solr.tracker.ActivatableTracker;
+import org.alfresco.indexing.server.InformationServer;
+import org.alfresco.indexing.tracker.AbstractTracker;
+import org.alfresco.indexing.tracker.AclTracker;
+import org.alfresco.indexing.tracker.ActivatableTracker;
 import org.alfresco.solr.tracker.IndexHealthReport;
-import org.alfresco.solr.tracker.MetadataTracker;
-import org.alfresco.solr.tracker.SolrTrackerScheduler;
-import org.alfresco.solr.tracker.Tracker;
-import org.alfresco.solr.tracker.TrackerRegistry;
+import org.alfresco.indexing.tracker.MetadataTracker;
+import org.alfresco.indexing.tracker.TrackerScheduler;
+import org.alfresco.indexing.tracker.Tracker;
+import org.alfresco.indexing.tracker.TrackerRegistry;
 import org.alfresco.solr.utils.Utils;
 import org.alfresco.util.Pair;
 import org.alfresco.util.shard.ExplicitShardingPolicy;
@@ -194,7 +195,7 @@ public class AlfrescoCoreAdminHandler extends CoreAdminHandler
     private static final String ACTION_TX_TO_REINDEX = "txToReindex";
     private static final String ACTION_ACL_CHANGE_SET_TO_REINDEX = "aclChangeSetToReindex";
 
-    private SolrTrackerScheduler scheduler;
+    private TrackerScheduler scheduler;
     TrackerRegistry trackerRegistry;
     ConcurrentHashMap<String, InformationServer> informationServers;
 
@@ -213,7 +214,7 @@ public class AlfrescoCoreAdminHandler extends CoreAdminHandler
 
         trackerRegistry = new TrackerRegistry();
         informationServers = new ConcurrentHashMap<>();
-        this.scheduler = new SolrTrackerScheduler(this.toString());
+        this.scheduler = new TrackerScheduler(this.toString());
 
         String createDefaultCores = ConfigUtil.locateProperty(ALFRESCO_DEFAULTS, "");
         int numShards = Integer.parseInt(ConfigUtil.locateProperty(NUM_SHARDS, "1"));
@@ -1866,7 +1867,7 @@ public class AlfrescoCoreAdminHandler extends CoreAdminHandler
         this.trackerRegistry = trackerRegistry;
     }
 
-    public SolrTrackerScheduler getScheduler()
+    public TrackerScheduler getScheduler()
     {
         return scheduler;
     }

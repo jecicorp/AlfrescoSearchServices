@@ -26,6 +26,12 @@
 
 package org.alfresco.solr.tracker;
 
+import org.alfresco.indexing.tracker.Tracker;
+import org.alfresco.indexing.tracker.MetadataTracker;
+import org.alfresco.indexing.tracker.CommitTracker;
+import org.alfresco.indexing.tracker.TrackerRegistry;
+
+
 import static org.alfresco.solr.AlfrescoSolrUtils.ancestors;
 import static org.alfresco.solr.AlfrescoSolrUtils.getAcl;
 import static org.alfresco.solr.AlfrescoSolrUtils.getAclChangeSet;

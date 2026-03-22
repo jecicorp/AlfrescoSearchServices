@@ -38,9 +38,17 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
+import org.alfresco.indexing.tracker.AclTracker;
+import org.alfresco.indexing.tracker.CascadeTracker;
+import org.alfresco.indexing.tracker.CommitTracker;
+import org.alfresco.indexing.tracker.ContentTracker;
 import org.alfresco.indexing.tracker.DataModelCallback;
+import org.alfresco.indexing.tracker.MetadataTracker;
+import org.alfresco.indexing.tracker.ModelTracker;
+import org.alfresco.indexing.tracker.Tracker;
+import org.alfresco.indexing.tracker.TrackerScheduler;
 import org.alfresco.service.namespace.QName;
-import org.alfresco.solr.InformationServer;
+import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.junit.After;
 import org.junit.Assert;
@@ -61,7 +69,7 @@ import org.quartz.impl.matchers.GroupMatcher;
 @RunWith(MockitoJUnitRunner.class)
 public class SolrTrackerSchedulerTest
 {
-    private SolrTrackerScheduler trackerScheduler;
+    private TrackerScheduler trackerScheduler;
     private String CORE_NAME = "coreName";
     private Scheduler spiedQuartzScheduler;
     @Mock
@@ -73,7 +81,7 @@ public class SolrTrackerSchedulerTest
     @Before
     public void setUp() throws Exception
     {
-        this.trackerScheduler = new SolrTrackerScheduler("testScheduler");
+        this.trackerScheduler = new TrackerScheduler("testScheduler");
         this.spiedQuartzScheduler = spy(this.trackerScheduler.scheduler);
         this.trackerScheduler.scheduler = spiedQuartzScheduler;
         props = new Properties();
@@ -119,7 +127,7 @@ public class SolrTrackerSchedulerTest
     
     private void checkCronExpression(String exp) throws SchedulerException
     {
-        for (JobKey jobKey : this.trackerScheduler.scheduler.getJobKeys(GroupMatcher.jobGroupEquals(SolrTrackerScheduler.SOLR_JOB_GROUP))) 
+        for (JobKey jobKey : this.trackerScheduler.scheduler.getJobKeys(GroupMatcher.jobGroupEquals(TrackerScheduler.SOLR_JOB_GROUP))) 
         {
             List<? extends Trigger> triggers = this.trackerScheduler.scheduler.getTriggersOfJob(jobKey);
             CronTrigger t = (CronTrigger) triggers.get(0);

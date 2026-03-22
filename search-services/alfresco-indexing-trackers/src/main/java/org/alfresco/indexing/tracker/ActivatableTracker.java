@@ -23,9 +23,9 @@
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
-package org.alfresco.solr.tracker;
+package org.alfresco.indexing.tracker;
 
-import org.alfresco.solr.InformationServer;
+import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
