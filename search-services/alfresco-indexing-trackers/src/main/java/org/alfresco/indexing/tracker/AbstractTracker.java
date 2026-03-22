@@ -50,7 +50,7 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class AbstractTracker implements Tracker
 {
-    static final long TIME_STEP_32_DAYS_IN_MS = 1000 * 60 * 60 * 24 * 32L;
+    public static final long TIME_STEP_32_DAYS_IN_MS = 1000 * 60 * 60 * 24 * 32L;
     static final long TIME_STEP_1_HR_IN_MS = 60 * 60 * 1000L;
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractTracker.class);
 

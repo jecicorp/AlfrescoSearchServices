@@ -4,40 +4,31 @@
  * %%
  * Copyright (C) 2005 - 2020 Alfresco Software Limited
  * %%
- * This file is part of the Alfresco software. 
- * If the software was purchased under a paid Alfresco license, the terms of 
- * the paid license agreement will prevail.  Otherwise, the software is 
+ * This file is part of the Alfresco software.
+ * If the software was purchased under a paid Alfresco license, the terms of
+ * the paid license agreement will prevail.  Otherwise, the software is
  * provided under the following open source license terms:
- * 
+ *
  * Alfresco is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Alfresco is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
 
-package org.alfresco.solr.tracker;
-
-import org.alfresco.indexing.tracker.Tracker;
-import org.alfresco.indexing.tracker.AclTracker;
-import org.alfresco.indexing.tracker.MetadataTracker;
-import org.alfresco.indexing.tracker.ContentTracker;
-import org.alfresco.indexing.tracker.ModelTracker;
-import org.alfresco.indexing.tracker.TrackerRegistry;
-
+package org.alfresco.indexing.tracker;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Collection;
@@ -65,7 +56,7 @@ public class TrackerRegistryTest
         reg.register(coreName, metadataTracker);
         reg.register(coreName, modelTracker);
     }
-    
+
     @BeforeClass
     public static void setUpBeforeClass() throws Exception
     {
@@ -80,7 +71,7 @@ public class TrackerRegistryTest
         assertNotNull(coreNames);
         assertTrue(coreNames.contains(CORE_NAME));
         assertEquals(1, coreNames.size());
-        
+
         registerTrackers(CORE2_NAME);
         coreNames = reg.getCoreNames();
         assertNotNull(coreNames);
@@ -99,7 +90,7 @@ public class TrackerRegistryTest
         assertTrue(trackersForCore.contains(contentTracker));
         assertTrue(trackersForCore.contains(modelTracker));
         assertTrue(trackersForCore.contains(metadataTracker));
-        
+
         trackersForCore = reg.getTrackersForCore(NOT_A_CORE_NAME);
         assertTrue(trackersForCore.isEmpty());
     }
@@ -119,7 +110,7 @@ public class TrackerRegistryTest
         assertEquals(metadataTracker, reg.getTrackerForCore(CORE_NAME, MetadataTracker.class));
         assertEquals(modelTracker, reg.getTrackerForCore(CORE_NAME, ModelTracker.class));
     }
-    
+
     @Test
     public void testRemoveTrackersForCore()
     {

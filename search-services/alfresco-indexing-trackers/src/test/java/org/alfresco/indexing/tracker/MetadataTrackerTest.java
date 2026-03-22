@@ -4,33 +4,27 @@
  * %%
  * Copyright (C) 2005 - 2024 Alfresco Software Limited
  * %%
- * This file is part of the Alfresco software. 
- * If the software was purchased under a paid Alfresco license, the terms of 
- * the paid license agreement will prevail.  Otherwise, the software is 
+ * This file is part of the Alfresco software.
+ * If the software was purchased under a paid Alfresco license, the terms of
+ * the paid license agreement will prevail.  Otherwise, the software is
  * provided under the following open source license terms:
- * 
+ *
  * Alfresco is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Alfresco is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
 
-package org.alfresco.solr.tracker;
-
-import org.alfresco.indexing.server.InformationServer;
-import org.alfresco.indexing.tracker.MetadataTracker;
-import org.alfresco.indexing.tracker.ModelTracker;
-import org.alfresco.indexing.tracker.TrackerRegistry;
-
+package org.alfresco.indexing.tracker;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,9 +33,7 @@ import java.util.List;
 import java.util.Properties;
 
 import org.alfresco.httpclient.AuthenticationException;
-import org.alfresco.solr.AlfrescoCoreAdminHandler;
 import org.alfresco.indexing.server.InformationServer;
-import org.alfresco.solr.SolrInformationServer;
 import org.alfresco.solr.NodeReport;
 import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.client.GetNodesParameters;
@@ -49,6 +41,7 @@ import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.Transaction;
 import org.alfresco.solr.client.Transactions;
+import org.alfresco.solr.tracker.TrackerStats;
 import org.apache.commons.codec.EncoderException;
 import org.json.JSONException;
 import org.junit.Before;
@@ -90,7 +83,7 @@ public class MetadataTrackerTest
     private SOLRAPIClient repositoryClient;
 
     @Mock
-    private SolrInformationServer srv;
+    private InformationServer srv;
 
     @Spy
     private Properties props;
@@ -146,7 +139,7 @@ public class MetadataTrackerTest
         Node node = new Node();
         nodes.add(node );
         when(repositoryClient.getNodes(any(GetNodesParameters.class), anyInt())).thenReturn(nodes);
-        
+
         this.metadataTracker.doTrack("AnIterationId");
 
         InOrder inOrder = inOrder(srv);
@@ -182,9 +175,9 @@ public class MetadataTrackerTest
     {
         List<Node> nodes = getNodes();
         when(repositoryClient.getNodes(any(GetNodesParameters.class), eq(1))).thenReturn(nodes);
-        
+
         NodeReport nodeReport = this.metadataTracker.checkNode(DB_ID);
-        
+
         assertNotNull(nodeReport);
         assertEquals(DB_ID, nodeReport.getDbid());
         assertEquals(TX_ID, nodeReport.getDbTx());
@@ -197,15 +190,15 @@ public class MetadataTrackerTest
         nodes.add(node);
         return nodes;
     }
-    
+
     @Test
     @Ignore("Superseded by AlfrescoSolrTrackerTest")
     public void testCheckNodeNode()
     {
         Node node = getNode();
-        
+
         NodeReport nodeReport = this.metadataTracker.checkNode(node);
-        
+
         assertNotNull(nodeReport);
         assertEquals(DB_ID, nodeReport.getDbid());
         assertEquals(TX_ID, nodeReport.getDbTx());
@@ -391,9 +384,11 @@ public class MetadataTrackerTest
 
         TrackerRegistry registry = new TrackerRegistry();
         registry.setModelTracker(modelTracker);
-        AlfrescoCoreAdminHandler alfrescoCoreAdminHandler = mock(AlfrescoCoreAdminHandler.class);
-        when(this.srv.getAdminHandler()).thenReturn(alfrescoCoreAdminHandler);
-        when(alfrescoCoreAdminHandler.getTrackerRegistry()).thenReturn(registry);
+        when(this.srv.getTrackerRegistry()).thenReturn(registry);
+
+        // Ensure the tracker's internal state field is also the test state
+        // (super.getTrackerState() reads the field directly, bypassing the spy stub)
+        metadataTracker.state = state;
 
         List<Transaction> txsList = new ArrayList<>();
         Transaction tx1 = new Transaction();

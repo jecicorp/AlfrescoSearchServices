@@ -4,31 +4,27 @@
  * %%
  * Copyright (C) 2005 - 2022 Alfresco Software Limited
  * %%
- * This file is part of the Alfresco software. 
- * If the software was purchased under a paid Alfresco license, the terms of 
- * the paid license agreement will prevail.  Otherwise, the software is 
+ * This file is part of the Alfresco software.
+ * If the software was purchased under a paid Alfresco license, the terms of
+ * the paid license agreement will prevail.  Otherwise, the software is
  * provided under the following open source license terms:
- * 
+ *
  * Alfresco is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Alfresco is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
 
-package org.alfresco.solr.tracker;
-
-import org.alfresco.indexing.tracker.Tracker;
-import org.alfresco.indexing.tracker.ContentTracker;
-
+package org.alfresco.indexing.tracker;
 
 import static org.mockito.Mockito.*;
 
@@ -37,8 +33,9 @@ import java.util.List;
 import java.util.Properties;
 
 import org.alfresco.solr.client.TenantDbId;
-import org.alfresco.solr.SolrInformationServer;
+import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.client.SOLRAPIClient;
+import org.alfresco.solr.tracker.TrackerStats;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -53,12 +50,12 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class ContentTrackerTest
 {
     private ContentTracker contentTracker;
-    
+
     @Mock
     private SOLRAPIClient repositoryClient;
     private String coreName = "theCoreName";
     @Mock
-    private SolrInformationServer srv;
+    private InformationServer srv;
     @Spy
     private Properties props;
     @Mock
@@ -73,7 +70,7 @@ public class ContentTrackerTest
         doReturn("" + UPDATE_BATCH).when(props).getProperty(eq("alfresco.contentUpdateBatchSize"), anyString());
         when(srv.getTrackerStats()).thenReturn(trackerStats);
         this.contentTracker = new ContentTracker(props, repositoryClient, coreName, srv);
-       
+
     }
 
     @Test
@@ -118,10 +115,10 @@ public class ContentTrackerTest
                 .thenReturn(docs2)
             .thenReturn(emptyList);
         this.contentTracker.doTrack("anIterationId");
-        
+
         InOrder order = inOrder(srv);
         order.verify(srv).getDocsWithUncleanContent();
-        
+
         /*
          * I had to make each bunch of calls have different parameters to prevent Mockito from incorrectly failing
          * because it was finding 5 calls instead of finding the first two calls, then the commit, then the rest...
@@ -140,16 +137,16 @@ public class ContentTrackerTest
         // The one extra doc should be processed and then committed
         order.verify(srv).updateContent(thirdDoc);
         order.verify(srv).commit();
-        
+
         order.verify(srv).getDocsWithUncleanContent();
-        
+
         // From docs2
         docRef = new TenantDbId();
         docRef.dbId = 2L;
         docRef.tenant = "2";
         order.verify(srv, times(UPDATE_BATCH)).updateContent(docRef);
         order.verify(srv).commit();
-        
+
         order.verify(srv).getDocsWithUncleanContent();
     }
     @Test

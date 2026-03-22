@@ -23,17 +23,7 @@
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
-package org.alfresco.solr.tracker;
-
-import org.alfresco.indexing.server.InformationServer;
-import org.alfresco.indexing.tracker.ActivatableTracker;
-import org.alfresco.indexing.tracker.AclTracker;
-import org.alfresco.indexing.tracker.MetadataTracker;
-import org.alfresco.indexing.tracker.ContentTracker;
-import org.alfresco.indexing.tracker.CascadeTracker;
-import org.alfresco.indexing.tracker.CommitTracker;
-import org.alfresco.indexing.tracker.ModelTracker;
-
+package org.alfresco.indexing.tracker;
 
 import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.TrackerState;
