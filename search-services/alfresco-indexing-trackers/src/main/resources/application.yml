@@ -15,6 +15,7 @@ alfresco:
       cascade: "0/10 * * * * ?"
     batch-count: 5000
     cascade-tracking-enabled: true
+    solr-home: /opt/solr/data
 
 server:
   port: 8085

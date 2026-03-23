@@ -76,14 +76,14 @@ public class RepositoryClientConfig
         // Batch / tracker properties
         p.setProperty("alfresco.batch.count", String.valueOf(props.getBatchCount()));
 
-        // Cron schedules — trackers read these from Properties
+        // Cron schedules — keyed as TrackerScheduler expects them
         TrackerProperties.CronConfig cron = props.getCron();
-        p.setProperty("alfresco.cron.metadata", cron.getMetadata());
-        p.setProperty("alfresco.cron.acl", cron.getAcl());
-        p.setProperty("alfresco.cron.content", cron.getContent());
-        p.setProperty("alfresco.cron.commit", cron.getCommit());
-        p.setProperty("alfresco.cron.model", cron.getModel());
-        p.setProperty("alfresco.cron.cascade", cron.getCascade());
+        p.setProperty("alfresco.metadata.tracker.cron", cron.getMetadata());
+        p.setProperty("alfresco.acl.tracker.cron", cron.getAcl());
+        p.setProperty("alfresco.content.tracker.cron", cron.getContent());
+        p.setProperty("alfresco.commit.tracker.cron", cron.getCommit());
+        p.setProperty("alfresco.model.tracker.cron", cron.getModel());
+        p.setProperty("alfresco.cascade.tracker.cron", cron.getCascade());
         p.setProperty("alfresco.cascade.tracker.enabled", String.valueOf(props.isCascadeTrackingEnabled()));
 
         LOGGER.info("Repository client configured for {} (secureComms={})",
