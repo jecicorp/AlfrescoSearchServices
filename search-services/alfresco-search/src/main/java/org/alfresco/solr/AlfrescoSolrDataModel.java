@@ -1365,7 +1365,7 @@ public class AlfrescoSolrDataModel implements QueryConstants
         dictionaryDAO.removeModel(modelQName);
     }
 
-    M2Model getM2Model(QName modelQName)
+    public M2Model getM2Model(QName modelQName)
     {
         return dictionaryDAO.getCompiledModel(modelQName).getM2Model();
     }
@@ -1470,7 +1470,7 @@ public class AlfrescoSolrDataModel implements QueryConstants
                 .collect(Collectors.toList());
     }
 
-    Map<String, Set<String>> getModelErrors()
+    public Map<String, Set<String>> getModelErrors()
     {
         return modelErrors;
     }

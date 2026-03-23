@@ -1868,6 +1868,9 @@
   <searchComponent name="consistencyComponent"     class="org.alfresco.solr.component.ConsistencyComponent" />
   <searchComponent name="fingerprint" class="org.alfresco.solr.component.FingerPrintComponent"/>
 
+  <!-- Handler for remote model management (used by remote trackers). -->
+  <requestHandler name="/alfresco/models" class="org.alfresco.solr.handler.ModelUpdateRequestHandler" />
+
   <!-- Handler for liveliness probe. -->
   <requestHandler name="/admin/ping" class="solr.PingRequestHandler">
     <lst name="invariants">
