@@ -23,25 +23,20 @@
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
  */
-package org.alfresco.indexing;
+package org.alfresco.indexing.config;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-import org.alfresco.indexing.config.TrackerProperties;
-
-/**
- * Spring Boot entry point for the Alfresco Indexing Trackers standalone service.
- */
-@SpringBootApplication(exclude = {
-    org.springframework.boot.autoconfigure.quartz.QuartzAutoConfiguration.class
-})
-@EnableConfigurationProperties(TrackerProperties.class)
-public class TrackerApplication
+@Configuration
+public class SolrJConfig
 {
-    public static void main(String[] args)
+    @Bean
+    public SolrClient solrClient(TrackerProperties props)
     {
-        SpringApplication.run(TrackerApplication.class, args);
+        return new HttpSolrClient.Builder(props.getSolr().getUrl())
+            .build();
     }
 }

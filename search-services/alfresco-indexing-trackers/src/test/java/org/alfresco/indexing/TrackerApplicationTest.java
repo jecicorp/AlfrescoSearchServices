@@ -25,23 +25,21 @@
  */
 package org.alfresco.indexing;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
 
-import org.alfresco.indexing.config.TrackerProperties;
-
-/**
- * Spring Boot entry point for the Alfresco Indexing Trackers standalone service.
- */
-@SpringBootApplication(exclude = {
-    org.springframework.boot.autoconfigure.quartz.QuartzAutoConfiguration.class
-})
-@EnableConfigurationProperties(TrackerProperties.class)
-public class TrackerApplication
+@RunWith(SpringRunner.class)
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.NONE,
+    properties = {"spring.main.lazy-initialization=true"}
+)
+public class TrackerApplicationTest
 {
-    public static void main(String[] args)
+    @Test
+    public void contextLoads()
     {
-        SpringApplication.run(TrackerApplication.class, args);
+        // Verifies Spring context starts without errors
     }
 }
