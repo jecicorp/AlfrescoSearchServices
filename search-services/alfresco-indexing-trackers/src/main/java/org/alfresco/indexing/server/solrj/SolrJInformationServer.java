@@ -136,43 +136,43 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public void indexAclTransaction(AclChangeSet changeSet, boolean overwrite) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: indexAclTransaction");
+        indexingService.indexAclTransaction(changeSet, overwrite);
     }
 
     @Override
     public void indexTransaction(Transaction info, boolean overwrite) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: indexTransaction");
+        indexingService.indexTransaction(info, overwrite);
     }
 
     @Override
     public void deleteByTransactionId(Long transactionId) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: deleteByTransactionId");
+        indexingService.deleteByTransactionId(transactionId);
     }
 
     @Override
     public void deleteByAclChangeSetId(Long aclChangeSetId) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: deleteByAclChangeSetId");
+        indexingService.deleteByAclChangeSetId(aclChangeSetId);
     }
 
     @Override
     public void deleteByAclId(Long aclId) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: deleteByAclId");
+        indexingService.deleteByAclId(aclId);
     }
 
     @Override
     public void deleteByNodeId(Long nodeId) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: deleteByNodeId");
+        indexingService.deleteByNodeId(nodeId);
     }
 
     @Override
     public void capIndex(long nodeId) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: capIndex");
+        indexingService.capIndex(nodeId);
     }
 
     @Override
@@ -202,25 +202,25 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public void maintainCap(long nodeId) throws Exception
     {
-        throw new UnsupportedOperationException("Not yet implemented: maintainCap");
+        indexingService.maintainCap(nodeId);
     }
 
     @Override
     public void indexNode(Node node, boolean overwrite) throws IOException, AuthenticationException, JSONException
     {
-        throw new UnsupportedOperationException("Not yet implemented: indexNode");
+        indexingService.indexNode(node, overwrite);
     }
 
     @Override
     public void indexNodes(List<Node> nodes, boolean overwrite) throws IOException, AuthenticationException, JSONException
     {
-        throw new UnsupportedOperationException("Not yet implemented: indexNodes");
+        indexingService.indexNodes(nodes, overwrite);
     }
 
     @Override
     public void cascadeNodes(List<NodeMetaData> nodes, boolean overwrite) throws IOException, AuthenticationException, JSONException
     {
-        throw new UnsupportedOperationException("Not yet implemented: cascadeNodes");
+        indexingService.cascadeNodes(nodes, overwrite);
     }
 
     @Override
@@ -232,7 +232,7 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public long indexAcl(List<AclReaders> aclReaderList, boolean overwrite) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: indexAcl");
+        return indexingService.indexAcl(aclReaderList, overwrite);
     }
 
     @Override
@@ -400,7 +400,7 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public void updateContent(TenantDbId docRef) throws Exception
     {
-        throw new UnsupportedOperationException("Not yet implemented: updateContent");
+        indexingService.updateContent(docRef);
     }
 
     @Override
@@ -460,7 +460,7 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public void reindexNodeByQuery(String query) throws IOException, AuthenticationException, JSONException
     {
-        throw new UnsupportedOperationException("Not yet implemented: reindexNodeByQuery");
+        indexingService.reindexNodeByQuery(query);
     }
 
     @Override
