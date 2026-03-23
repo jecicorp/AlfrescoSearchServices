@@ -68,6 +68,9 @@ public class SolrDocumentMapper
     public static final String FIELD_DENIED = "DENIED";
     public static final String FIELD_CASCADE_FLAG = "int@s_@cascade";
     public static final String FIELD_S_INTXID = "S_INTXID";
+    public static final String FIELD_S_ACLTXID = "S_ACLTXID";
+    public static final String FIELD_S_INACLTXID = "S_INACLTXID";
+    public static final String FIELD_S_ACLTXCOMMITTIME = "S_ACLTXCOMMITTIME";
 
     // ---------------------------------------------------------------------------
     // Document type constants — values from SolrInformationServer

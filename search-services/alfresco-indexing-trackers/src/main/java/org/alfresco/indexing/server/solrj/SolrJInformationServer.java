@@ -73,6 +73,11 @@ public class SolrJInformationServer implements InformationServer
     private final SolrJQueryService queryService;
     private final SolrJModelService modelService;
 
+    private final long lag;
+    private final long holeRetention;
+
+    private final TrackerStats trackerStats;
+
     public SolrJInformationServer(SolrClient solrClient, String collection,
                                   Properties props, DataModelCallback dataModelCallback)
     {
@@ -80,6 +85,11 @@ public class SolrJInformationServer implements InformationServer
         this.collection = collection;
         this.props = props;
         this.dataModelCallback = dataModelCallback;
+
+        this.lag = Long.parseLong(props.getProperty("alfresco.lag", "1000"));
+        this.holeRetention = Long.parseLong(props.getProperty("alfresco.hole.retention", "3600000"));
+
+        this.trackerStats = new TrackerStats(this);
 
         this.indexingService = new SolrJIndexingService(solrClient, collection);
         this.commitService = new SolrJCommitService(solrClient, collection);
@@ -112,7 +122,9 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public void dirtyTransaction(long txnId)
     {
-        throw new UnsupportedOperationException("Not yet implemented: dirtyTransaction");
+        // In the embedded implementation, this clears local content/cascade caches.
+        // In SolrJ mode, content tracking caches are managed differently.
+        // No-op for now.
     }
 
     @Override
@@ -178,25 +190,25 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public long getIndexCap() throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: getIndexCap");
+        return queryService.getIndexCap();
     }
 
     @Override
     public long nodeCount() throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: nodeCount");
+        return queryService.nodeCount();
     }
 
     @Override
     public long maxNodeId() throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: maxNodeId");
+        return queryService.maxNodeId();
     }
 
     @Override
     public long minNodeId() throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: minNodeId");
+        return queryService.minNodeId();
     }
 
     @Override
@@ -226,7 +238,9 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public List<NodeMetaData> getCascadeNodes(List<Long> txnIds) throws AuthenticationException, IOException, JSONException
     {
-        throw new UnsupportedOperationException("Not yet implemented: getCascadeNodes");
+        // Cascade node lookup requires fetching node metadata from the repository.
+        // This is delegated to the tracker's repository client, not the index query service.
+        throw new UnsupportedOperationException("Not yet implemented: getCascadeNodes requires repository client");
     }
 
     @Override
@@ -238,97 +252,99 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public TrackerState getTrackerInitialState()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getTrackerInitialState");
+        return queryService.getTrackerInitialState(lag, holeRetention);
     }
 
     @Override
     public void continueState(TrackerState state)
     {
-        throw new UnsupportedOperationException("Not yet implemented: continueState");
+        queryService.continueState(state, lag, holeRetention);
     }
 
     @Override
     public int getTxDocsSize(String targetTxId, String targetTxCommitTime) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: getTxDocsSize");
+        return queryService.getTxDocsSize(targetTxId, targetTxCommitTime);
     }
 
     @Override
     public int getRegisteredSearcherCount()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getRegisteredSearcherCount");
+        // Not meaningful via SolrJ — Solr manages searchers internally
+        return 0;
     }
 
     @Override
     public boolean txnInIndex(long txnId, boolean populateCache) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: txnInIndex");
+        return queryService.txnInIndex(txnId, populateCache);
     }
 
     @Override
     public boolean aclChangeSetInIndex(long changeSetId, boolean populateCache) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: aclChangeSetInIndex");
+        return queryService.aclChangeSetInIndex(changeSetId, populateCache);
     }
 
     @Override
     public List<Transaction> getCascades(int num) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: getCascades");
+        return queryService.getCascades(num);
     }
 
     @Override
     public void updateTransaction(Transaction txn) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: updateTransaction");
+        indexingService.indexTransaction(txn, true);
     }
 
     @Override
     public void clearProcessedTransactions()
     {
-        throw new UnsupportedOperationException("Not yet implemented: clearProcessedTransactions");
+        queryService.clearProcessedTransactions();
     }
 
     @Override
     public void clearProcessedAclChangeSets()
     {
-        throw new UnsupportedOperationException("Not yet implemented: clearProcessedAclChangeSets");
+        queryService.clearProcessedAclChangeSets();
     }
 
     @Override
     public boolean isInIndex(String id) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: isInIndex");
+        return queryService.isInIndex(id);
     }
 
     @Override
     public void setCleanContentTxnFloor(long cleanContentTxnFloor)
     {
-        throw new UnsupportedOperationException("Not yet implemented: setCleanContentTxnFloor");
+        // Content tracking cache management — no-op in SolrJ mode,
+        // content tracking is handled differently.
     }
 
     @Override
     public void setCleanCascadeTxnFloor(long cleanCascadeTxnFloor)
     {
-        throw new UnsupportedOperationException("Not yet implemented: setCleanCascadeTxnFloor");
+        // Cascade tracking cache management — no-op in SolrJ mode.
     }
 
     @Override
     public Set<Long> getErrorDocIds() throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: getErrorDocIds");
+        return queryService.getErrorDocIds();
     }
 
     @Override
     public Iterable<Map.Entry<String, Object>> getCoreStats() throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: getCoreStats");
+        return queryService.getCoreStats();
     }
 
     @Override
     public TrackerStats getTrackerStats()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getTrackerStats");
+        return trackerStats;
     }
 
     @Override
@@ -376,25 +392,32 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public long getHoleRetention()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getHoleRetention");
+        return holeRetention;
     }
 
     @Override
     public AclReport checkAclInIndex(Long aclid, AclReport aclReport)
     {
-        throw new UnsupportedOperationException("Not yet implemented: checkAclInIndex");
+        try
+        {
+            return queryService.checkAclInIndex(aclid, aclReport);
+        }
+        catch (IOException e)
+        {
+            throw new RuntimeException("Failed to check ACL in index", e);
+        }
     }
 
     @Override
     public IndexHealthReport reportIndexTransactions(Long minTxId, IOpenBitSet txIdsInDb, long maxTxId) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: reportIndexTransactions");
+        return queryService.reportIndexTransactions(minTxId, txIdsInDb, maxTxId, this);
     }
 
     @Override
     public List<TenantDbId> getDocsWithUncleanContent() throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: getDocsWithUncleanContent");
+        return queryService.getDocsWithUncleanContent();
     }
 
     @Override
@@ -406,55 +429,87 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public void addCommonNodeReportInfo(NodeReport nodeReport)
     {
-        throw new UnsupportedOperationException("Not yet implemented: addCommonNodeReportInfo");
+        try
+        {
+            queryService.addCommonNodeReportInfo(nodeReport);
+        }
+        catch (IOException e)
+        {
+            throw new RuntimeException("Failed to add common node report info", e);
+        }
     }
 
     @Override
     public void addContentOutdatedAndUpdatedCounts(Map<String, Object> report)
     {
-        throw new UnsupportedOperationException("Not yet implemented: addContentOutdatedAndUpdatedCounts");
+        // Content versioning stats are not available via SolrJ in the same way.
+        // This is a no-op for now.
     }
 
     @Override
     public IndexHealthReport reportAclTransactionsInIndex(Long minAclTxId, IOpenBitSet aclTxIdsInDb, long maxAclTxId)
     {
-        throw new UnsupportedOperationException("Not yet implemented: reportAclTransactionsInIndex");
+        try
+        {
+            return queryService.reportAclTransactionsInIndex(minAclTxId, aclTxIdsInDb, maxAclTxId, this);
+        }
+        catch (IOException e)
+        {
+            throw new RuntimeException("Failed to report ACL transactions in index", e);
+        }
     }
 
     @Override
     public int getAclTxDocsSize(String aclTxId, String aclTxCommitTime) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: getAclTxDocsSize");
+        return queryService.getAclTxDocsSize(aclTxId, aclTxCommitTime);
     }
 
     @Override
     public AclChangeSet getMaxAclChangeSetIdAndCommitTimeInIndex()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getMaxAclChangeSetIdAndCommitTimeInIndex");
+        try
+        {
+            return queryService.getMaxAclChangeSetIdAndCommitTimeInIndex();
+        }
+        catch (IOException e)
+        {
+            throw new RuntimeException("Failed to get max ACL changeset", e);
+        }
     }
 
     @Override
     public Transaction getMaxTransactionIdAndCommitTimeInIndex()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getMaxTransactionIdAndCommitTimeInIndex");
+        try
+        {
+            return queryService.getMaxTransactionIdAndCommitTimeInIndex();
+        }
+        catch (IOException e)
+        {
+            throw new RuntimeException("Failed to get max transaction", e);
+        }
     }
 
     @Override
     public void initSkippingDescendantDocs()
     {
-        throw new UnsupportedOperationException("Not yet implemented: initSkippingDescendantDocs");
+        // Skipping descendant docs is configured via core properties and the data model.
+        // In SolrJ mode, this is handled server-side. No-op.
     }
 
     @Override
     public void registerTrackerThread()
     {
-        throw new UnsupportedOperationException("Not yet implemented: registerTrackerThread");
+        // In the embedded implementation, this registers the current thread for
+        // rollback protection. In SolrJ mode, rollback is handled via the commit service.
+        // No-op.
     }
 
     @Override
     public void unregisterTrackerThread()
     {
-        throw new UnsupportedOperationException("Not yet implemented: unregisterTrackerThread");
+        // See registerTrackerThread(). No-op in SolrJ mode.
     }
 
     @Override
@@ -484,7 +539,7 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public boolean cascadeTrackingEnabled()
     {
-        throw new UnsupportedOperationException("Not yet implemented: cascadeTrackingEnabled");
+        return Boolean.parseBoolean(props.getProperty("alfresco.cascade.tracker.enabled", "true"));
     }
 
     @Override
