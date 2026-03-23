@@ -505,6 +505,70 @@ public class SolrJQueryService
         return transactions;
     }
 
+    /**
+     * Returns the set of parent node DB IDs that have the cascade flag set for any of the given transaction IDs.
+     *
+     * <p>This is the first half of {@code getCascadeNodes}: it queries the index for node documents
+     * flagged for cascade update (cascade flag = txnId) for the given transaction IDs, and returns
+     * the set of DBID values. The caller is responsible for fetching node metadata from the repository.</p>
+     *
+     * <p>Mirrors the Lucene query logic in
+     * {@code SolrInformationServer.getCascadeNodes(List)} that uses
+     * {@code PROP_CASCADE_TX} field.</p>
+     *
+     * @param txnIds the transaction IDs to look up
+     * @return set of node DB IDs that need cascade updates
+     * @throws IOException if the Solr query fails
+     */
+    public Set<Long> getCascadeNodeIds(List<Long> txnIds) throws IOException
+    {
+        Set<Long> nodeIds = new HashSet<>();
+        if (txnIds == null || txnIds.isEmpty())
+        {
+            return nodeIds;
+        }
+
+        try
+        {
+            // Build a Solr OR query: int@s_@cascade:(txnId1 OR txnId2 OR ...)
+            StringBuilder queryBuilder = new StringBuilder();
+            queryBuilder.append(FIELD_CASCADE_FLAG).append(":(");
+            for (int i = 0; i < txnIds.size(); i++)
+            {
+                if (i > 0)
+                {
+                    queryBuilder.append(" OR ");
+                }
+                queryBuilder.append(txnIds.get(i));
+            }
+            queryBuilder.append(")");
+            queryBuilder.append(AND).append(FIELD_DOC_TYPE).append(":").append(DOC_TYPE_NODE);
+
+            SolrQuery query = new SolrQuery(queryBuilder.toString());
+            query.setRows(Integer.MAX_VALUE);
+            query.setFields(FIELD_DBID);
+
+            QueryResponse response = solrClient.query(collection, query);
+            SolrDocumentList docs = response.getResults();
+            if (docs != null)
+            {
+                for (SolrDocument doc : docs)
+                {
+                    Object dbidValue = doc.getFieldValue(FIELD_DBID);
+                    if (dbidValue instanceof Number)
+                    {
+                        nodeIds.add(((Number) dbidValue).longValue());
+                    }
+                }
+            }
+        }
+        catch (SolrServerException e)
+        {
+            throw new IOException("Failed to get cascade node IDs for txnIds " + txnIds, e);
+        }
+        return nodeIds;
+    }
+
     // -------------------------------------------------------------------------
     // Health check / ACL check
     // -------------------------------------------------------------------------

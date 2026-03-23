@@ -27,6 +27,8 @@
 package org.alfresco.indexing.server.solrj;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -50,12 +52,16 @@ import org.alfresco.solr.client.AclReaders;
 import org.alfresco.solr.client.AlfrescoModel;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.NodeMetaData;
+import org.alfresco.solr.client.NodeMetaDataParameters;
+import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.solr.client.Transaction;
 import org.alfresco.solr.tracker.IndexHealthReport;
 import org.alfresco.solr.tracker.TrackerStats;
 import org.apache.solr.client.solrj.SolrClient;
 import org.json.JSONException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation of {@link InformationServer} that communicates with Solr
@@ -63,10 +69,15 @@ import org.json.JSONException;
  */
 public class SolrJInformationServer implements InformationServer
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SolrJInformationServer.class);
+
     private final SolrClient solrClient;
     private final String collection;
     private final Properties props;
     private final DataModelCallback dataModelCallback;
+
+    /** Repository client used for node metadata lookups (e.g. getCascadeNodes). May be null. */
+    private final SOLRAPIClient repositoryClient;
 
     private final SolrJIndexingService indexingService;
     private final SolrJCommitService commitService;
@@ -78,13 +89,27 @@ public class SolrJInformationServer implements InformationServer
 
     private final TrackerStats trackerStats;
 
+    /**
+     * Registry of all trackers. Set after construction via {@link #setTrackerRegistry(TrackerRegistry)}
+     * because the registry is typically built after this server is created and trackers are registered.
+     */
+    private TrackerRegistry trackerRegistry;
+
     public SolrJInformationServer(SolrClient solrClient, String collection,
                                   Properties props, DataModelCallback dataModelCallback)
+    {
+        this(solrClient, collection, props, dataModelCallback, null);
+    }
+
+    public SolrJInformationServer(SolrClient solrClient, String collection,
+                                  Properties props, DataModelCallback dataModelCallback,
+                                  SOLRAPIClient repositoryClient)
     {
         this.solrClient = solrClient;
         this.collection = collection;
         this.props = props;
         this.dataModelCallback = dataModelCallback;
+        this.repositoryClient = repositoryClient;
 
         this.lag = Long.parseLong(props.getProperty("alfresco.lag", "1000"));
         this.holeRetention = Long.parseLong(props.getProperty("alfresco.hole.retention", "3600000"));
@@ -95,6 +120,19 @@ public class SolrJInformationServer implements InformationServer
         this.commitService = new SolrJCommitService(solrClient, collection);
         this.queryService = new SolrJQueryService(solrClient, collection);
         this.modelService = new SolrJModelService(solrClient, collection);
+    }
+
+    /**
+     * Sets the tracker registry. Must be called after all trackers have been registered.
+     * Used by {@link org.alfresco.indexing.tracker.MetadataTracker} and
+     * {@link org.alfresco.indexing.tracker.CascadeTracker} to check if
+     * {@link org.alfresco.indexing.tracker.ModelTracker} has loaded models.
+     *
+     * @param trackerRegistry the tracker registry
+     */
+    public void setTrackerRegistry(TrackerRegistry trackerRegistry)
+    {
+        this.trackerRegistry = trackerRegistry;
     }
 
     // --- InformationServerCollectionProvider methods ---
@@ -238,9 +276,51 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public List<NodeMetaData> getCascadeNodes(List<Long> txnIds) throws AuthenticationException, IOException, JSONException
     {
-        // Cascade node lookup requires fetching node metadata from the repository.
-        // This is delegated to the tracker's repository client, not the index query service.
-        throw new UnsupportedOperationException("Not yet implemented: getCascadeNodes requires repository client");
+        // Step 1: Query the index for node IDs that have cascade-flag set for the given txnIds.
+        Set<Long> parentNodeIds = queryService.getCascadeNodeIds(txnIds);
+
+        if (parentNodeIds.isEmpty())
+        {
+            return new ArrayList<>();
+        }
+
+        // Step 2: Fetch node metadata from the repository for those node IDs.
+        if (repositoryClient == null)
+        {
+            LOGGER.warn("getCascadeNodes: repositoryClient is null — cannot fetch node metadata. " +
+                    "Pass a SOLRAPIClient to the SolrJInformationServer constructor. " +
+                    "Found {} candidate node IDs but returning empty list.", parentNodeIds.size());
+            return new ArrayList<>();
+        }
+
+        List<NodeMetaData> allNodeMetaDatas = new ArrayList<>();
+        for (Long parentNodeId : parentNodeIds)
+        {
+            NodeMetaDataParameters nmdp = new NodeMetaDataParameters();
+            nmdp.setFromNodeId(parentNodeId);
+            nmdp.setToNodeId(parentNodeId);
+            nmdp.setIncludeAclId(true);
+            nmdp.setIncludeChildAssociations(false);
+            nmdp.setIncludeChildIds(true);
+            nmdp.setIncludeOwner(false);
+            nmdp.setIncludeParentAssociations(false);
+            nmdp.setIncludePaths(true);
+            nmdp.setIncludeProperties(false);
+            nmdp.setIncludeTxnId(true);
+            try
+            {
+                List<NodeMetaData> metaDatas = repositoryClient.getNodesMetaData(nmdp);
+                if (metaDatas != null)
+                {
+                    allNodeMetaDatas.addAll(metaDatas);
+                }
+            }
+            catch (Exception e)
+            {
+                LOGGER.error("Failed to fetch metadata for cascade node {}: {}", parentNodeId, e.getMessage(), e);
+            }
+        }
+        return allNodeMetaDatas;
     }
 
     @Override
@@ -353,22 +433,46 @@ public class SolrJInformationServer implements InformationServer
         return modelService.getModelErrors();
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p><strong>Architecture note:</strong> {@code DictionaryComponent} is backed by
+     * {@code AlfrescoSolrDataModel}, a Solr-core-embedded singleton.
+     * It is not transferable over a SolrJ connection.
+     * {@code ModelTracker.expandQNameImpl()} calls this to resolve namespace prefixes —
+     * that code path is incompatible with remote (SolrJ) mode.
+     * The caller must not invoke this method in remote mode.</p>
+     *
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public DictionaryComponent getDictionaryService(String alternativeDictionary)
     {
-        // DictionaryComponent is a complex in-process object backed by AlfrescoSolrDataModel.
-        // It is not available remotely via SolrJ — trackers must not call this in remote mode.
         throw new UnsupportedOperationException(
-                "getDictionaryService is not available in remote (SolrJ) mode");
+                "getDictionaryService is not available in remote (SolrJ) mode: " +
+                "DictionaryComponent is backed by AlfrescoSolrDataModel (Solr-embedded singleton). " +
+                "ModelTracker namespace expansion is not supported in this mode.");
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p><strong>Architecture note:</strong> {@code NamespaceDAO} is backed by
+     * {@code AlfrescoSolrDataModel}, a Solr-core-embedded singleton.
+     * It is not transferable over a SolrJ connection.
+     * {@code ModelTracker.expandQNameImpl()} and {@code removeMatchingModels()} call this —
+     * those code paths are incompatible with remote (SolrJ) mode.
+     * The caller must not invoke this method in remote mode.</p>
+     *
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public NamespaceDAO getNamespaceDAO()
     {
-        // NamespaceDAO is a complex in-process object backed by AlfrescoSolrDataModel.
-        // It is not available remotely via SolrJ — trackers must not call this in remote mode.
         throw new UnsupportedOperationException(
-                "getNamespaceDAO is not available in remote (SolrJ) mode");
+                "getNamespaceDAO is not available in remote (SolrJ) mode: " +
+                "NamespaceDAO is backed by AlfrescoSolrDataModel (Solr-embedded singleton). " +
+                "ModelTracker namespace expansion is not supported in this mode.");
     }
 
     @Override
@@ -527,19 +631,19 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public int getPort()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getPort");
+        return Integer.parseInt(props.getProperty("alfresco.port", "8983"));
     }
 
     @Override
     public String getHostName()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getHostName");
+        return props.getProperty("alfresco.host", "localhost");
     }
 
     @Override
     public String getBaseUrl()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getBaseUrl");
+        return props.getProperty("alfresco.baseUrl", "/solr");
     }
 
     @Override
@@ -551,6 +655,6 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public TrackerRegistry getTrackerRegistry()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getTrackerRegistry");
+        return trackerRegistry;
     }
 }
