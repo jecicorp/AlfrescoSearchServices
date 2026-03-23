@@ -26,13 +26,51 @@
 
 package org.alfresco.indexing.server.solrj;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.alfresco.repo.dictionary.M2Model;
+import org.alfresco.service.namespace.QName;
+import org.alfresco.solr.client.AlfrescoModel;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.params.ModifiableSolrParams;
+import org.apache.solr.common.util.ContentStreamBase;
+import org.apache.solr.common.util.NamedList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Handles model-related operations via SolrJ.
+ * Handles model-related operations via SolrJ, communicating with the
+ * {@code /alfresco/models} request handler on the remote Solr node.
+ *
+ * <p>Supports the following remote actions: put, list, get, errors.</p>
+ * <p>The {@code afterInitModels} action is no-op client-side because the handler
+ * already calls {@code afterInitModels} as part of the {@code put} action.</p>
  */
 public class SolrJModelService
 {
+    private static final Logger LOG = LoggerFactory.getLogger(SolrJModelService.class);
+
+    private static final String HANDLER_PATH = "/alfresco/models";
+    private static final String PARAM_ACTION = "action";
+    private static final String PARAM_MODEL_QNAME = "modelQName";
+
+    private static final String ACTION_PUT = "put";
+    private static final String ACTION_LIST = "list";
+    private static final String ACTION_GET = "get";
+    private static final String ACTION_ERRORS = "errors";
+
     private final SolrClient solrClient;
     private final String collection;
 
@@ -40,5 +78,174 @@ public class SolrJModelService
     {
         this.solrClient = solrClient;
         this.collection = collection;
+    }
+
+    /**
+     * Pushes a model to Solr via a POST to {@code /alfresco/models?action=put}.
+     * The handler registers the model in {@code AlfrescoSolrDataModel} and calls
+     * {@code afterInitModels} automatically.
+     *
+     * @param model the M2Model to register
+     * @return {@code true} if the server responded with status "ok"
+     */
+    public boolean putModel(M2Model model)
+    {
+        try
+        {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            model.toXML(baos);
+
+            ContentStreamBase.ByteArrayStream stream =
+                    new ContentStreamBase.ByteArrayStream(baos.toByteArray(), "model.xml");
+            stream.setContentType("application/xml");
+
+            ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(HANDLER_PATH);
+            request.setParam(PARAM_ACTION, ACTION_PUT);
+            request.addContentStream(stream);
+
+            NamedList<Object> response = solrClient.request(request, collection);
+            return "ok".equals(response.get("status"));
+        }
+        catch (SolrServerException | IOException e)
+        {
+            LOG.error("Failed to put model '{}' to Solr: {}", model.getName(), e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * No-op client-side: the {@code /alfresco/models?action=put} handler already
+     * invokes {@code afterInitModels} on the server when registering a model.
+     */
+    public void afterInitModels()
+    {
+        // Intentionally empty: afterInitModels is called server-side during putModel.
+    }
+
+    /**
+     * Retrieves a model by QName from Solr. Sends {@code action=get&modelQName=...}
+     * and parses the XML response back to an M2Model.
+     *
+     * @param modelQName the QName of the model to retrieve
+     * @return the deserialized M2Model, or {@code null} if not found or on error
+     */
+    public M2Model getM2Model(QName modelQName)
+    {
+        try
+        {
+            ModifiableSolrParams params = new ModifiableSolrParams();
+            params.set(PARAM_ACTION, ACTION_GET);
+            params.set(PARAM_MODEL_QNAME, modelQName.toString());
+            params.set("qt", HANDLER_PATH);
+
+            QueryResponse response = solrClient.query(collection, params);
+            NamedList<Object> nl = response.getResponse();
+            String modelXml = (String) nl.get("modelXml");
+            if (modelXml == null)
+            {
+                return null;
+            }
+            return M2Model.createModel(new ByteArrayInputStream(modelXml.getBytes("UTF-8")));
+        }
+        catch (SolrServerException | IOException e)
+        {
+            LOG.error("Failed to get model '{}' from Solr: {}", modelQName, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Lists all registered Alfresco models from Solr.
+     * Sends {@code action=list} and parses the response.
+     *
+     * @return list of AlfrescoModel instances (model + checksum), or empty list on error
+     */
+    public List<AlfrescoModel> getAlfrescoModels()
+    {
+        List<AlfrescoModel> result = new ArrayList<>();
+        try
+        {
+            ModifiableSolrParams params = new ModifiableSolrParams();
+            params.set(PARAM_ACTION, ACTION_LIST);
+            params.set("qt", HANDLER_PATH);
+
+            QueryResponse response = solrClient.query(collection, params);
+            NamedList<Object> nl = response.getResponse();
+            @SuppressWarnings("unchecked")
+            NamedList<Object> models = (NamedList<Object>) nl.get("models");
+            if (models == null)
+            {
+                return result;
+            }
+
+            for (Map.Entry<String, Object> entry : models)
+            {
+                @SuppressWarnings("unchecked")
+                NamedList<Object> modelEntry = (NamedList<Object>) entry.getValue();
+                if (modelEntry == null)
+                {
+                    continue;
+                }
+                // Retrieve the full model XML via a separate get call
+                String modelNameStr = (String) modelEntry.get("name");
+                Object checksumObj = modelEntry.get("checksum");
+                Long checksum = checksumObj instanceof Long ? (Long) checksumObj
+                        : (checksumObj != null ? Long.valueOf(checksumObj.toString()) : 0L);
+
+                if (modelNameStr != null)
+                {
+                    QName modelQName = QName.createQName(modelNameStr);
+                    M2Model m2Model = getM2Model(modelQName);
+                    if (m2Model != null)
+                    {
+                        result.add(new AlfrescoModel(m2Model, checksum));
+                    }
+                }
+            }
+        }
+        catch (SolrServerException | IOException e)
+        {
+            LOG.error("Failed to list models from Solr: {}", e.getMessage(), e);
+        }
+        return result;
+    }
+
+    /**
+     * Retrieves model registration errors from Solr.
+     * Sends {@code action=errors} and parses the response.
+     *
+     * @return map of model name to set of error strings, or empty map on error
+     */
+    public Map<String, Set<String>> getModelErrors()
+    {
+        Map<String, Set<String>> result = new HashMap<>();
+        try
+        {
+            ModifiableSolrParams params = new ModifiableSolrParams();
+            params.set(PARAM_ACTION, ACTION_ERRORS);
+            params.set("qt", HANDLER_PATH);
+
+            QueryResponse response = solrClient.query(collection, params);
+            NamedList<Object> nl = response.getResponse();
+            @SuppressWarnings("unchecked")
+            NamedList<Object> errors = (NamedList<Object>) nl.get("errors");
+            if (errors == null)
+            {
+                return result;
+            }
+
+            for (Map.Entry<String, Object> entry : errors)
+            {
+                @SuppressWarnings("unchecked")
+                Collection<String> errorSet = (Collection<String>) entry.getValue();
+                result.put(entry.getKey(),
+                        errorSet != null ? new HashSet<>(errorSet) : new HashSet<>());
+            }
+        }
+        catch (SolrServerException | IOException e)
+        {
+            LOG.error("Failed to get model errors from Solr: {}", e.getMessage(), e);
+        }
+        return result;
     }
 }

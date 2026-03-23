@@ -350,43 +350,49 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public Map<String, Set<String>> getModelErrors()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getModelErrors");
+        return modelService.getModelErrors();
     }
 
     @Override
     public DictionaryComponent getDictionaryService(String alternativeDictionary)
     {
-        throw new UnsupportedOperationException("Not yet implemented: getDictionaryService");
+        // DictionaryComponent is a complex in-process object backed by AlfrescoSolrDataModel.
+        // It is not available remotely via SolrJ — trackers must not call this in remote mode.
+        throw new UnsupportedOperationException(
+                "getDictionaryService is not available in remote (SolrJ) mode");
     }
 
     @Override
     public NamespaceDAO getNamespaceDAO()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getNamespaceDAO");
+        // NamespaceDAO is a complex in-process object backed by AlfrescoSolrDataModel.
+        // It is not available remotely via SolrJ — trackers must not call this in remote mode.
+        throw new UnsupportedOperationException(
+                "getNamespaceDAO is not available in remote (SolrJ) mode");
     }
 
     @Override
     public List<AlfrescoModel> getAlfrescoModels()
     {
-        throw new UnsupportedOperationException("Not yet implemented: getAlfrescoModels");
+        return modelService.getAlfrescoModels();
     }
 
     @Override
     public void afterInitModels()
     {
-        throw new UnsupportedOperationException("Not yet implemented: afterInitModels");
+        modelService.afterInitModels();
     }
 
     @Override
     public boolean putModel(M2Model model)
     {
-        throw new UnsupportedOperationException("Not yet implemented: putModel");
+        return modelService.putModel(model);
     }
 
     @Override
     public M2Model getM2Model(QName modelQName)
     {
-        throw new UnsupportedOperationException("Not yet implemented: getM2Model");
+        return modelService.getM2Model(modelQName);
     }
 
     @Override
