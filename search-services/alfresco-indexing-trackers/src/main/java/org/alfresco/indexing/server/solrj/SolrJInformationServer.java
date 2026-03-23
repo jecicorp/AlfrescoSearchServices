@@ -106,7 +106,7 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public void rollback() throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: rollback");
+        commitService.rollback();
     }
 
     @Override
@@ -118,19 +118,19 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public void commit() throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: commit");
+        commitService.commit();
     }
 
     @Override
     public void hardCommit() throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: hardCommit");
+        commitService.hardCommit();
     }
 
     @Override
     public boolean commit(boolean openSearcher) throws IOException
     {
-        throw new UnsupportedOperationException("Not yet implemented: commit(boolean)");
+        return commitService.commit(openSearcher);
     }
 
     @Override
