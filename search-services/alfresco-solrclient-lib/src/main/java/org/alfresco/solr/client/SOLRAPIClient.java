@@ -703,8 +703,25 @@ public class SOLRAPIClient
         }
         else if(propertyDef == null)
         {
-            // assume a string
-            ret = new StringPropertyValue((String)value);
+            // No dictionary available — best-effort conversion.
+            // JSONArrays become MultiPropertyValue, everything else becomes String.
+            if (value instanceof JSONArray)
+            {
+                JSONArray array = (JSONArray) value;
+                MultiPropertyValue multi = new MultiPropertyValue();
+                for (int j = 0; j < array.length(); j++)
+                {
+                    Object element = array.get(j);
+                    multi.addValue(element == null || element == JSONObject.NULL
+                            ? null
+                            : new StringPropertyValue(element.toString()));
+                }
+                ret = multi;
+            }
+            else
+            {
+                ret = new StringPropertyValue(value.toString());
+            }
         }
         else
         {
@@ -928,12 +945,11 @@ public class SOLRAPIClient
                     Object propValueObj = jsonProperties.opt(propName);
 
                     // check the expected property type to determine how to process the value
-                    PropertyDefinition propertyDef = dictionaryService.getProperty(propQName);
-//                    if(propertyDef == null)
-//                    {
-//                        // TODO which exception here?
-//                        throw new IllegalArgumentException("Could not find property definition for property " + propName);
-//                    }
+                    // dictionaryService may be null in remote (SolrJ) mode — getPropertyValue
+                    // handles a null PropertyDefinition by assuming String.
+                    PropertyDefinition propertyDef = dictionaryService != null
+                            ? dictionaryService.getProperty(propQName)
+                            : null;
                     
                     properties.put(propQName, getPropertyValue(propertyDef, propValueObj));
                 }

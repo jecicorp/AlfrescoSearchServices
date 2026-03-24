@@ -27,13 +27,25 @@ package org.alfresco.indexing.server.solrj;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
+import org.alfresco.service.cmr.repository.ChildAssociationRef;
+import org.alfresco.service.cmr.repository.NodeRef;
+import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
+import org.alfresco.solr.client.ContentPropertyValue;
+import org.alfresco.solr.client.MLTextPropertyValue;
+import org.alfresco.solr.client.MultiPropertyValue;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.NodeMetaData;
+import org.alfresco.solr.client.PropertyValue;
+import org.alfresco.solr.client.StringPropertyValue;
 import org.alfresco.solr.client.Transaction;
 import org.alfresco.util.NumericEncoder;
+import org.alfresco.util.Pair;
 import org.apache.solr.common.SolrInputDocument;
 
 /**
@@ -71,6 +83,22 @@ public class SolrDocumentMapper
     public static final String FIELD_S_ACLTXID = "S_ACLTXID";
     public static final String FIELD_S_INACLTXID = "S_INACLTXID";
     public static final String FIELD_S_ACLTXCOMMITTIME = "S_ACLTXCOMMITTIME";
+
+    // Node metadata fields — from org.alfresco.repo.search.adaptor.QueryConstants
+    public static final String FIELD_TYPE = "TYPE";
+    public static final String FIELD_ASPECT = "ASPECT";
+    public static final String FIELD_ISNODE = "ISNODE";
+    public static final String FIELD_TENANT = "TENANT";
+    public static final String FIELD_OWNER = "OWNER";
+    public static final String FIELD_PATH = "PATH";
+    public static final String FIELD_ANCESTOR = "ANCESTOR";
+    public static final String FIELD_PARENT = "PARENT";
+    public static final String FIELD_PRIMARYPARENT = "PRIMARYPARENT";
+    public static final String FIELD_PRIMARYASSOCTYPEQNAME = "PRIMARYASSOCTYPEQNAME";
+    public static final String FIELD_PRIMARYASSOCQNAME = "PRIMARYASSOCQNAME";
+    public static final String FIELD_PROPERTIES = "PROPERTIES";
+    public static final String FIELD_NULLPROPERTIES = "NULLPROPERTIES";
+    public static final String FIELD_PARENT_ASSOC_CRC = "PARENTASSOCCRC";
 
     // ---------------------------------------------------------------------------
     // Document type constants — values from SolrInformationServer
@@ -255,7 +283,168 @@ public class SolrDocumentMapper
             doc.setField(FIELD_LID, metadata.getNodeRef().toString());
         }
 
+        // --- Metadata fields ---
+
+        if (metadata.getType() != null)
+        {
+            doc.setField(FIELD_TYPE, metadata.getType().toString());
+        }
+
+        doc.setField(FIELD_ISNODE, "T");
+        doc.setField(FIELD_TENANT, getTenantId(tenantDomain));
+
+        if (metadata.getOwner() != null)
+        {
+            doc.setField(FIELD_OWNER, metadata.getOwner());
+        }
+
+        // Aspects
+        Set<QName> aspects = metadata.getAspects();
+        if (aspects != null)
+        {
+            for (QName aspect : aspects)
+            {
+                if (aspect != null)
+                {
+                    doc.addField(FIELD_ASPECT, aspect.toString());
+                }
+            }
+        }
+
+        // Paths
+        List<Pair<String, QName>> paths = metadata.getPaths();
+        if (paths != null)
+        {
+            for (Pair<String, QName> path : paths)
+            {
+                if (path != null && path.getFirst() != null)
+                {
+                    doc.addField(FIELD_PATH, path.getFirst());
+                }
+            }
+        }
+
+        // Ancestors
+        Set<NodeRef> ancestors = metadata.getAncestors();
+        if (ancestors != null)
+        {
+            for (NodeRef ancestor : ancestors)
+            {
+                if (ancestor != null)
+                {
+                    doc.addField(FIELD_ANCESTOR, ancestor.toString());
+                }
+            }
+        }
+
+        // Parent associations
+        List<ChildAssociationRef> parentAssocs = metadata.getParentAssocs();
+        if (parentAssocs != null)
+        {
+            for (ChildAssociationRef assoc : parentAssocs)
+            {
+                doc.addField(FIELD_PARENT, assoc.getParentRef().toString());
+                if (assoc.isPrimary())
+                {
+                    doc.setField(FIELD_PRIMARYPARENT, assoc.getParentRef().toString());
+                    if (assoc.getTypeQName() != null)
+                    {
+                        doc.setField(FIELD_PRIMARYASSOCTYPEQNAME, assoc.getTypeQName().toString());
+                    }
+                    if (assoc.getQName() != null)
+                    {
+                        doc.setField(FIELD_PRIMARYASSOCQNAME, assoc.getQName().toString());
+                    }
+                }
+            }
+            doc.setField(FIELD_PARENT_ASSOC_CRC, metadata.getParentAssocsCrc());
+        }
+
+        // Properties
+        Map<QName, PropertyValue> properties = metadata.getProperties();
+        if (properties != null)
+        {
+            for (Map.Entry<QName, PropertyValue> entry : properties.entrySet())
+            {
+                String fieldName = entry.getKey().toString();
+                PropertyValue value = entry.getValue();
+                if (value == null)
+                {
+                    doc.addField(FIELD_NULLPROPERTIES, fieldName);
+                    continue;
+                }
+                addPropertyValue(doc, fieldName, value);
+                doc.addField(FIELD_PROPERTIES, fieldName);
+            }
+        }
+
         return doc;
+    }
+
+    /**
+     * Adds a property value to the document using Solr dynamic field naming conventions.
+     * <ul>
+     *   <li>{@code text@s__lt@{ns}localName} — single-valued text (StringPropertyValue)</li>
+     *   <li>{@code mltext@m__lt@{ns}localName} — multi-valued MLText</li>
+     *   <li>{@code content@s__locale@{ns}localName} etc. — content metadata</li>
+     * </ul>
+     *
+     * @param doc       the document to add fields to
+     * @param propQName the QName string of the property
+     * @param value     the property value (never null)
+     */
+    private void addPropertyValue(SolrInputDocument doc, String propQName, PropertyValue value)
+    {
+        addPropertyValue(doc, propQName, value, false);
+    }
+
+    private void addPropertyValue(SolrInputDocument doc, String propQName, PropertyValue value, boolean multiValued)
+    {
+        if (value instanceof StringPropertyValue)
+        {
+            String prefix = multiValued ? "text@m__lt@" : "text@s__lt@";
+            doc.addField(prefix + propQName, ((StringPropertyValue) value).getValue());
+        }
+        else if (value instanceof MLTextPropertyValue)
+        {
+            MLTextPropertyValue mlText = (MLTextPropertyValue) value;
+            String solrField = "mltext@m__lt@" + propQName;
+            for (Map.Entry<Locale, String> localeEntry : mlText.getValues().entrySet())
+            {
+                String localeValue = "\u0000" + localeEntry.getKey() + "\u0000" + localeEntry.getValue();
+                doc.addField(solrField, localeValue);
+            }
+        }
+        else if (value instanceof MultiPropertyValue)
+        {
+            for (PropertyValue subValue : ((MultiPropertyValue) value).getValues())
+            {
+                if (subValue != null)
+                {
+                    addPropertyValue(doc, propQName, subValue, true);
+                }
+            }
+        }
+        else if (value instanceof ContentPropertyValue)
+        {
+            // Index content metadata fields (size, locale, mimetype, encoding)
+            // Actual text content is not available here — needs content extraction
+            ContentPropertyValue content = (ContentPropertyValue) value;
+            if (content.getLocale() != null)
+            {
+                doc.addField("content@s__locale@" + propQName, content.getLocale().toString());
+            }
+            if (content.getMimetype() != null)
+            {
+                doc.addField("content@s__mimetype@" + propQName, content.getMimetype());
+            }
+            if (content.getEncoding() != null)
+            {
+                doc.addField("content@s__encoding@" + propQName, content.getEncoding());
+            }
+            doc.addField("content@s__size@" + propQName, content.getLength());
+        }
+        // else: unknown property type — skip silently
     }
 
     // =========================================================================

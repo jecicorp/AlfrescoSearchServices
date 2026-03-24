@@ -27,12 +27,15 @@
 package org.alfresco.indexing.server.solrj;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.NodeMetaData;
+import org.alfresco.solr.client.NodeMetaDataParameters;
+import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.solr.client.Transaction;
 import org.apache.solr.client.solrj.SolrClient;
@@ -64,17 +67,25 @@ public class SolrJIndexingService
     private final SolrClient solrClient;
     private final String collection;
     private final SolrDocumentMapper documentMapper;
+    private final SOLRAPIClient repositoryClient;
 
     public SolrJIndexingService(SolrClient solrClient, String collection)
     {
-        this(solrClient, collection, new SolrDocumentMapper());
+        this(solrClient, collection, new SolrDocumentMapper(), null);
     }
 
     public SolrJIndexingService(SolrClient solrClient, String collection, SolrDocumentMapper documentMapper)
     {
+        this(solrClient, collection, documentMapper, null);
+    }
+
+    public SolrJIndexingService(SolrClient solrClient, String collection,
+                                SolrDocumentMapper documentMapper, SOLRAPIClient repositoryClient)
+    {
         this.solrClient = solrClient;
         this.collection = collection;
         this.documentMapper = documentMapper;
+        this.repositoryClient = repositoryClient;
     }
 
     // =========================================================================
@@ -190,11 +201,35 @@ public class SolrJIndexingService
             return;
         }
 
-        // For UPDATED/UNKNOWN nodes, we need metadata from the repository.
-        // In the remote architecture, the tracker will provide metadata separately.
-        // For now, log a warning — the full node indexing path will be built incrementally.
-        LOGGER.debug("indexNode called for node {} with status {}. "
-                + "Full metadata indexing not yet implemented in remote mode.", node.getId(), status);
+        if (repositoryClient == null)
+        {
+            LOGGER.warn("indexNode: repositoryClient is null — cannot fetch metadata for node {}. "
+                    + "Pass a SOLRAPIClient to the SolrJIndexingService constructor.", node.getId());
+            return;
+        }
+
+        NodeMetaDataParameters nmdp = new NodeMetaDataParameters();
+        nmdp.setNodeIds(Collections.singletonList(node.getId()));
+        nmdp.setMaxResults(1);
+
+        try
+        {
+            List<NodeMetaData> metadatas = repositoryClient.getNodesMetaData(nmdp);
+            if (metadatas == null || metadatas.isEmpty())
+            {
+                LOGGER.warn("No metadata returned for node {}", node.getId());
+                return;
+            }
+            indexNode(node, metadatas.get(0), overwrite);
+        }
+        catch (IOException e)
+        {
+            throw e;
+        }
+        catch (Exception e)
+        {
+            throw new IOException("Failed to fetch metadata for node " + node.getId(), e);
+        }
     }
 
     /**

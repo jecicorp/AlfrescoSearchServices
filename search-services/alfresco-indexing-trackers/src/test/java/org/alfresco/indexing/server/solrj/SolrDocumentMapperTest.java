@@ -31,15 +31,27 @@ import static org.junit.Assert.*;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
+import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.StoreRef;
+import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
+import org.alfresco.solr.client.MLTextPropertyValue;
+import org.alfresco.solr.client.MultiPropertyValue;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.NodeMetaData;
+import org.alfresco.solr.client.PropertyValue;
+import org.alfresco.solr.client.StringPropertyValue;
 import org.alfresco.solr.client.Transaction;
+import org.alfresco.util.Pair;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.Before;
 import org.junit.Test;
@@ -243,6 +255,159 @@ public class SolrDocumentMapperTest
 
         String id = (String) doc.getFieldValue(FIELD_SOLR4_ID);
         assertTrue("id should start with tenant", id.startsWith("mycompany.com!"));
+    }
+
+    @Test
+    public void testToNodeDocWithFullMetadata()
+    {
+        Node node = new Node();
+        node.setId(600L);
+        node.setTxnId(50L);
+
+        QName contentType = QName.createQName("{http://www.alfresco.org/model/content/1.0}person");
+        QName titledAspect = QName.createQName("{http://www.alfresco.org/model/content/1.0}titled");
+
+        NodeRef parentRef = new NodeRef(StoreRef.STORE_REF_WORKSPACE_SPACESSTORE, "parent-uuid");
+        NodeRef nodeRef = new NodeRef(StoreRef.STORE_REF_WORKSPACE_SPACESSTORE, "node-uuid");
+        NodeRef ancestorRef = new NodeRef(StoreRef.STORE_REF_WORKSPACE_SPACESSTORE, "ancestor-uuid");
+
+        ChildAssociationRef primaryAssoc = new ChildAssociationRef(
+                QName.createQName("{http://www.alfresco.org/model/content/1.0}contains"),
+                parentRef, QName.createQName("{http://www.alfresco.org/model/content/1.0}myChild"),
+                nodeRef, true, -1);
+
+        QName userNameProp = QName.createQName("{http://www.alfresco.org/model/content/1.0}userName");
+
+        Map<QName, PropertyValue> properties = new HashMap<>();
+        properties.put(userNameProp, new StringPropertyValue("admin"));
+
+        Set<QName> aspects = new HashSet<>();
+        aspects.add(titledAspect);
+
+        Set<NodeRef> ancestors = new HashSet<>();
+        ancestors.add(ancestorRef);
+
+        List<Pair<String, QName>> paths = Collections.singletonList(
+                new Pair<>("/{http://www.alfresco.org/model/application/1.0}company_home", null));
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(600L);
+        metadata.setTxnId(50L);
+        metadata.setAclId(400L);
+        metadata.setTenantDomain("");
+        metadata.setNodeRef(nodeRef);
+        metadata.setType(contentType);
+        metadata.setOwner("admin");
+        metadata.setAspects(aspects);
+        metadata.setAncestors(ancestors);
+        metadata.setParentAssocs(Collections.singletonList(primaryAssoc));
+        metadata.setPaths(paths);
+        metadata.setProperties(properties);
+        metadata.setParentAssocsCrc(12345L);
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        // Type
+        assertEquals(contentType.toString(), doc.getFieldValue(FIELD_TYPE));
+
+        // ISNODE
+        assertEquals("T", doc.getFieldValue(FIELD_ISNODE));
+
+        // Tenant
+        assertEquals("_DEFAULT_", doc.getFieldValue(FIELD_TENANT));
+
+        // Owner
+        assertEquals("admin", doc.getFieldValue(FIELD_OWNER));
+
+        // Aspects
+        Collection<Object> aspectValues = doc.getFieldValues(FIELD_ASPECT);
+        assertNotNull(aspectValues);
+        assertTrue(aspectValues.contains(titledAspect.toString()));
+
+        // Paths
+        Collection<Object> pathValues = doc.getFieldValues(FIELD_PATH);
+        assertNotNull(pathValues);
+        assertEquals(1, pathValues.size());
+
+        // Ancestors
+        Collection<Object> ancestorValues = doc.getFieldValues(FIELD_ANCESTOR);
+        assertNotNull(ancestorValues);
+        assertTrue(ancestorValues.contains(ancestorRef.toString()));
+
+        // Parent associations
+        Collection<Object> parentValues = doc.getFieldValues(FIELD_PARENT);
+        assertNotNull(parentValues);
+        assertTrue(parentValues.contains(parentRef.toString()));
+        assertEquals(parentRef.toString(), doc.getFieldValue(FIELD_PRIMARYPARENT));
+        assertEquals(12345L, doc.getFieldValue(FIELD_PARENT_ASSOC_CRC));
+
+        // Properties — indexed with Solr dynamic field prefix
+        String expectedSolrField = "text@s__lt@" + userNameProp.toString();
+        assertEquals("admin", doc.getFieldValue(expectedSolrField));
+        Collection<Object> propIndex = doc.getFieldValues(FIELD_PROPERTIES);
+        assertNotNull(propIndex);
+        assertTrue(propIndex.contains(userNameProp.toString()));
+    }
+
+    @Test
+    public void testToNodeDocWithMLTextProperty()
+    {
+        Node node = new Node();
+        node.setId(601L);
+        node.setTxnId(51L);
+
+        QName titleProp = QName.createQName("{http://www.alfresco.org/model/content/1.0}title");
+        MLTextPropertyValue mlText = new MLTextPropertyValue();
+        mlText.addValue(Locale.ENGLISH, "My Title");
+        mlText.addValue(Locale.FRENCH, "Mon Titre");
+
+        Map<QName, PropertyValue> properties = new HashMap<>();
+        properties.put(titleProp, mlText);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(601L);
+        metadata.setTxnId(51L);
+        metadata.setAclId(401L);
+        metadata.setTenantDomain("");
+        metadata.setProperties(properties);
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        String solrField = "mltext@m__lt@" + titleProp.toString();
+        Collection<Object> titleValues = doc.getFieldValues(solrField);
+        assertNotNull(titleValues);
+        assertEquals(2, titleValues.size());
+    }
+
+    @Test
+    public void testToNodeDocWithNullProperty()
+    {
+        Node node = new Node();
+        node.setId(602L);
+        node.setTxnId(52L);
+
+        QName descProp = QName.createQName("{http://www.alfresco.org/model/content/1.0}description");
+
+        Map<QName, PropertyValue> properties = new HashMap<>();
+        properties.put(descProp, null);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(602L);
+        metadata.setTxnId(52L);
+        metadata.setAclId(402L);
+        metadata.setTenantDomain("");
+        metadata.setProperties(properties);
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        // Null property should be in NULLPROPERTIES
+        Collection<Object> nullProps = doc.getFieldValues(FIELD_NULLPROPERTIES);
+        assertNotNull(nullProps);
+        assertTrue(nullProps.contains(descProp.toString()));
+
+        // Should NOT be in PROPERTIES
+        Collection<Object> propIndex = doc.getFieldValues(FIELD_PROPERTIES);
+        assertNull(propIndex);
     }
 
     // =========================================================================

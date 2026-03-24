@@ -121,7 +121,7 @@ public class SolrJInformationServer implements InformationServer
 
         this.trackerStats = new TrackerStats(this);
 
-        this.indexingService = new SolrJIndexingService(solrClient, collection);
+        this.indexingService = new SolrJIndexingService(solrClient, collection, new SolrDocumentMapper(), repositoryClient);
         this.commitService = new SolrJCommitService(solrClient, collection);
         this.queryService = new SolrJQueryService(solrClient, collection);
         this.modelService = new SolrJModelService(solrClient, collection);
