@@ -179,6 +179,7 @@ public class CommitTracker extends AbstractTracker
                 {
                     lastSearcherOpened = currentTime;
                 }
+                LOGGER.info("{}-[CORE {}] Commit done (searcherOpened={})", iterationId, coreName, searcherOpened);
             }
             else
             {
