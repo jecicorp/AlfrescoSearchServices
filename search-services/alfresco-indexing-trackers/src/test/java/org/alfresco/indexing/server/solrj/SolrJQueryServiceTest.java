@@ -314,18 +314,16 @@ public class SolrJQueryServiceTest
     @Test
     public void getMaxTransactionIdAndCommitTimeInIndex_withState_returnsValues() throws Exception
     {
-        // Mock the /get handler response for STATE_DOC_TX
+        // Mock the standard query response for STATE_DOC_TX
         SolrDocument stateDoc = new SolrDocument();
         stateDoc.addField(FIELD_S_TXID, 100L);
         stateDoc.addField(FIELD_S_TXCOMMITTIME, 9999L);
 
         QueryResponse response = mock(QueryResponse.class);
-        SolrDocumentList emptyList = new SolrDocumentList();
-        emptyList.setNumFound(0);
-        when(response.getResults()).thenReturn(emptyList);
-        NamedList<Object> responseValues = new NamedList<>();
-        responseValues.add("doc", stateDoc);
-        when(response.getResponse()).thenReturn(responseValues);
+        SolrDocumentList docList = new SolrDocumentList();
+        docList.add(stateDoc);
+        docList.setNumFound(1);
+        when(response.getResults()).thenReturn(docList);
         when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
 
         Transaction txn = queryService.getMaxTransactionIdAndCommitTimeInIndex();
@@ -340,9 +338,6 @@ public class SolrJQueryServiceTest
         SolrDocumentList emptyList = new SolrDocumentList();
         emptyList.setNumFound(0);
         when(response.getResults()).thenReturn(emptyList);
-        NamedList<Object> responseValues = new NamedList<>();
-        responseValues.add("doc", null);
-        when(response.getResponse()).thenReturn(responseValues);
         when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
 
         Transaction txn = queryService.getMaxTransactionIdAndCommitTimeInIndex();
@@ -362,12 +357,10 @@ public class SolrJQueryServiceTest
         stateDoc.addField(FIELD_S_ACLTXCOMMITTIME, 8888L);
 
         QueryResponse response = mock(QueryResponse.class);
-        SolrDocumentList emptyList = new SolrDocumentList();
-        emptyList.setNumFound(0);
-        when(response.getResults()).thenReturn(emptyList);
-        NamedList<Object> responseValues = new NamedList<>();
-        responseValues.add("doc", stateDoc);
-        when(response.getResponse()).thenReturn(responseValues);
+        SolrDocumentList docList = new SolrDocumentList();
+        docList.add(stateDoc);
+        docList.setNumFound(1);
+        when(response.getResults()).thenReturn(docList);
         when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
 
         AclChangeSet cs = queryService.getMaxAclChangeSetIdAndCommitTimeInIndex();

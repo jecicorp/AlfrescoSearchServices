@@ -25,6 +25,9 @@
  */
 package org.alfresco.indexing.config;
 
+import org.apache.http.HttpRequestInterceptor;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.springframework.context.annotation.Bean;
@@ -36,7 +39,21 @@ public class SolrJConfig
     @Bean
     public SolrClient solrClient(TrackerProperties props)
     {
+        HttpClientBuilder builder = HttpClientBuilder.create();
+
+        // Add secret header if secure comms is configured
+        String secureComms = props.getRepository().getSecureComms();
+        String secret = props.getRepository().getSharedSecret();
+        if ("secret".equals(secureComms) && secret != null && !secret.isEmpty())
+        {
+            builder.addInterceptorFirst((HttpRequestInterceptor) (request, context) ->
+                request.addHeader("X-Alfresco-Search-Secret", secret));
+        }
+
+        CloseableHttpClient httpClient = builder.build();
+
         return new HttpSolrClient.Builder(props.getSolr().getUrl())
+            .withHttpClient(httpClient)
             .build();
     }
 }

@@ -135,17 +135,17 @@ public class SolrJQueryService
         TrackerState state = new TrackerState();
         try
         {
-            // Query both state documents by their IDs
-            SolrQuery query = new SolrQuery();
-            query.setRequestHandler("/get");
-            query.set("ids", STATE_DOC_ACLTX + "," + STATE_DOC_TX);
+            // Query both state documents by their IDs using standard /select handler
+            SolrQuery query = new SolrQuery("id:\"" + STATE_DOC_ACLTX + "\" OR id:\"" + STATE_DOC_TX + "\"");
+            query.setRows(2);
+            query.setFields("*");
 
             QueryResponse response = solrClient.query(collection, query);
             SolrDocumentList docs = response.getResults();
 
-            if (docs == null)
+            if (docs == null || docs.getNumFound() == 0)
             {
-                LOGGER.error("Got no response from a tracker initial state request.");
+                LOGGER.info("No tracker state documents found in index — first run.");
                 return state;
             }
 
@@ -722,20 +722,17 @@ public class SolrJQueryService
     {
         try
         {
-            SolrQuery query = new SolrQuery();
-            query.setRequestHandler("/get");
-            query.set("id", id);
+            SolrQuery query = new SolrQuery("id:\"" + id + "\"");
+            query.setRows(1);
+            query.setFields("*");
 
             QueryResponse response = solrClient.query(collection, query);
-            // The /get handler returns the doc directly in the response
             SolrDocumentList docs = response.getResults();
             if (docs != null && docs.getNumFound() > 0)
             {
                 return docs.get(0);
             }
-            // For real-time get, the doc may be in the response as "doc" key
-            SolrDocument doc = (SolrDocument) response.getResponse().get("doc");
-            return doc;
+            return null;
         }
         catch (SolrServerException e)
         {
@@ -779,13 +776,11 @@ public class SolrJQueryService
     {
         try
         {
-            SolrQuery query = new SolrQuery();
-            query.setRequestHandler("/get");
-            query.set("ids", id);
+            SolrQuery query = new SolrQuery("id:\"" + id + "\"");
+            query.setRows(0);
 
             QueryResponse response = solrClient.query(collection, query);
-            SolrDocumentList docs = response.getResults();
-            return docs != null && docs.getNumFound() > 0;
+            return response.getResults() != null && response.getResults().getNumFound() > 0;
         }
         catch (SolrServerException e)
         {
