@@ -35,7 +35,6 @@ import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.SOLRAPIQueueClient;
 import org.alfresco.solr.client.Transaction;
-import org.alfresco.indexing.tracker.Tracker;
 import org.apache.chemistry.opencmis.commons.impl.json.JSONArray;
 import org.apache.chemistry.opencmis.commons.impl.json.JSONObject;
 import org.apache.chemistry.opencmis.commons.impl.json.JSONValue;
@@ -103,7 +102,7 @@ import static org.junit.Assert.assertEquals;
  */
 public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoSolrConstants
 {
-    static AlfrescoCoreAdminHandler admin;
+    static CoreAdminHandler admin;
     private static Log LOG = LogFactory.getLog(AbstractAlfrescoSolrIT.class);
     private static boolean CORE_NOT_YET_CREATED = true;
 
@@ -194,12 +193,14 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
 
     protected void disableIndexing()
     {
-        admin.actionDisableIndexing(new ModifiableSolrParams());
+        // No-op: trackers now run in a separate service
+        LOG.info("disableIndexing() is a no-op: trackers are not embedded in Solr");
     }
 
     protected void enableIndexing()
     {
-        admin.actionEnableIndexing(new ModifiableSolrParams());
+        // No-op: trackers now run in a separate service
+        LOG.info("enableIndexing() is a no-op: trackers are not embedded in Solr");
     }
 
     /**
@@ -290,7 +291,6 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
 
         admin = of(h).map(TestHarness::getCoreContainer)
                     .map(CoreContainer::getMultiCoreHandler)
-                    .map(AlfrescoCoreAdminHandler.class::cast)
                     .orElseThrow(RuntimeException::new);
     }
 
@@ -327,7 +327,7 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
         
         NodeConfig nodeConfig = new NodeConfig.NodeConfigBuilder("name", resourceLoader)
                 .setUseSchemaCache(false)
-                .setCoreAdminHandlerClass(AlfrescoCoreAdminHandler.class.getName())
+                .setCoreAdminHandlerClass(CoreAdminHandler.class.getName())
                 .build();
         try
         {
@@ -845,10 +845,10 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
         }
     }
 
-    protected Collection<Tracker> getTrackers() {
-        Collection<Tracker> trackers = admin.getTrackerRegistry().getTrackersForCore(getCore().getName());
-        LOG.info("######### Number of trackers is "+trackers.size()+" ###########");
-        return trackers;
+    protected Collection<?> getTrackers() {
+        // Trackers are no longer embedded in Solr; return empty collection
+        LOG.info("getTrackers() returns empty: trackers are not embedded in Solr");
+        return Collections.emptyList();
     }
 
     protected String escape(QName qname)

@@ -186,7 +186,7 @@
           </arr>
         </listener>
         -->
-        <listener event="firstSearcher" class="org.alfresco.solr.lifecycle.SolrCoreLoadListener" />
+        <!-- SolrCoreLoadListener removed: trackers now run as external service -->
     </query>
 
     <queryResponseWriter name="xml" default="true"

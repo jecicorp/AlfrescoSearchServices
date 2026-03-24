@@ -35,7 +35,7 @@ import org.alfresco.model.ContentModel;
 import org.alfresco.repo.search.adaptor.QueryConstants;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.AlfrescoSolrDataModel;
-import org.alfresco.solr.SolrInformationServer;
+import org.alfresco.solr.SolrDocTypeConstants;
 import org.alfresco.solr.dataload.TestDataProvider;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.solr.SolrTestCaseJ4;
@@ -361,10 +361,10 @@ public class AFTSRequestHandlerIT extends AbstractRequestHandlerIT implements Qu
     @Test
     public void docTypeField()
     {
-        assertResponseCardinality(FIELD_DOC_TYPE, "" + SolrInformationServer.DOC_TYPE_NODE, 16);
-        assertResponseCardinality(FIELD_DOC_TYPE, "" + SolrInformationServer.DOC_TYPE_ACL, 1);
-        assertResponseCardinality(FIELD_DOC_TYPE, "" + SolrInformationServer.DOC_TYPE_ACL_TX, 1);
-        assertResponseCardinality(FIELD_DOC_TYPE, "" + SolrInformationServer.DOC_TYPE_TX, 1);
+        assertResponseCardinality(FIELD_DOC_TYPE, "" + SolrDocTypeConstants.DOC_TYPE_NODE, 16);
+        assertResponseCardinality(FIELD_DOC_TYPE, "" + SolrDocTypeConstants.DOC_TYPE_ACL, 1);
+        assertResponseCardinality(FIELD_DOC_TYPE, "" + SolrDocTypeConstants.DOC_TYPE_ACL_TX, 1);
+        assertResponseCardinality(FIELD_DOC_TYPE, "" + SolrDocTypeConstants.DOC_TYPE_TX, 1);
     }
 
     @Test

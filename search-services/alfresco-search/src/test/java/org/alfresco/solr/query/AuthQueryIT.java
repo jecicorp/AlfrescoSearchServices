@@ -31,7 +31,7 @@ import java.io.IOException;
 import org.alfresco.repo.search.adaptor.QueryConstants;
 import org.alfresco.repo.search.impl.parsers.FTSQueryParser;
 import org.alfresco.service.cmr.search.SearchParameters;
-import org.alfresco.solr.SolrInformationServer;
+import org.alfresco.solr.SolrDocTypeConstants;
 import org.alfresco.util.Pair;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.Query;
@@ -61,11 +61,11 @@ public class AuthQueryIT extends AuthDataLoad
             assertFTSQuery("TEXT:\"number\"", count);
 
             //Assert that root, base folder,folder-0 and 100 documents are returned.
-            assertFTSQuery("AUTHORITY:\"GROUP_EVERYONE\" AND "+QueryConstants.FIELD_DOC_TYPE+":"+SolrInformationServer.DOC_TYPE_NODE, 103);
+            assertFTSQuery("AUTHORITY:\"GROUP_EVERYONE\" AND "+QueryConstants.FIELD_DOC_TYPE+":"+SolrDocTypeConstants.DOC_TYPE_NODE, 103);
             //Test data load adds lots of AUTHORITY readers by looping count -1
-            assertFTSQuery("AUTHORITY:\"READER-1000\" AND "+QueryConstants.FIELD_DOC_TYPE+":"+SolrInformationServer.DOC_TYPE_NODE, 100);
-            assertFTSQuery("AUTHORITY:\"READER-902\" AND "+QueryConstants.FIELD_DOC_TYPE+":"+SolrInformationServer.DOC_TYPE_NODE, 2);
-            assertFTSQuery("AUTHORITY:\"READER-901\" AND "+QueryConstants.FIELD_DOC_TYPE+":"+SolrInformationServer.DOC_TYPE_NODE, 1);
+            assertFTSQuery("AUTHORITY:\"READER-1000\" AND "+QueryConstants.FIELD_DOC_TYPE+":"+SolrDocTypeConstants.DOC_TYPE_NODE, 100);
+            assertFTSQuery("AUTHORITY:\"READER-902\" AND "+QueryConstants.FIELD_DOC_TYPE+":"+SolrDocTypeConstants.DOC_TYPE_NODE, 2);
+            assertFTSQuery("AUTHORITY:\"READER-901\" AND "+QueryConstants.FIELD_DOC_TYPE+":"+SolrDocTypeConstants.DOC_TYPE_NODE, 1);
             //Grouping boundary test that checks ... Andy can explain.
             buildAndRunAuthQuery(count, 8);
             buildAndRunAuthQuery(count, 9);

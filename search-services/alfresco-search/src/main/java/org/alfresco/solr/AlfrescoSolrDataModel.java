@@ -93,8 +93,8 @@ import org.alfresco.solr.client.ContentPropertySpecs;
 import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.solr.query.Lucene4QueryBuilderContextSolrImpl;
 import org.alfresco.solr.query.Solr4QueryParser;
-import org.alfresco.indexing.tracker.pool.DefaultTrackerPoolFactory;
-import org.alfresco.indexing.tracker.pool.TrackerPoolFactory;
+import org.alfresco.util.DynamicallySizedThreadPoolExecutor;
+import org.alfresco.util.TraceableThreadFactory;
 import org.alfresco.util.NumericEncoder;
 import org.alfresco.util.Pair;
 import org.alfresco.util.cache.DefaultAsynchronouslyRefreshedCacheRegistry;
@@ -115,16 +115,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.context.support.FileSystemXmlApplicationContext;
 
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
 import static java.util.Optional.ofNullable;
-import static org.alfresco.solr.SolrInformationServer.UNIT_OF_TIME_DAY_FIELD_SUFFIX;
-import static org.alfresco.solr.SolrInformationServer.UNIT_OF_TIME_DAY_OF_WEEK_FIELD_SUFFIX;
-import static org.alfresco.solr.SolrInformationServer.UNIT_OF_TIME_DAY_OF_YEAR_FIELD_SUFFIX;
-import static org.alfresco.solr.SolrInformationServer.UNIT_OF_TIME_HOUR_FIELD_SUFFIX;
-import static org.alfresco.solr.SolrInformationServer.UNIT_OF_TIME_MINUTE_FIELD_SUFFIX;
-import static org.alfresco.solr.SolrInformationServer.UNIT_OF_TIME_MONTH_FIELD_SUFFIX;
-import static org.alfresco.solr.SolrInformationServer.UNIT_OF_TIME_SECOND_FIELD_SUFFIX;
-import static org.alfresco.solr.SolrInformationServer.UNIT_OF_TIME_QUARTER_FIELD_SUFFIX;
-import static org.alfresco.solr.SolrInformationServer.UNIT_OF_TIME_YEAR_FIELD_SUFFIX;
 
 /**
  * @author Andy
@@ -166,6 +161,18 @@ public class AlfrescoSolrDataModel implements QueryConstants
         UNIT_OF_TIME_QUARTER,
         UNIT_OF_TIME_YEAR
     }
+
+    // Unit of time field suffixes (previously in SolrInformationServer)
+    private static final String UNIT_OF_TIME_FIELD_INFIX = "_unit_of_time";
+    public static final String UNIT_OF_TIME_YEAR_FIELD_SUFFIX = UNIT_OF_TIME_FIELD_INFIX + "_year";
+    public static final String UNIT_OF_TIME_QUARTER_FIELD_SUFFIX = UNIT_OF_TIME_FIELD_INFIX + "_quarter";
+    public static final String UNIT_OF_TIME_MONTH_FIELD_SUFFIX = UNIT_OF_TIME_FIELD_INFIX + "_month";
+    public static final String UNIT_OF_TIME_DAY_FIELD_SUFFIX = UNIT_OF_TIME_FIELD_INFIX + "_day_of_month";
+    public static final String UNIT_OF_TIME_DAY_OF_WEEK_FIELD_SUFFIX = UNIT_OF_TIME_FIELD_INFIX + "_day_of_week";
+    public static final String UNIT_OF_TIME_DAY_OF_YEAR_FIELD_SUFFIX = UNIT_OF_TIME_FIELD_INFIX + "_day_of_year";
+    public static final String UNIT_OF_TIME_HOUR_FIELD_SUFFIX = UNIT_OF_TIME_FIELD_INFIX + "_hour";
+    public static final String UNIT_OF_TIME_MINUTE_FIELD_SUFFIX = UNIT_OF_TIME_FIELD_INFIX + "_minute";
+    public static final String UNIT_OF_TIME_SECOND_FIELD_SUFFIX = UNIT_OF_TIME_FIELD_INFIX + "_second";
 
     public static final String CONTENT_S_LOCALE_PREFIX = "content@s__locale@";
 
@@ -236,8 +243,13 @@ public class AlfrescoSolrDataModel implements QueryConstants
             compiledModelsCache.setDictionaryDAO(dictionaryDAO);
             compiledModelsCache.setTenantService(tenantService);
             compiledModelsCache.setRegistry(new DefaultAsynchronouslyRefreshedCacheRegistry());
-            TrackerPoolFactory trackerPoolFactory = new DefaultTrackerPoolFactory(new Properties(), "_dictionary_", "_internal_");
-            threadPool = trackerPoolFactory.create();
+            TraceableThreadFactory threadFactory = new TraceableThreadFactory();
+            threadFactory.setThreadDaemon(true);
+            threadFactory.setNamePrefix("SolrDictionaryPool-");
+            threadPool = new DynamicallySizedThreadPoolExecutor(
+                    4, 4, 120, TimeUnit.SECONDS,
+                    new LinkedBlockingQueue<>(), threadFactory,
+                    new ThreadPoolExecutor.CallerRunsPolicy());
             compiledModelsCache.setThreadPoolExecutor(threadPool);
 
             dictionaryDAO.setDictionaryRegistryCache(compiledModelsCache);

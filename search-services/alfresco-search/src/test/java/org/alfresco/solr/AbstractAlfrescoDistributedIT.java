@@ -57,6 +57,7 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.core.CoreContainer;
+import org.apache.solr.handler.admin.CoreAdminHandler;
 import org.apache.solr.core.SolrCore;
 import org.apache.solr.request.LocalSolrQueryRequest;
 import org.apache.solr.request.SolrQueryRequest;
@@ -368,13 +369,13 @@ public abstract class AbstractAlfrescoDistributedIT extends SolrITInitializer
         return jettyContainers.values().iterator().next().getCoreContainer().getCores();
     }
 
-    protected static List<AlfrescoCoreAdminHandler> getAdminHandlers(Collection<JettySolrRunner> runners)
+    protected static List<CoreAdminHandler> getAdminHandlers(Collection<JettySolrRunner> runners)
     {
-        List<AlfrescoCoreAdminHandler> coreAdminHandlers = new ArrayList<>();
+        List<CoreAdminHandler> coreAdminHandlers = new ArrayList<>();
         for (JettySolrRunner jettySolrRunner : runners)
         {
             CoreContainer coreContainer = jettySolrRunner.getCoreContainer();
-            AlfrescoCoreAdminHandler coreAdminHandler = (AlfrescoCoreAdminHandler)  coreContainer.getMultiCoreHandler();
+            CoreAdminHandler coreAdminHandler = (CoreAdminHandler)  coreContainer.getMultiCoreHandler();
             coreAdminHandlers.add(coreAdminHandler);
         }
         return coreAdminHandlers;
@@ -389,7 +390,7 @@ public abstract class AbstractAlfrescoDistributedIT extends SolrITInitializer
     {
         int shardHit = 0;
         List<SolrClient> clients = getShardedClients();
-        SolrQuery query = luceneToSolrQuery(new TermQuery(new Term(FIELD_DOC_TYPE, SolrInformationServer.DOC_TYPE_NODE)));
+        SolrQuery query = luceneToSolrQuery(new TermQuery(new Term(FIELD_DOC_TYPE, SolrDocTypeConstants.DOC_TYPE_NODE)));
         StringBuilder error = new StringBuilder();
         for (SolrClient client : clients)
         {
@@ -811,23 +812,31 @@ public abstract class AbstractAlfrescoDistributedIT extends SolrITInitializer
     /**
      * Calls the Admin handler with an action.
      */
-    protected static SolrQueryResponse callHandler(AlfrescoCoreAdminHandler coreAdminHandler, SolrCore testingCore, String action)
+    protected static SolrQueryResponse callHandler(CoreAdminHandler coreAdminHandler, SolrCore testingCore, String action)
     {
         SolrQueryRequest request = new LocalSolrQueryRequest(testingCore,
                 params(CoreAdminParams.ACTION, action, CoreAdminParams.CORE, testingCore.getName()));
         SolrQueryResponse response = new SolrQueryResponse();
-        coreAdminHandler.handleCustomAction(request, response);
+        try {
+            coreAdminHandler.handleRequestBody(request, response);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to handle admin request: " + action, e);
+        }
         return response;
     }
 
-    protected static SolrQueryResponse callExpand(AlfrescoCoreAdminHandler coreAdminHandler, SolrCore testingCore, int value)
+    protected static SolrQueryResponse callExpand(CoreAdminHandler coreAdminHandler, SolrCore testingCore, int value)
     {
         SolrQueryRequest request = new LocalSolrQueryRequest(testingCore,
             params(CoreAdminParams.ACTION, "EXPAND",
                   CoreAdminParams.CORE, testingCore.getName(),
                   "add", Integer.toString(value)));
         SolrQueryResponse response = new SolrQueryResponse();
-        coreAdminHandler.handleCustomAction(request, response);
+        try {
+            coreAdminHandler.handleRequestBody(request, response);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to handle admin request: EXPAND", e);
+        }
         return response;
     }
 
@@ -837,10 +846,10 @@ public abstract class AbstractAlfrescoDistributedIT extends SolrITInitializer
         for (int attemp=0; attemp < maxAttemps; ++attemp)
         {
             Collection<SolrCore> cores = getCores(solrShards);
-            List<AlfrescoCoreAdminHandler> alfrescoCoreAdminHandlers = getAdminHandlers(solrShards);
+            List<CoreAdminHandler> alfrescoCoreAdminHandlers = getAdminHandlers(solrShards);
             SolrCore core = cores.stream()
                     .filter(solrcore -> solrcore.getName().equals("shard" + shard)).findAny().orElseThrow(RuntimeException::new);
-            AlfrescoCoreAdminHandler alfrescoCoreAdminHandler = alfrescoCoreAdminHandlers.get(shard);
+            CoreAdminHandler alfrescoCoreAdminHandler = alfrescoCoreAdminHandlers.get(shard);
             SolrQueryResponse response = callHandler(alfrescoCoreAdminHandler, core, "RANGECHECK");
             NamedList<?> values = response.getValues();
 
@@ -869,12 +878,12 @@ public abstract class AbstractAlfrescoDistributedIT extends SolrITInitializer
     public static SolrQueryResponse expand(int shard, int value)
     {
         Collection<SolrCore> cores = getCores(solrShards);
-        List<AlfrescoCoreAdminHandler> alfrescoCoreAdminHandlers = getAdminHandlers(solrShards);
+        List<CoreAdminHandler> alfrescoCoreAdminHandlers = getAdminHandlers(solrShards);
         SolrCore core = cores.stream()
                 .filter(solrcore -> solrcore.getName().equals("shard" + shard)).findAny().orElseThrow(RuntimeException::new);
 
 //        SolrCore core = cores.get(shard);
-        AlfrescoCoreAdminHandler alfrescoCoreAdminHandler = alfrescoCoreAdminHandlers.get(shard);
+        CoreAdminHandler alfrescoCoreAdminHandler = alfrescoCoreAdminHandlers.get(shard);
         return callExpand(alfrescoCoreAdminHandler, core, value);
     }
 

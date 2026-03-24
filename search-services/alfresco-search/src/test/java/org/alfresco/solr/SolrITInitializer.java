@@ -39,6 +39,7 @@ import org.apache.solr.client.solrj.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.embedded.SSLConfig;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.core.CoreContainer;
+import org.apache.solr.handler.admin.CoreAdminHandler;
 import org.apache.solr.core.SolrCore;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.BeforeClass;
@@ -199,7 +200,7 @@ public abstract class SolrITInitializer extends SolrTestCaseJ4
         
         JettySolrRunner jsr = jettyContainers.get(testClassName);
         CoreContainer coreContainer = jsr.getCoreContainer();
-        AlfrescoCoreAdminHandler coreAdminHandler = (AlfrescoCoreAdminHandler)  coreContainer.getMultiCoreHandler();
+        CoreAdminHandler coreAdminHandler = coreContainer.getMultiCoreHandler();
         assertNotNull(coreAdminHandler);
         String[] extras = null;
         if ((solrcoreProperties != null) && !solrcoreProperties.isEmpty())

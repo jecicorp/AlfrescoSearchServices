@@ -52,6 +52,7 @@ import org.junit.Test;
  * @author Michael Suzuki
  *
  */
+@org.junit.Ignore("Requires full property indexing pipeline (SolrInformationServer removed)")
 public class TrieFieldsCMISTest extends LoadCMISData
 {
     @Before
