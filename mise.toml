@@ -55,3 +55,23 @@ run = "docker compose -f target/e2e-stack/docker-compose.yml logs -f"
 description = "Lance les tests e2e (stack doit être up)"
 run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test"
 
+[tasks."trackers:build"]
+description = "Build trackers Spring Boot JAR"
+run = "cd search-services && mvn package -pl alfresco-indexing-trackers -am -Dmaven.test.skip=true"
+
+[tasks."trackers:run"]
+description = "Run trackers locally"
+run = "cd search-services && mvn spring-boot:run -pl alfresco-indexing-trackers"
+
+[tasks."dev:up"]
+description = "Start development stack (Alfresco + Solr + Trackers)"
+run = "docker compose -f docker-compose.dev.yml up -d"
+
+[tasks."dev:down"]
+description = "Stop development stack"
+run = "docker compose -f docker-compose.dev.yml down"
+
+[tasks."dev:logs"]
+description = "View development stack logs"
+run = "docker compose -f docker-compose.dev.yml logs -f"
+
