@@ -95,6 +95,11 @@ public class SolrJInformationServer implements InformationServer
      */
     private TrackerRegistry trackerRegistry;
 
+    /** Optional NamespaceDAO for QName prefix resolution in remote mode. */
+    private NamespaceDAO namespaceDAO;
+
+    public void setNamespaceDAO(NamespaceDAO namespaceDAO) { this.namespaceDAO = namespaceDAO; }
+
     public SolrJInformationServer(SolrClient solrClient, String collection,
                                   Properties props, DataModelCallback dataModelCallback)
     {
@@ -460,19 +465,18 @@ public class SolrJInformationServer implements InformationServer
      * <p><strong>Architecture note:</strong> {@code NamespaceDAO} is backed by
      * {@code AlfrescoSolrDataModel}, a Solr-core-embedded singleton.
      * It is not transferable over a SolrJ connection.
-     * {@code ModelTracker.expandQNameImpl()} and {@code removeMatchingModels()} call this —
-     * those code paths are incompatible with remote (SolrJ) mode.
-     * The caller must not invoke this method in remote mode.</p>
-     *
-     * @throws UnsupportedOperationException always
+     * {@code ModelTracker.expandQNameImpl()} and {@code removeMatchingModels()} call this.
+     * In remote mode, returns the local {@link NamespaceDAO} if set, otherwise throws.</p>
      */
     @Override
     public NamespaceDAO getNamespaceDAO()
     {
+        if (namespaceDAO != null)
+        {
+            return namespaceDAO;
+        }
         throw new UnsupportedOperationException(
-                "getNamespaceDAO is not available in remote (SolrJ) mode: " +
-                "NamespaceDAO is backed by AlfrescoSolrDataModel (Solr-embedded singleton). " +
-                "ModelTracker namespace expansion is not supported in this mode.");
+                "getNamespaceDAO is not available: no local NamespaceDAO has been configured.");
     }
 
     @Override
@@ -490,7 +494,17 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public boolean putModel(M2Model model)
     {
-        return modelService.putModel(model);
+        boolean success = modelService.putModel(model);
+        // Register the model's namespaces in the local NamespaceDAO
+        // so that SOLRAPIClient.getModelsDiff() can resolve prefix → URI correctly.
+        if (success && namespaceDAO != null)
+        {
+            for (org.alfresco.repo.dictionary.M2Namespace ns : model.getNamespaces())
+            {
+                namespaceDAO.addPrefix(ns.getPrefix(), ns.getUri());
+            }
+        }
+        return success;
     }
 
     @Override

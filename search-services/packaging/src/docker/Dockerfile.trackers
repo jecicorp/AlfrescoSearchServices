@@ -9,7 +9,10 @@ WORKDIR /app
 
 COPY alfresco-indexing-trackers-*.jar /app/alfresco-indexing-trackers.jar
 
-RUN chown -R trackers:trackers /app
+# Create model persistence directory
+RUN mkdir -p /opt/solr/data/alfrescoModels
+
+RUN chown -R trackers:trackers /app /opt/solr/data
 
 USER trackers
 

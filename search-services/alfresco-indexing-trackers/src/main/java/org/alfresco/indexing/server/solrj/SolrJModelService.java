@@ -104,11 +104,17 @@ public class SolrJModelService
             request.addContentStream(stream);
 
             NamedList<Object> response = solrClient.request(request, collection);
-            return "ok".equals(response.get("status"));
+            String status = (String) response.get("status");
+            if ("ok".equals(status))
+            {
+                return true;
+            }
+            LOG.info("Model '{}' deferred by Solr (dependencies may not be loaded yet)", model.getName());
+            return false;
         }
-        catch (SolrServerException | IOException e)
+        catch (Exception e)
         {
-            LOG.error("Failed to put model '{}' to Solr: {}", model.getName(), e.getMessage(), e);
+            LOG.warn("Failed to put model '{}' to Solr (will retry): {}", model.getName(), e.getMessage());
             return false;
         }
     }
@@ -120,6 +126,28 @@ public class SolrJModelService
     public void afterInitModels()
     {
         // Intentionally empty: afterInitModels is called server-side during putModel.
+    }
+
+    /**
+     * Removes a model from the Solr-side dictionary.
+     * Sends {@code action=remove&modelQName=prefix:localName} to the handler.
+     */
+    public void removeModel(QName modelQName)
+    {
+        try
+        {
+            ModifiableSolrParams params = new ModifiableSolrParams();
+            params.set(PARAM_ACTION, "remove");
+            params.set(PARAM_MODEL_QNAME, modelQName.toString());
+            params.set("qt", HANDLER_PATH);
+
+            solrClient.query(collection, params);
+            LOG.info("Model removed from Solr: {}", modelQName);
+        }
+        catch (Exception e)
+        {
+            LOG.debug("Failed to remove model '{}' from Solr: {}", modelQName, e.getMessage());
+        }
     }
 
     /**
@@ -147,9 +175,9 @@ public class SolrJModelService
             }
             return M2Model.createModel(new ByteArrayInputStream(modelXml.getBytes("UTF-8")));
         }
-        catch (SolrServerException | IOException e)
+        catch (Exception e)
         {
-            LOG.error("Failed to get model '{}' from Solr: {}", modelQName, e.getMessage(), e);
+            LOG.warn("Failed to get model '{}' from Solr: {}", modelQName, e.getMessage());
             return null;
         }
     }
@@ -194,8 +222,21 @@ public class SolrJModelService
 
                 if (modelNameStr != null)
                 {
-                    QName modelQName = QName.createQName(modelNameStr);
-                    M2Model m2Model = getM2Model(modelQName);
+                    // Try to read model XML directly from list response (avoids per-model GET)
+                    String modelXml = (String) modelEntry.get("modelXml");
+                    M2Model m2Model = null;
+                    if (modelXml != null && !modelXml.isEmpty())
+                    {
+                        try
+                        {
+                            m2Model = M2Model.createModel(
+                                    new ByteArrayInputStream(modelXml.getBytes("UTF-8")));
+                        }
+                        catch (Exception e)
+                        {
+                            LOG.warn("Failed to parse model XML for '{}': {}", modelNameStr, e.getMessage());
+                        }
+                    }
                     if (m2Model != null)
                     {
                         result.add(new AlfrescoModel(m2Model, checksum));
@@ -203,9 +244,9 @@ public class SolrJModelService
                 }
             }
         }
-        catch (SolrServerException | IOException e)
+        catch (Exception e)
         {
-            LOG.error("Failed to list models from Solr: {}", e.getMessage(), e);
+            LOG.warn("Failed to list models from Solr: {}", e.getMessage());
         }
         return result;
     }
@@ -242,9 +283,9 @@ public class SolrJModelService
                         errorSet != null ? new HashSet<>(errorSet) : new HashSet<>());
             }
         }
-        catch (SolrServerException | IOException e)
+        catch (Exception e)
         {
-            LOG.error("Failed to get model errors from Solr: {}", e.getMessage(), e);
+            LOG.warn("Failed to get model errors from Solr: {}", e.getMessage());
         }
         return result;
     }

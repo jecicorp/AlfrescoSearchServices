@@ -118,6 +118,18 @@ public class SolrJQueryService
         this.collection = collection;
     }
 
+    /**
+     * Creates a SolrQuery with the Lucene query parser (defType=lucene).
+     * This is required because Alfresco Solr uses AFTS as the default query parser,
+     * which does not understand standard Lucene field:value syntax with special characters.
+     */
+    private static SolrQuery luceneQuery(String q)
+    {
+        SolrQuery query = new SolrQuery(q);
+        query.set("defType", "lucene");
+        return query;
+    }
+
     // -------------------------------------------------------------------------
     // Tracker state methods
     // -------------------------------------------------------------------------
@@ -136,7 +148,7 @@ public class SolrJQueryService
         try
         {
             // Query both state documents by their IDs using standard /select handler
-            SolrQuery query = new SolrQuery("id:\"" + STATE_DOC_ACLTX + "\" OR id:\"" + STATE_DOC_TX + "\"");
+            SolrQuery query = luceneQuery("id:\"" + STATE_DOC_ACLTX + "\" OR id:\"" + STATE_DOC_TX + "\"");
             query.setRows(2);
             query.setFields("*");
 
@@ -383,7 +395,7 @@ public class SolrJQueryService
     {
         try
         {
-            SolrQuery query = new SolrQuery(FIELD_SOLR4_ID + ":" + INDEX_CAP_ID);
+            SolrQuery query = luceneQuery(FIELD_SOLR4_ID + ":" + INDEX_CAP_ID);
             query.setRows(1);
             query.setFields(FIELD_DBID);
 
@@ -414,7 +426,7 @@ public class SolrJQueryService
         Set<Long> errorDocIds = new HashSet<>();
         try
         {
-            SolrQuery query = new SolrQuery(FIELD_DOC_TYPE + ":" + DOC_TYPE_ERROR_NODE);
+            SolrQuery query = luceneQuery(FIELD_DOC_TYPE + ":" + DOC_TYPE_ERROR_NODE);
             query.setRows(Integer.MAX_VALUE);
             query.setFields(FIELD_SOLR4_ID);
 
@@ -480,7 +492,7 @@ public class SolrJQueryService
         List<Transaction> transactions = new ArrayList<>();
         try
         {
-            SolrQuery query = new SolrQuery(FIELD_CASCADE_FLAG + ":1");
+            SolrQuery query = luceneQuery(FIELD_CASCADE_FLAG + ":1");
             query.setRows(num);
             query.addSort(FIELD_TXID, SolrQuery.ORDER.asc);
             query.setFields(FIELD_S_TXID, FIELD_S_TXCOMMITTIME);
@@ -544,7 +556,7 @@ public class SolrJQueryService
             queryBuilder.append(")");
             queryBuilder.append(AND).append(FIELD_DOC_TYPE).append(":").append(DOC_TYPE_NODE);
 
-            SolrQuery query = new SolrQuery(queryBuilder.toString());
+            SolrQuery query = luceneQuery(queryBuilder.toString());
             query.setRows(Integer.MAX_VALUE);
             query.setFields(FIELD_DBID);
 
@@ -722,7 +734,7 @@ public class SolrJQueryService
     {
         try
         {
-            SolrQuery query = new SolrQuery("id:\"" + id + "\"");
+            SolrQuery query = luceneQuery("id:\"" + id + "\"");
             query.setRows(1);
             query.setFields("*");
 
@@ -758,7 +770,7 @@ public class SolrJQueryService
 
         try
         {
-            SolrQuery query = new SolrQuery(fieldName + ":" + id);
+            SolrQuery query = luceneQuery(fieldName + ":" + id);
             query.setRows(0);
             QueryResponse response = solrClient.query(collection, query);
             return response.getResults().getNumFound() > 0;
@@ -776,7 +788,7 @@ public class SolrJQueryService
     {
         try
         {
-            SolrQuery query = new SolrQuery("id:\"" + id + "\"");
+            SolrQuery query = luceneQuery("id:\"" + id + "\"");
             query.setRows(0);
 
             QueryResponse response = solrClient.query(collection, query);
@@ -795,7 +807,7 @@ public class SolrJQueryService
     {
         try
         {
-            SolrQuery query = new SolrQuery(queryStr);
+            SolrQuery query = luceneQuery(queryStr);
             query.setRows(0);
             QueryResponse response = solrClient.query(collection, query);
             return (int) response.getResults().getNumFound();
@@ -813,7 +825,7 @@ public class SolrJQueryService
     {
         try
         {
-            SolrQuery query = new SolrQuery("*:*");
+            SolrQuery query = luceneQuery("*:*");
             query.addFilterQuery(FIELD_DOC_TYPE + ":" + DOC_TYPE_NODE);
             query.setRows(1);
             query.addSort(FIELD_DBID, order);
@@ -850,7 +862,7 @@ public class SolrJQueryService
         Map<String, Long> result = new LinkedHashMap<>();
         try
         {
-            SolrQuery query = new SolrQuery(queryStr);
+            SolrQuery query = luceneQuery(queryStr);
             query.setRows(0);
             query.setFacet(true);
             query.addFacetField(facetField);

@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Properties;
 
 import org.alfresco.indexing.server.solrj.SolrJInformationServer;
+import org.alfresco.indexing.server.solrj.SolrJModelService;
 import org.alfresco.indexing.tracker.AclTracker;
 import org.alfresco.indexing.tracker.CascadeTracker;
 import org.alfresco.indexing.tracker.CommitTracker;
@@ -41,6 +42,7 @@ import org.alfresco.indexing.tracker.ModelTracker;
 import org.alfresco.indexing.tracker.Tracker;
 import org.alfresco.indexing.tracker.TrackerRegistry;
 import org.alfresco.indexing.tracker.TrackerScheduler;
+import org.alfresco.repo.dictionary.NamespaceDAO;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.apache.solr.client.solrj.SolrClient;
@@ -76,6 +78,7 @@ public class TrackerBootstrap implements ApplicationRunner
     private final TrackerProperties props;
     private final SOLRAPIClient repoClient;
     private final Properties repositoryProperties;
+    private final NamespaceDAO localNamespaceDAO;
 
     private TrackerScheduler scheduler;
     private TrackerRegistry registry;
@@ -84,8 +87,10 @@ public class TrackerBootstrap implements ApplicationRunner
     public TrackerBootstrap(SolrClient solrClient,
                             TrackerProperties props,
                             SOLRAPIClient repoClient,
-                            @Qualifier("repositoryProperties") Properties repositoryProperties)
+                            @Qualifier("repositoryProperties") Properties repositoryProperties,
+                            NamespaceDAO localNamespaceDAO)
     {
+        this.localNamespaceDAO = localNamespaceDAO;
         this.solrClient = solrClient;
         this.props = props;
         this.repoClient = repoClient;
@@ -106,7 +111,8 @@ public class TrackerBootstrap implements ApplicationRunner
 
         // 1. Create DataModelCallback (remote/SolrJ mode):
         //    afterInitModels is a no-op — the SolrJModelService handles it server-side.
-        //    removeModel is a no-op — model removal via the Solr API is not yet supported.
+        //    removeModel calls the Solr handler to remove the model from the dictionary.
+        SolrJModelService modelService = new SolrJModelService(solrClient, coreName);
         DataModelCallback dataModelCallback = new DataModelCallback()
         {
             @Override
@@ -118,7 +124,7 @@ public class TrackerBootstrap implements ApplicationRunner
             @Override
             public void removeModel(QName modelName)
             {
-                LOGGER.warn("removeModel({}) called but model removal is not yet supported in remote SolrJ mode", modelName);
+                modelService.removeModel(modelName);
             }
         };
 
@@ -126,7 +132,10 @@ public class TrackerBootstrap implements ApplicationRunner
         SolrJInformationServer infoSrv = new SolrJInformationServer(
                 solrClient, coreName, trackerProps, dataModelCallback, repoClient);
 
-        // 3. Create TrackerRegistry and attach it to the information server
+        // 3. Set the local NamespaceDAO for QName resolution
+        infoSrv.setNamespaceDAO(localNamespaceDAO);
+
+        // 4. Create TrackerRegistry and attach it to the information server
         registry = new TrackerRegistry();
         infoSrv.setTrackerRegistry(registry);
 

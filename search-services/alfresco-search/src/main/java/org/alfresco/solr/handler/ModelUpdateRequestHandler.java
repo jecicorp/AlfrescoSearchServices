@@ -127,12 +127,33 @@ public class ModelUpdateRequestHandler extends RequestHandlerBase
         }
 
         AlfrescoSolrDataModel dataModel = AlfrescoSolrDataModel.getInstance();
-        dataModel.putModel(model);
-        dataModel.afterInitModels();
+        boolean success = false;
+        try
+        {
+            success = dataModel.putModel(model);
+        }
+        catch (Exception e)
+        {
+            LOG.warn("Model registration deferred (dependencies may not be loaded yet): {} - {}",
+                     model.getName(), e.getMessage());
+        }
 
-        LOG.info("Model registered: {}", model.getName());
+        // Only refresh CMIS dictionary if model was successfully registered
+        if (success)
+        {
+            try
+            {
+                dataModel.afterInitModels();
+            }
+            catch (Exception e)
+            {
+                LOG.warn("afterInitModels failed (may resolve on next model load): {}", e.getMessage());
+            }
+        }
 
-        rsp.add("status", "ok");
+        LOG.info("Model {}: {}", success ? "registered" : "deferred", model.getName());
+
+        rsp.add("status", success ? "ok" : "deferred");
         rsp.add("modelName", model.getName());
     }
 
@@ -148,12 +169,26 @@ public class ModelUpdateRequestHandler extends RequestHandlerBase
                     "REMOVE action requires parameter: " + PARAM_MODEL_QNAME);
         }
 
-        QName qname = QName.createQName(qnameStr);
-        AlfrescoSolrDataModel.getInstance().removeModel(qname);
-
-        LOG.info("Model removed: {}", qnameStr);
-
-        rsp.add("status", "ok");
+        QName qname;
+        try
+        {
+            qname = QName.resolveToQName(AlfrescoSolrDataModel.getInstance().getNamespaceDAO(), qnameStr);
+        }
+        catch (Exception e)
+        {
+            qname = QName.createQName(qnameStr);
+        }
+        try
+        {
+            AlfrescoSolrDataModel.getInstance().removeModel(qname);
+            LOG.info("Model removed: {}", qnameStr);
+            rsp.add("status", "ok");
+        }
+        catch (Exception e)
+        {
+            LOG.debug("Model not found for removal (already absent): {}", qnameStr);
+            rsp.add("status", "ok");
+        }
     }
 
     /**
@@ -168,6 +203,17 @@ public class ModelUpdateRequestHandler extends RequestHandlerBase
             NamedList<Object> entry = new SimpleOrderedMap<>();
             entry.add("name", am.getModel().getName());
             entry.add("checksum", am.getChecksum());
+            // Include model XML so clients don't need a separate GET per model
+            try
+            {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                am.getModel().toXML(baos);
+                entry.add("modelXml", baos.toString("UTF-8"));
+            }
+            catch (Exception e)
+            {
+                LOG.warn("Failed to serialize model {}: {}", am.getModel().getName(), e.getMessage());
+            }
             modelList.add(am.getModel().getName(), entry);
         }
         rsp.add("status", "ok");
@@ -186,7 +232,16 @@ public class ModelUpdateRequestHandler extends RequestHandlerBase
                     "GET action requires parameter: " + PARAM_MODEL_QNAME);
         }
 
-        QName qname = QName.createQName(qnameStr);
+        QName qname;
+        try
+        {
+            qname = QName.resolveToQName(AlfrescoSolrDataModel.getInstance().getNamespaceDAO(), qnameStr);
+        }
+        catch (Exception e)
+        {
+            // Fallback: try direct QName creation (handles {namespace}localName format)
+            qname = QName.createQName(qnameStr);
+        }
         M2Model model = AlfrescoSolrDataModel.getInstance().getM2Model(qname);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

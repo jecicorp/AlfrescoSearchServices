@@ -254,7 +254,11 @@ public class AlfrescoSolrDataModel implements QueryConstants
 
             dictionaryDAO.setDictionaryRegistryCache(compiledModelsCache);
             dictionaryDAO.setResourceClassLoader(getResourceClassLoader());
-            dictionaryDAO.init();
+            // Do NOT call dictionaryDAO.init() — it loads obsolete built-in models
+            // from the classpath (slideshare, flickr, etc.) that no longer exist
+            // in modern Alfresco Repository versions.
+            // The ModelTracker will load the correct models from the Repository
+            // via putModel() during its first tracking cycle.
         }
         catch (Exception e)
         {

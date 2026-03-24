@@ -26,11 +26,16 @@
 package org.alfresco.indexing.config;
 
 import java.net.URI;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 import org.alfresco.httpclient.AlfrescoHttpClient;
 import org.alfresco.httpclient.HttpClientFactory;
 import org.alfresco.httpclient.HttpClientFactory.SecureCommsType;
+import org.alfresco.repo.dictionary.NamespaceDAO;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.SOLRAPIClientFactory;
 import org.slf4j.Logger;
@@ -127,17 +132,120 @@ public class RepositoryClientConfig
     }
 
     /**
-     * Creates the {@link SOLRAPIClient} bean. This is the main client used by
-     * trackers to fetch nodes, ACLs, and metadata from the Repository.
-     *
-     * <p>Note: The {@code dictionaryService} and {@code namespaceDAO}
-     * parameters are set to {@code null} for now. They will be wired in
-     * Task 3 (TrackerBootstrap) once the data model initialisation is in place.</p>
+     * Creates a simple in-memory NamespaceDAO that maps well-known Alfresco
+     * namespace prefixes to URIs. This allows SOLRAPIClient to resolve QNames
+     * without requiring the full Alfresco dictionary (which lives in Solr).
      */
     @Bean
-    public SOLRAPIClient solrApiClient(AlfrescoHttpClient alfrescoHttpClient)
+    public NamespaceDAO localNamespaceDAO()
     {
-        // DictionaryService and NamespaceDAO will be provided by TrackerBootstrap (Task 3)
-        return new SOLRAPIClient(alfrescoHttpClient, null, null);
+        return new SimpleNamespaceDAO();
+    }
+
+    /**
+     * Creates the {@link SOLRAPIClient} bean with a local NamespaceDAO
+     * for QName prefix resolution.
+     */
+    @Bean
+    public SOLRAPIClient solrApiClient(AlfrescoHttpClient alfrescoHttpClient, NamespaceDAO localNamespaceDAO)
+    {
+        return new SOLRAPIClient(alfrescoHttpClient, null, localNamespaceDAO);
+    }
+
+    /**
+     * Minimal NamespaceDAO backed by well-known Alfresco namespace mappings.
+     * Populated from the standard Alfresco prefix→URI map.
+     */
+    static class SimpleNamespaceDAO implements NamespaceDAO
+    {
+        private final Map<String, String> prefixToUri = new HashMap<>();
+        private final Map<String, String> uriToPrefix = new HashMap<>();
+
+        SimpleNamespaceDAO()
+        {
+            // Core Alfresco namespaces
+            register("d", "http://www.alfresco.org/model/dictionary/1.0");
+            register("sys", "http://www.alfresco.org/model/system/1.0");
+            register("cm", "http://www.alfresco.org/model/content/1.0");
+            register("app", "http://www.alfresco.org/model/application/1.0");
+            register("bpm", "http://www.alfresco.org/model/bpm/1.0");
+            register("wf", "http://www.alfresco.org/model/workflow/1.0");
+            register("fm", "http://www.alfresco.org/model/forum/1.0");
+            register("ver", "http://www.alfresco.org/model/versionstore/1.0");
+            register("ver2", "http://www.alfresco.org/model/versionstore/2.0");
+            register("act", "http://www.alfresco.org/model/action/1.0");
+            register("rule", "http://www.alfresco.org/model/rule/1.0");
+            register("usr", "http://www.alfresco.org/model/user/1.0");
+            register("st", "http://www.alfresco.org/model/site/1.0");
+            register("imap", "http://www.alfresco.org/model/imap/1.0");
+            register("dl", "http://www.alfresco.org/model/datalist/1.0");
+            register("lnk", "http://www.alfresco.org/model/linksmodel/1.0");
+            register("ia", "http://www.alfresco.org/model/calendar");
+            register("smf", "http://www.alfresco.org/model/smart/1.0");
+            register("cmis", "http://www.alfresco.org/model/cmis/1.0/cs01");
+            register("cmiscustom", "http://www.alfresco.org/model/cmis/1.0/cs01ext");
+            register("srft", "http://www.alfresco.org/model/solrfacetcustomproperty/1.0");
+            register("trx", "http://www.alfresco.org/model/transfer/1.0");
+            register("surf", "http://www.alfresco.org/model/surf/1.0");
+            register("pub", "http://www.alfresco.org/model/publishing/1.0");
+            register("qshare", "http://www.alfresco.org/model/qshare/1.0");
+            register("download", "http://www.alfresco.org/model/download/1.0");
+            register("emailserver", "http://www.alfresco.org/model/emailserver/1.0");
+            register("aos", "http://www.alfresco.org/model/aos/1.0");
+            register("dp", "http://www.alfresco.org/model/distributionpolicies/1.0");
+            register("cmm", "http://www.alfresco.org/model/custommodelmanagement/1.0");
+            register("blg", "http://www.alfresco.org/model/blogintegration/1.0");
+            register("iptcxmp", "http://www.alfresco.org/model/exif/1.0");
+            register("rc", "http://www.alfresco.org/model/remotecredentials/1.0");
+            register("gd2", "http://www.alfresco.org/model/googledocs/2.0");
+            register("custom", "http://www.alfresco.org/model/custom");
+            // Publishing providers
+            register("youtube", "http://www.alfresco.org/model/publishing/youtube");
+            register("flickr", "http://www.alfresco.org/model/publishing/flickr");
+            register("slideshare", "http://www.alfresco.org/model/publishing/slideshare");
+            register("facebook", "http://www.alfresco.org/model/publishing/facebook");
+            register("linkedin", "http://www.alfresco.org/model/publishing/linkedin");
+            register("twitter", "http://www.alfresco.org/model/publishing/twitter");
+            // Workflow
+            register("inwf", "http://www.alfresco.org/model/workflow/invite/nominated/1.0");
+            register("imwf", "http://www.alfresco.org/model/workflow/invite/moderated/1.0");
+            register("resetpasswordwf", "http://www.alfresco.org/model/workflow/resetpassword/1.0");
+        }
+
+        private void register(String prefix, String uri)
+        {
+            prefixToUri.put(prefix, uri);
+            uriToPrefix.put(uri, prefix);
+        }
+
+        /** Dynamically register a new prefix mapping (called when models are loaded). */
+        public void registerNamespace(String prefix, String uri)
+        {
+            register(prefix, uri);
+        }
+
+        @Override public void addURI(String uri) { }
+        @Override public void addPrefix(String prefix, String uri) { register(prefix, uri); }
+        @Override public void removeURI(String uri) { uriToPrefix.remove(uri); }
+        @Override public void removePrefix(String prefix) { prefixToUri.remove(prefix); }
+
+        @Override
+        public Collection<String> getURIs() { return Collections.unmodifiableCollection(prefixToUri.values()); }
+
+        @Override
+        public Collection<String> getPrefixes() { return Collections.unmodifiableCollection(prefixToUri.keySet()); }
+
+        @Override
+        public Collection<String> getPrefixes(String namespaceURI)
+        {
+            String prefix = uriToPrefix.get(namespaceURI);
+            return prefix != null ? Collections.singleton(prefix) : Collections.emptySet();
+        }
+
+        @Override
+        public String getNamespaceURI(String prefix)
+        {
+            return prefixToUri.get(prefix);
+        }
     }
 }
