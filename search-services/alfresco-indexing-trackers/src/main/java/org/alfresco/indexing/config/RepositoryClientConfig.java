@@ -35,6 +35,7 @@ import java.util.Properties;
 import org.alfresco.httpclient.AlfrescoHttpClient;
 import org.alfresco.httpclient.HttpClientFactory;
 import org.alfresco.httpclient.HttpClientFactory.SecureCommsType;
+import org.alfresco.indexing.server.solrj.LocalDictionaryService;
 import org.alfresco.repo.dictionary.NamespaceDAO;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.SOLRAPIClientFactory;
@@ -143,13 +144,27 @@ public class RepositoryClientConfig
     }
 
     /**
-     * Creates the {@link SOLRAPIClient} bean with a local NamespaceDAO
-     * for QName prefix resolution.
+     * Creates a local dictionary service for property definition lookups.
+     * This is used both by the SOLRAPIClient (for metadata deserialization)
+     * and by the SolrDocumentMapper (for Solr field naming).
      */
     @Bean
-    public SOLRAPIClient solrApiClient(AlfrescoHttpClient alfrescoHttpClient, NamespaceDAO localNamespaceDAO)
+    public LocalDictionaryService localDictionaryService()
     {
-        return new SOLRAPIClient(alfrescoHttpClient, null, localNamespaceDAO);
+        return new LocalDictionaryService();
+    }
+
+    /**
+     * Creates the {@link SOLRAPIClient} bean with a local NamespaceDAO
+     * for QName prefix resolution and a DictionaryService for metadata parsing.
+     */
+    @Bean
+    public SOLRAPIClient solrApiClient(AlfrescoHttpClient alfrescoHttpClient,
+                                       NamespaceDAO localNamespaceDAO,
+                                       LocalDictionaryService localDictionaryService)
+    {
+        return new SOLRAPIClient(alfrescoHttpClient,
+                localDictionaryService.getDictionaryComponent(), localNamespaceDAO);
     }
 
     /**

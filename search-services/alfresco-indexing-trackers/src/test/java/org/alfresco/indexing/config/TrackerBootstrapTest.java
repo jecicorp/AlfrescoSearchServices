@@ -77,7 +77,7 @@ public class TrackerBootstrapTest
     @Test
     public void buildTrackerProperties_bridgesCronSchedules()
     {
-        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null);
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
 
         Properties result = bootstrap.buildTrackerProperties();
 
@@ -92,7 +92,7 @@ public class TrackerBootstrapTest
     @Test
     public void buildTrackerProperties_includesRepositoryProperties()
     {
-        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null);
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
 
         Properties result = bootstrap.buildTrackerProperties();
 
@@ -106,7 +106,7 @@ public class TrackerBootstrapTest
     @Test
     public void buildTrackerProperties_includesCascadeEnabledFlag()
     {
-        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null);
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
 
         Properties result = bootstrap.buildTrackerProperties();
 
@@ -117,7 +117,7 @@ public class TrackerBootstrapTest
     public void buildTrackerProperties_cascadeDisabled()
     {
         props.setCascadeTrackingEnabled(false);
-        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null);
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
 
         Properties result = bootstrap.buildTrackerProperties();
 
@@ -127,7 +127,7 @@ public class TrackerBootstrapTest
     @Test
     public void shutdown_handlesNullSchedulerGracefully()
     {
-        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null);
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
 
         // Should not throw — scheduler and trackers are empty
         bootstrap.shutdown();

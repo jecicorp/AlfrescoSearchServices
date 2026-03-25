@@ -98,17 +98,28 @@ public class SolrJInformationServer implements InformationServer
     /** Optional NamespaceDAO for QName prefix resolution in remote mode. */
     private NamespaceDAO namespaceDAO;
 
+    /** Local dictionary for property definition lookups. */
+    private final LocalDictionaryService localDictionaryService;
+
     public void setNamespaceDAO(NamespaceDAO namespaceDAO) { this.namespaceDAO = namespaceDAO; }
 
     public SolrJInformationServer(SolrClient solrClient, String collection,
                                   Properties props, DataModelCallback dataModelCallback)
     {
-        this(solrClient, collection, props, dataModelCallback, null);
+        this(solrClient, collection, props, dataModelCallback, null, null);
     }
 
     public SolrJInformationServer(SolrClient solrClient, String collection,
                                   Properties props, DataModelCallback dataModelCallback,
                                   SOLRAPIClient repositoryClient)
+    {
+        this(solrClient, collection, props, dataModelCallback, repositoryClient, null);
+    }
+
+    public SolrJInformationServer(SolrClient solrClient, String collection,
+                                  Properties props, DataModelCallback dataModelCallback,
+                                  SOLRAPIClient repositoryClient,
+                                  LocalDictionaryService localDictionaryService)
     {
         this.solrClient = solrClient;
         this.collection = collection;
@@ -121,7 +132,12 @@ public class SolrJInformationServer implements InformationServer
 
         this.trackerStats = new TrackerStats(this);
 
-        this.indexingService = new SolrJIndexingService(solrClient, collection, new SolrDocumentMapper(), repositoryClient);
+        this.localDictionaryService = localDictionaryService != null
+                ? localDictionaryService : new LocalDictionaryService();
+        SolrDocumentMapper documentMapper = new SolrDocumentMapper(
+                Boolean.parseBoolean(props.getProperty("alfresco.cascade.tracker.enabled", "true")),
+                this.localDictionaryService);
+        this.indexingService = new SolrJIndexingService(solrClient, collection, documentMapper, repositoryClient);
         this.commitService = new SolrJCommitService(solrClient, collection);
         this.queryService = new SolrJQueryService(solrClient, collection);
         this.modelService = new SolrJModelService(solrClient, collection);
@@ -380,7 +396,9 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public void updateTransaction(Transaction txn) throws IOException
     {
-        indexingService.indexTransaction(txn, true);
+        // Re-index the transaction with cascade flag cleared (0)
+        // so the CascadeTracker does not reprocess it.
+        indexingService.updateTransactionCascadeProcessed(txn);
     }
 
     @Override
@@ -495,6 +513,8 @@ public class SolrJInformationServer implements InformationServer
     public boolean putModel(M2Model model)
     {
         boolean success = modelService.putModel(model);
+        // Register the model in the local dictionary for property definition lookups
+        localDictionaryService.putModel(model);
         // Register the model's namespaces in the local NamespaceDAO
         // so that SOLRAPIClient.getModelsDiff() can resolve prefix → URI correctly.
         if (success && namespaceDAO != null)

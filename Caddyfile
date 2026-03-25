@@ -1,0 +1,26 @@
+:80 {
+	log {
+		format console
+		output stdout
+	}
+
+	redir /alfresco     /alfresco/
+	redir /api-explorer /api-explorer/
+
+	reverse_proxy /alfresco/* alfresco:8080
+	reverse_proxy /api-explorer/* alfresco:8080
+
+	redir /        /portail/
+	redir /portail /portail/
+	redir /espaces /espaces/
+
+	reverse_proxy /portail/* pristy-portail:80
+	reverse_proxy /espaces/* pristy-espaces:80
+}
+
+# Solr admin UI with automatic secret header injection
+:8984 {
+	reverse_proxy solr:8983 {
+		header_up X-Alfresco-Search-Secret "secret"
+	}
+}

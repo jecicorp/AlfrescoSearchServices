@@ -179,6 +179,26 @@ public class SolrJQueryServiceTest
     }
 
     @Test
+    public void txnInIndex_notFoundWithPopulateCache_doesNotPoisonCache() throws Exception
+    {
+        // First call: txn NOT in index, but populateCache=true
+        SolrDocumentList emptyDocs = new SolrDocumentList();
+        emptyDocs.setNumFound(0);
+        QueryResponse emptyResponse = mockQueryResponse(emptyDocs);
+        when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(emptyResponse);
+
+        assertFalse("Should return false when txn is not in index",
+                queryService.txnInIndex(77L, true));
+
+        // Second call: same txnId — must query Solr again (not return true from cache)
+        assertFalse("Should still return false — cache must NOT contain not-found entries",
+                queryService.txnInIndex(77L, true));
+
+        // Solr should have been queried twice (cache must NOT short-circuit)
+        verify(solrClient, times(2)).query(eq(COLLECTION), any(SolrQuery.class));
+    }
+
+    @Test
     public void aclChangeSetInIndex_found_returnsTrue() throws Exception
     {
         SolrDocumentList docs = new SolrDocumentList();

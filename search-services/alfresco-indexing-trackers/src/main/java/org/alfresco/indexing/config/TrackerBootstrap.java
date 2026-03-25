@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
+import org.alfresco.indexing.server.solrj.LocalDictionaryService;
 import org.alfresco.indexing.server.solrj.SolrJInformationServer;
 import org.alfresco.indexing.server.solrj.SolrJModelService;
 import org.alfresco.indexing.tracker.AclTracker;
@@ -79,6 +80,7 @@ public class TrackerBootstrap implements ApplicationRunner
     private final SOLRAPIClient repoClient;
     private final Properties repositoryProperties;
     private final NamespaceDAO localNamespaceDAO;
+    private final LocalDictionaryService localDictionaryService;
 
     private TrackerScheduler scheduler;
     private TrackerRegistry registry;
@@ -88,9 +90,11 @@ public class TrackerBootstrap implements ApplicationRunner
                             TrackerProperties props,
                             SOLRAPIClient repoClient,
                             @Qualifier("repositoryProperties") Properties repositoryProperties,
-                            NamespaceDAO localNamespaceDAO)
+                            NamespaceDAO localNamespaceDAO,
+                            LocalDictionaryService localDictionaryService)
     {
         this.localNamespaceDAO = localNamespaceDAO;
+        this.localDictionaryService = localDictionaryService;
         this.solrClient = solrClient;
         this.props = props;
         this.repoClient = repoClient;
@@ -130,7 +134,7 @@ public class TrackerBootstrap implements ApplicationRunner
 
         // 2. Create SolrJInformationServer
         SolrJInformationServer infoSrv = new SolrJInformationServer(
-                solrClient, coreName, trackerProps, dataModelCallback, repoClient);
+                solrClient, coreName, trackerProps, dataModelCallback, repoClient, localDictionaryService);
 
         // 3. Set the local NamespaceDAO for QName resolution
         infoSrv.setNamespaceDAO(localNamespaceDAO);

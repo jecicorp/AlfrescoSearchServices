@@ -127,6 +127,9 @@ public class SolrJQueryService
     {
         SolrQuery query = new SolrQuery(q);
         query.set("defType", "lucene");
+        // Use /query handler to bypass the Alfresco custom SearchHandler
+        // which filters stored fields from responses.
+        query.set("qt", "/query");
         return query;
     }
 
@@ -158,8 +161,11 @@ public class SolrJQueryService
             if (docs == null || docs.getNumFound() == 0)
             {
                 LOGGER.info("No tracker state documents found in index — first run.");
-                return state;
+                // Do NOT return early — fall through to set timing fields
+                // (timeToStopIndexing, lastGoodTxCommitTimeInIndex, etc.)
             }
+            else
+            {
 
             for (SolrDocument current : docs)
             {
@@ -193,6 +199,7 @@ public class SolrJQueryService
                     }
                 }
             }
+            } // end else (state docs found)
         }
         catch (SolrServerException | IOException e)
         {
@@ -763,17 +770,17 @@ public class SolrJQueryService
             return true;
         }
 
-        if (populateCache)
-        {
-            cache.put(id, null);
-        }
-
         try
         {
             SolrQuery query = luceneQuery(fieldName + ":" + id);
             query.setRows(0);
             QueryResponse response = solrClient.query(collection, query);
-            return response.getResults().getNumFound() > 0;
+            boolean found = response.getResults().getNumFound() > 0;
+            if (found && populateCache)
+            {
+                cache.put(id, null);
+            }
+            return found;
         }
         catch (SolrServerException e)
         {

@@ -233,8 +233,10 @@ public class CascadeTracker extends ActivatableTracker
 
 
                 }
-                //Update the transaction records.
+                //Update the transaction records (set cascade flag to 0).
                 updateTransactionsAfterWorker(txBatch);
+                // Soft-commit so the next getCascades() query sees the updated flag.
+                infoSrv.commit(false);
                 totalUpdatedDocs += processedCascades;
             }
             catch (AuthenticationException e)

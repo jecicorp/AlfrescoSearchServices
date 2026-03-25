@@ -153,6 +153,17 @@ public class SolrJIndexingService
     }
 
     /**
+     * Re-indexes a transaction with the cascade flag set to 0 (processed).
+     * Called by the CascadeTracker after cascade updates have been applied.
+     */
+    public void updateTransactionCascadeProcessed(Transaction info) throws IOException
+    {
+        SolrInputDocument doc = documentMapper.toTransactionDoc(info);
+        doc.setField(SolrDocumentMapper.FIELD_CASCADE_FLAG, 0);
+        addDocument(doc);
+    }
+
+    /**
      * Indexes an ACL change set document.
      */
     public void indexAclTransaction(AclChangeSet changeSet, boolean overwrite) throws IOException
@@ -258,7 +269,15 @@ public class SolrJIndexingService
     {
         for (Node node : nodes)
         {
-            indexNode(node, overwrite);
+            try
+            {
+                indexNode(node, overwrite);
+            }
+            catch (Exception e)
+            {
+                LOGGER.warn("Failed to index node {} — skipping: {}", node.getId(), e.getMessage());
+                LOGGER.debug("Node {} indexing error details", node.getId(), e);
+            }
         }
     }
 

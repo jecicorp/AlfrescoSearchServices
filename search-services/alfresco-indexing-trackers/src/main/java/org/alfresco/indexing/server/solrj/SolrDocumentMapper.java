@@ -31,6 +31,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.namespace.QName;
@@ -115,6 +116,21 @@ public class SolrDocumentMapper
     private static final String DEFAULT_TENANT = "_DEFAULT_";
 
     private final boolean cascadeTrackingEnabled;
+    private final LocalDictionaryService dictionaryService;
+    private final PropertyFieldMapper fieldMapper;
+
+    /**
+     * Creates a mapper with dictionary-aware property field naming.
+     *
+     * @param cascadeTrackingEnabled whether to set the cascade flag on transaction documents
+     * @param dictionaryService      local dictionary for property definitions (may be null for fallback mode)
+     */
+    public SolrDocumentMapper(boolean cascadeTrackingEnabled, LocalDictionaryService dictionaryService)
+    {
+        this.cascadeTrackingEnabled = cascadeTrackingEnabled;
+        this.dictionaryService = dictionaryService;
+        this.fieldMapper = dictionaryService != null ? new PropertyFieldMapper() : null;
+    }
 
     /**
      * Creates a mapper.
@@ -123,7 +139,7 @@ public class SolrDocumentMapper
      */
     public SolrDocumentMapper(boolean cascadeTrackingEnabled)
     {
-        this.cascadeTrackingEnabled = cascadeTrackingEnabled;
+        this(cascadeTrackingEnabled, null);
     }
 
     /**
@@ -131,7 +147,7 @@ public class SolrDocumentMapper
      */
     public SolrDocumentMapper()
     {
-        this(false);
+        this(false, null);
     }
 
     // =========================================================================
@@ -366,15 +382,31 @@ public class SolrDocumentMapper
         {
             for (Map.Entry<QName, PropertyValue> entry : properties.entrySet())
             {
-                String fieldName = entry.getKey().toString();
+                QName propQName = entry.getKey();
                 PropertyValue value = entry.getValue();
                 if (value == null)
                 {
-                    doc.addField(FIELD_NULLPROPERTIES, fieldName);
+                    doc.addField(FIELD_NULLPROPERTIES, propQName.toString());
                     continue;
                 }
-                addPropertyValue(doc, fieldName, value);
-                doc.addField(FIELD_PROPERTIES, fieldName);
+
+                PropertyDefinition propDef = dictionaryService != null
+                        ? dictionaryService.getPropertyDefinition(propQName) : null;
+
+                if (propDef != null)
+                {
+                    if (propDef.isIndexed())
+                    {
+                        String solrField = fieldMapper.getSolrFieldName(propDef);
+                        addPropertyValue(doc, solrField, value, propDef.isMultiValued());
+                    }
+                }
+                else
+                {
+                    // Fallback: no dictionary info — use text@s__lt@ prefix
+                    addPropertyValue(doc, propQName.toString(), value);
+                }
+                doc.addField(FIELD_PROPERTIES, propQName.toString());
             }
         }
 
@@ -383,6 +415,7 @@ public class SolrDocumentMapper
 
     /**
      * Adds a property value to the document using Solr dynamic field naming conventions.
+     * When called without a dictionary-resolved field name, applies default prefixes:
      * <ul>
      *   <li>{@code text@s__lt@{ns}localName} — single-valued text (StringPropertyValue)</li>
      *   <li>{@code mltext@m__lt@{ns}localName} — multi-valued MLText</li>
@@ -390,15 +423,55 @@ public class SolrDocumentMapper
      * </ul>
      *
      * @param doc       the document to add fields to
-     * @param propQName the QName string of the property
+     * @param propQName the QName string of the property (used as base for field name prefixing)
      * @param value     the property value (never null)
      */
     private void addPropertyValue(SolrInputDocument doc, String propQName, PropertyValue value)
     {
-        addPropertyValue(doc, propQName, value, false);
+        addPropertyValuePrefixed(doc, propQName, value, false);
     }
 
-    private void addPropertyValue(SolrInputDocument doc, String propQName, PropertyValue value, boolean multiValued)
+    /**
+     * Adds a property value using a pre-resolved Solr field name from the dictionary.
+     * No prefix is added — the solrField is used directly for string/text values.
+     * For multi-property values, sub-values are added to the same field.
+     */
+    void addPropertyValue(SolrInputDocument doc, String solrField, PropertyValue value, boolean multiValued)
+    {
+        if (value instanceof StringPropertyValue)
+        {
+            doc.addField(solrField, ((StringPropertyValue) value).getValue());
+        }
+        else if (value instanceof MLTextPropertyValue)
+        {
+            MLTextPropertyValue mlText = (MLTextPropertyValue) value;
+            for (Map.Entry<Locale, String> localeEntry : mlText.getValues().entrySet())
+            {
+                String localeValue = "\u0000" + localeEntry.getKey() + "\u0000" + localeEntry.getValue();
+                doc.addField(solrField, localeValue);
+            }
+        }
+        else if (value instanceof MultiPropertyValue)
+        {
+            for (PropertyValue subValue : ((MultiPropertyValue) value).getValues())
+            {
+                if (subValue != null)
+                {
+                    addPropertyValue(doc, solrField, subValue, true);
+                }
+            }
+        }
+        else if (value instanceof ContentPropertyValue)
+        {
+            addContentPropertyValue(doc, solrField, (ContentPropertyValue) value);
+        }
+    }
+
+    /**
+     * Adds a property value with auto-generated Solr field name prefixes (fallback mode).
+     */
+    private void addPropertyValuePrefixed(SolrInputDocument doc, String propQName,
+                                          PropertyValue value, boolean multiValued)
     {
         if (value instanceof StringPropertyValue)
         {
@@ -421,14 +494,12 @@ public class SolrDocumentMapper
             {
                 if (subValue != null)
                 {
-                    addPropertyValue(doc, propQName, subValue, true);
+                    addPropertyValuePrefixed(doc, propQName, subValue, true);
                 }
             }
         }
         else if (value instanceof ContentPropertyValue)
         {
-            // Index content metadata fields (size, locale, mimetype, encoding)
-            // Actual text content is not available here — needs content extraction
             ContentPropertyValue content = (ContentPropertyValue) value;
             if (content.getLocale() != null)
             {
@@ -444,7 +515,31 @@ public class SolrDocumentMapper
             }
             doc.addField("content@s__size@" + propQName, content.getLength());
         }
-        // else: unknown property type — skip silently
+    }
+
+    /**
+     * Adds content property metadata fields (locale, mimetype, encoding, size)
+     * using a pre-resolved base Solr field name. Replaces the text part of the
+     * field with content-specific suffixes.
+     */
+    private void addContentPropertyValue(SolrInputDocument doc, String solrField, ContentPropertyValue content)
+    {
+        // Extract the QName part from the field name (everything after the last @)
+        int lastAt = solrField.lastIndexOf('@');
+        String qnamePart = lastAt >= 0 ? solrField.substring(lastAt + 1) : solrField;
+        if (content.getLocale() != null)
+        {
+            doc.addField("content@s__locale@" + qnamePart, content.getLocale().toString());
+        }
+        if (content.getMimetype() != null)
+        {
+            doc.addField("content@s__mimetype@" + qnamePart, content.getMimetype());
+        }
+        if (content.getEncoding() != null)
+        {
+            doc.addField("content@s__encoding@" + qnamePart, content.getEncoding());
+        }
+        doc.addField("content@s__size@" + qnamePart, content.getLength());
     }
 
     // =========================================================================
