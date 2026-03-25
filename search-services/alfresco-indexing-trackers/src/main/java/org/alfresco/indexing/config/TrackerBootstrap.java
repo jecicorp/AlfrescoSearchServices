@@ -228,6 +228,9 @@ public class TrackerBootstrap implements ApplicationRunner
         // Cascade tracker enabled flag
         p.setProperty("alfresco.cascade.tracker.enabled", String.valueOf(props.isCascadeTrackingEnabled()));
 
+        // Commit interval
+        p.setProperty("alfresco.commitInterval", String.valueOf(props.getCommitInterval()));
+
         return p;
     }
 

@@ -35,6 +35,7 @@ public class TrackerProperties
     private CronConfig cron = new CronConfig();
     private int batchCount = 5000;
     private boolean cascadeTrackingEnabled = true;
+    private long commitInterval = 10000;
     private String solrHome = "/opt/solr/data";
 
     public SolrConfig getSolr()
@@ -85,6 +86,16 @@ public class TrackerProperties
     public void setCascadeTrackingEnabled(boolean cascadeTrackingEnabled)
     {
         this.cascadeTrackingEnabled = cascadeTrackingEnabled;
+    }
+
+    public long getCommitInterval()
+    {
+        return commitInterval;
+    }
+
+    public void setCommitInterval(long commitInterval)
+    {
+        this.commitInterval = commitInterval;
     }
 
     public String getSolrHome()

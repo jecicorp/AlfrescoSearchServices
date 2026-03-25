@@ -687,7 +687,12 @@ public class SOLRAPIClient
         }
         else
         {
-            ret = new StringPropertyValue((String)value);
+            if (!(value instanceof String))
+            {
+                LOGGER.warn("Property type {} expected String but got {} (value: {})",
+                        dataTypeName, value.getClass().getName(), value);
+            }
+            ret = new StringPropertyValue(value.toString());
         }
         
         return ret;
