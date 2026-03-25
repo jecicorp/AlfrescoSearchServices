@@ -707,11 +707,13 @@ public class AlfrescoSolrDataModel implements QueryConstants
         PropertyDefinition propertyDefinition = getPropertyDefinition(propertyQName);
         if((propertyDefinition == null))
         {
+            log.warn("getQueryableFields: propertyDefinition is null for {} — returning _dummy_", propertyQName);
             indexedField.addField("_dummy_", false, false);
             return indexedField;
         }
         if(!propertyDefinition.isIndexed() && !propertyDefinition.isStoredInIndex())
         {
+            log.warn("getQueryableFields: property {} is not indexed and not stored — returning _dummy_", propertyQName);
             indexedField.addField("_dummy_", false, false);
             return indexedField;
         }
@@ -1365,7 +1367,15 @@ public class AlfrescoSolrDataModel implements QueryConstants
 
     public PropertyDefinition getPropertyDefinition(QName propertyQName)
     {
-        return getDictionaryService(CMISStrictDictionaryService.DEFAULT).getProperty(propertyQName);
+        PropertyDefinition result = getDictionaryService(CMISStrictDictionaryService.DEFAULT).getProperty(propertyQName);
+        if (result == null && log.isDebugEnabled())
+        {
+            log.debug("getPropertyDefinition({}) = null. DAO knows {} models. DAO.getProperty() = {}",
+                    propertyQName,
+                    dictionaryDAO.getModels().size(),
+                    dictionaryDAO.getProperty(propertyQName));
+        }
+        return result;
     }
 
     public boolean putModel(M2Model model)

@@ -25,9 +25,16 @@
  */
 package org.alfresco.indexing.server.solrj;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.alfresco.model.ContentModel;
 import org.alfresco.repo.dictionary.Facetable;
-import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.repo.dictionary.IndexTokenisationMode;
+import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.namespace.QName;
 
@@ -46,21 +53,74 @@ import org.alfresco.service.namespace.QName;
 public class PropertyFieldMapper
 {
     /**
-     * Returns the Solr field name for the given property definition.
-     * This is the primary field used for search (localised + tokenised for text,
-     * docvalues for non-text).
+     * Identifier properties are forced to untokenised search by the AFTS query
+     * parser in {@code AlfrescoSolrDataModel}, regardless of their model definition.
+     * We must index them into the untokenised fields as well, otherwise AFTS
+     * won't find them. See the comment in contentModel.xml:
+     * "The tokenisation set here is ignored - it is fixed for this type".
+     */
+    private static final Set<QName> IDENTIFIER_PROPERTIES = new HashSet<>();
+    static
+    {
+        IDENTIFIER_PROPERTIES.add(ContentModel.PROP_CREATOR);
+        IDENTIFIER_PROPERTIES.add(ContentModel.PROP_MODIFIER);
+        IDENTIFIER_PROPERTIES.add(ContentModel.PROP_USERNAME);
+        IDENTIFIER_PROPERTIES.add(ContentModel.PROP_AUTHORITY_NAME);
+    }
+
+    /**
+     * Returns the Solr field names for the given property definition.
+     * Text properties may need multiple fields depending on the tokenisation mode
+     * (BOTH requires tokenised + untokenised fields). AFTS searches different
+     * fields based on the mode, so we must index into all of them.
+     *
+     * <p>Identifier properties (cm:userName, cm:creator, etc.) are always indexed
+     * into both tokenised and untokenised fields because AFTS forces untokenised
+     * search for these properties.</p>
      *
      * @param propDef the property definition
-     * @return the Solr dynamic field name
+     * @return list of Solr dynamic field names to index into
      */
-    public String getSolrFieldName(PropertyDefinition propDef)
+    public List<String> getSolrFieldNames(PropertyDefinition propDef)
     {
-        if (isTextField(propDef))
+        if (!isTextField(propDef))
         {
-            // Default: localised=true, tokenised=true — this is what AFTS uses for search
-            return getFieldForText(true, true, propDef);
+            return Collections.singletonList(getFieldForNonText(propDef));
         }
-        return getFieldForNonText(propDef);
+
+        IndexTokenisationMode mode = propDef.getIndexTokenisationMode();
+        if (mode == null)
+        {
+            mode = IndexTokenisationMode.TRUE;
+        }
+
+        // Identifier properties are searched as untokenised by AFTS regardless
+        // of their model definition — treat them as BOTH so data is in all fields.
+        if (IDENTIFIER_PROPERTIES.contains(propDef.getName()))
+        {
+            mode = IndexTokenisationMode.BOTH;
+        }
+
+        List<String> fields = new ArrayList<>();
+        switch (mode)
+        {
+            case TRUE:
+                // Tokenised+localised only (full-text search)
+                fields.add(getFieldForText(true, true, propDef));
+                break;
+            case FALSE:
+                // Untokenised: localised exact match + sort/docvalues field
+                fields.add(getFieldForText(true, false, propDef));
+                fields.add(getFieldForText(false, false, propDef));
+                break;
+            case BOTH:
+                // All three: tokenised, untokenised localised, and sort/docvalues
+                fields.add(getFieldForText(true, true, propDef));
+                fields.add(getFieldForText(true, false, propDef));
+                fields.add(getFieldForText(false, false, propDef));
+                break;
+        }
+        return fields;
     }
 
     /**

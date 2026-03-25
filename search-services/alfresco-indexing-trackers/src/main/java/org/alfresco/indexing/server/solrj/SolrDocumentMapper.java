@@ -48,6 +48,8 @@ import org.alfresco.solr.client.Transaction;
 import org.alfresco.util.NumericEncoder;
 import org.alfresco.util.Pair;
 import org.apache.solr.common.SolrInputDocument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Maps Alfresco domain objects (Transaction, AclChangeSet, AclReaders, Node/NodeMetaData)
@@ -60,6 +62,8 @@ import org.apache.solr.common.SolrInputDocument;
  */
 public class SolrDocumentMapper
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SolrDocumentMapper.class);
+
     // ---------------------------------------------------------------------------
     // Field name constants — values from org.alfresco.repo.search.adaptor.QueryConstants
     // ---------------------------------------------------------------------------
@@ -397,13 +401,16 @@ public class SolrDocumentMapper
                 {
                     if (propDef.isIndexed())
                     {
-                        String solrField = fieldMapper.getSolrFieldName(propDef);
-                        addPropertyValue(doc, solrField, value, propDef.isMultiValued());
+                        for (String solrField : fieldMapper.getSolrFieldNames(propDef))
+                        {
+                            addPropertyValue(doc, solrField, value, propDef.isMultiValued());
+                        }
                     }
                 }
                 else
                 {
-                    // Fallback: no dictionary info — use text@s__lt@ prefix
+                    LOGGER.warn("No property definition for {} — falling back to text@s__lt@ prefix. "
+                            + "Dictionary may not be loaded.", propQName);
                     addPropertyValue(doc, propQName.toString(), value);
                 }
                 doc.addField(FIELD_PROPERTIES, propQName.toString());
