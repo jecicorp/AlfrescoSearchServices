@@ -88,6 +88,12 @@ public interface InformationServer extends InformationServerCollectionProvider
 
     void capIndex(long nodeId) throws IOException;
 
+    /**
+     * Writes the tracker state (lastTxIdOnServer, lastTxCommitTimeOnServer) into
+     * the index so that the ConsistencyComponent can compute txRemaining.
+     */
+    void updateTrackerState(long lastTxIdOnServer, long lastTxCommitTimeOnServer) throws IOException;
+
     long getIndexCap() throws IOException;
 
     long nodeCount() throws IOException;

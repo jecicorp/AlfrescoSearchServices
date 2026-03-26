@@ -83,9 +83,14 @@ public class ConsistencyComponent extends SearchComponent
         if (!isShard)
         {
             long[] txState = getLastIndexedTxFromIndex(rb);
-            rb.rsp.add("lastIndexedTx", txState[0]);
+            long lastIndexedTx = txState[0];
+            rb.rsp.add("lastIndexedTx", lastIndexedTx);
             rb.rsp.add("lastIndexedTxTime", txState[1]);
-            rb.rsp.add("txRemaining", 0);
+
+            long lastTxOnServer = getLastTxOnServerFromIndex(rb);
+            long txRemaining = (lastTxOnServer > 0 && lastIndexedTx > 0)
+                    ? Math.max(0, lastTxOnServer - lastIndexedTx) : -1;
+            rb.rsp.add("txRemaining", txRemaining);
         }
     }
 
@@ -137,6 +142,50 @@ public class ConsistencyComponent extends SearchComponent
             LOG.warn("Failed to read tracker state from index: {}", e.getMessage());
         }
         return result;
+    }
+
+    /**
+     * Reads the last TX ID known to the repository from the tracker state document
+     * (DOC_TYPE=State, id=TRACKER!STATE). The tracker writes this document before
+     * each commit so that txRemaining can be computed without contacting the repository.
+     *
+     * @return lastTxIdOnServer from the State document's S_TXID field, or -1 if not found
+     */
+    private long getLastTxOnServerFromIndex(ResponseBuilder rb)
+    {
+        try
+        {
+            SolrIndexSearcher searcher = rb.req.getSearcher();
+            TermQuery stateQuery = new TermQuery(new Term("DOC_TYPE", "State"));
+            TopDocs topDocs = searcher.search(stateQuery, 10);
+            for (int i = 0; i < topDocs.scoreDocs.length; i++)
+            {
+                int docId = topDocs.scoreDocs[i].doc;
+                // Check this is the tracker state doc (not the cap doc) by reading S_TXID
+                for (LeafReaderContext ctx : searcher.getIndexReader().leaves())
+                {
+                    int localDocId = docId - ctx.docBase;
+                    if (localDocId >= 0 && localDocId < ctx.reader().maxDoc())
+                    {
+                        NumericDocValues sTxIdDv = ctx.reader().getNumericDocValues("S_TXID");
+                        if (sTxIdDv != null)
+                        {
+                            long value = sTxIdDv.get(localDocId);
+                            if (value > 0)
+                            {
+                                return value;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            LOG.warn("Failed to read tracker state (S_TXID) from index: {}", e.getMessage());
+        }
+        return -1;
     }
 
     @Override

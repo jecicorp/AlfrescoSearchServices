@@ -550,6 +550,27 @@ public class SolrDocumentMapper
     }
 
     // =========================================================================
+    // Tracker state document
+    // =========================================================================
+
+    /**
+     * Creates a Solr document that records the tracker's knowledge of the repository state.
+     * The ConsistencyComponent reads this document to calculate {@code txRemaining}.
+     *
+     * <p>Document ID: {@code TRACKER!STATE}, DOC_TYPE: {@code State}.
+     * Reuses the existing {@code S_TXID} and {@code S_TXCOMMITTIME} schema fields.</p>
+     */
+    public SolrInputDocument toTrackerStateDoc(long lastTxIdOnServer, long lastTxCommitTimeOnServer)
+    {
+        SolrInputDocument doc = new SolrInputDocument();
+        doc.setField(FIELD_SOLR4_ID, "TRACKER!STATE");
+        doc.setField(FIELD_DOC_TYPE, "State");
+        doc.setField(FIELD_S_TXID, lastTxIdOnServer);
+        doc.setField(FIELD_S_TXCOMMITTIME, lastTxCommitTimeOnServer);
+        return doc;
+    }
+
+    // =========================================================================
     // ID generation — mirrors AlfrescoSolrDataModel
     // =========================================================================
 

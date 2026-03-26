@@ -342,6 +342,20 @@ public class SolrJIndexingService
     }
 
     // =========================================================================
+    // Tracker state
+    // =========================================================================
+
+    /**
+     * Writes the tracker state document so that the ConsistencyComponent
+     * can read {@code lastTxIdOnServer} from the index and compute {@code txRemaining}.
+     */
+    public void updateTrackerState(long lastTxIdOnServer, long lastTxCommitTimeOnServer) throws IOException
+    {
+        SolrInputDocument doc = documentMapper.toTrackerStateDoc(lastTxIdOnServer, lastTxCommitTimeOnServer);
+        addDocument(doc);
+    }
+
+    // =========================================================================
     // Internal helpers
     // =========================================================================
 

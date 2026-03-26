@@ -247,6 +247,12 @@ public class SolrJInformationServer implements InformationServer
     }
 
     @Override
+    public void updateTrackerState(long lastTxIdOnServer, long lastTxCommitTimeOnServer) throws IOException
+    {
+        indexingService.updateTrackerState(lastTxIdOnServer, lastTxCommitTimeOnServer);
+    }
+
+    @Override
     public long getIndexCap() throws IOException
     {
         return queryService.getIndexCap();

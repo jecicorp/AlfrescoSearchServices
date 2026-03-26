@@ -38,6 +38,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.alfresco.indexing.server.InformationServer;
+import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -173,6 +174,12 @@ public class CommitTracker extends AbstractTracker
 
             if (metadataTracker.isEnabled() && aclTracker.isEnabled())
             {
+                // Write tracker state so ConsistencyComponent can compute txRemaining
+                TrackerState txState = metadataTracker.getTrackerState();
+                infoSrv.updateTrackerState(
+                        txState.getLastTxIdOnServer(),
+                        txState.getLastTxCommitTimeOnServer());
+
                 boolean searcherOpened = infoSrv.commit(openSearcherNeeded);
                 lastCommit = currentTime;
                 if(searcherOpened)
