@@ -920,6 +920,10 @@
     <!-- FTSSTATUS: content indexing status for admin UI facets (Clean/Dirty) -->
     <field name="FTSSTATUS" type="identifier" indexed="true" omitNorms="true" stored="false" multiValued="false" sortMissingLast="true" />
 
+    <!-- Indexing error flag — set by trackers when a node cannot be indexed correctly.
+         The RepairTracker queries this field to find nodes needing remediation. -->
+    <field name="HAS_INDEXING_ERROR" type="boolean" indexed="true" stored="true" default="false" />
+
     <!--
       Used to store the last transaction and acl transaction for real time get
     -->
