@@ -188,12 +188,18 @@ public abstract class AbstractQParser extends QParser implements QueryConstants
     protected Pair<SearchParameters, Boolean> getSearchParameters()
     {
         SearchParameters searchParameters = new SearchParameters();
-        
+
         Boolean isFilter = Boolean.FALSE;
 
         Iterable<ContentStream> streams = req.getContentStreams();
 
         JSONObject json = (JSONObject) req.getContext().get(ALFRESCO_JSON);
+
+        if (log.isTraceEnabled())
+        {
+            log.trace("[ACL-DIAG] getString()='{}', json from context={}, streams={}",
+                getString(), (json != null ? "present" : "null"), (streams != null ? "present" : "null"));
+        }
 
         if (json == null)
         {
@@ -213,11 +219,17 @@ public abstract class AbstractQParser extends QParser implements QueryConstants
                     {
                         json = new JSONObject(new JSONTokener(reader));
                         req.getContext().put(ALFRESCO_JSON, json);
+                        if (log.isTraceEnabled())
+                        {
+                            log.trace("[ACL-DIAG] Parsed JSON from stream: keys={}",
+                                json.keys());
+                        }
                     }
                 }
                 catch (JSONException e)
                 {
                     // This is expected when there is no json element to the request
+                    log.trace("[ACL-DIAG] No JSON in content stream (expected for non-JSON requests)");
                 }
                 catch (IOException e)
                 {
@@ -232,6 +244,11 @@ public abstract class AbstractQParser extends QParser implements QueryConstants
             {
                 if (getString() != null)
                 {
+                    if (log.isTraceEnabled())
+                    {
+                        log.trace("[ACL-DIAG] Processing fq getString()='{}', looking for '{}'",
+                            getString(), AUTHORITY_FILTER_FROM_JSON);
+                    }
                     if (getString().equals(AUTHORITY_FILTER_FROM_JSON))
                     {
                         isFilter =Boolean.TRUE;
@@ -344,7 +361,7 @@ public abstract class AbstractQParser extends QParser implements QueryConstants
                         {
                             // Default to true for safety reasons.
                             final boolean anyDenyDenies = json.optBoolean("anyDenyDenies", true);
-                            
+
                             if (anyDenyDenies)
                             {
                                 authQuery.insert(0, "(").
@@ -354,8 +371,17 @@ public abstract class AbstractQParser extends QParser implements QueryConstants
                                 // Record that the clause has been added.
                                 // We only ever set this to true for solr4+
                                 req.getContext().put("processedDenies", Boolean.TRUE);
+                                log.trace("[ACL-DIAG] processedDenies set to TRUE — deny clause added");
+                            }
+                            else
+                            {
+                                log.trace("[ACL-DIAG] anyDenyDenies=false in JSON, deny clause NOT added");
                             }
                             searchParameters.setQuery(authQuery.toString());
+                        }
+                        else
+                        {
+                            log.trace("[ACL-DIAG] AUTHORITY_FILTER_FROM_JSON matched but authQuery is empty (no authorities?)");
                         }
                     }
                     else if (getString().equals(TENANT_FILTER_FROM_JSON))
@@ -456,12 +482,16 @@ public abstract class AbstractQParser extends QParser implements QueryConstants
             catch (JSONException e)
             {
                 // This is expected when there is no json element to the request
+                if (log.isTraceEnabled())
+                {
+                    log.trace("[ACL-DIAG] JSONException during authority filter parsing: {}", e.getMessage());
+                }
             }
         }
 
         if (json != null)
         {
-            if (log.isDebugEnabled())
+            if (log.isTraceEnabled())
             {
                 log.debug(json.toString());
             }

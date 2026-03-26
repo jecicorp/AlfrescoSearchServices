@@ -27,9 +27,12 @@
 package org.alfresco.solr.component;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import org.apache.solr.handler.component.ResponseBuilder;
 import org.apache.solr.handler.component.SearchComponent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Sets a boolean flag ("processedDenies") in the JSON response indicating that
@@ -40,6 +43,8 @@ import org.apache.solr.handler.component.SearchComponent;
  */
 public class SetProcessedDeniesComponent extends SearchComponent
 {
+    private static final Logger log = LoggerFactory.getLogger(SetProcessedDeniesComponent.class);
+
     public static final String PROCESSED_DENIES = "processedDenies";
 
     @Override
@@ -53,6 +58,12 @@ public class SetProcessedDeniesComponent extends SearchComponent
     {
         Boolean processedDenies = (Boolean) rb.req.getContext().get(PROCESSED_DENIES);
         processedDenies = (processedDenies == null) ? false : processedDenies;
+        if (!processedDenies)
+        {
+            String[] fqs = rb.req.getParams().getParams("fq");
+            log.trace("[ACL-DIAG] processedDenies=false — deny filtering was NOT applied for this request. "
+                + "fq params: {}", (fqs != null ? Arrays.toString(fqs) : "null"));
+        }
         rb.rsp.add(PROCESSED_DENIES, processedDenies);
     }
 
