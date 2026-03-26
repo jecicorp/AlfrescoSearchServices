@@ -909,6 +909,10 @@
 
       -20 (or SolrInformationServer.CONTENT_UPDATED_MARKER)
           This value marks a document/node as updated.
+
+        -30 (or SolrDocumentMapper.CONTENT_IRRECOVERABLE_MARKER)
+            The repository returned no metadata for this node (deleted or inaccessible).
+            The ContentTracker will not retry content extraction for this document.
     -->
     <field name="LATEST_APPLIED_CONTENT_VERSION_ID" type="long_without_precision_step"/>
     <field name="LAST_INCOMING_CONTENT_VERSION_ID" type="long_without_precision_step" default="-10"/>

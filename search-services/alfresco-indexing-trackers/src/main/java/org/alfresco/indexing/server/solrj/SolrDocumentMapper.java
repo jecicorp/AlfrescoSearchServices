@@ -98,6 +98,8 @@ public class SolrDocumentMapper
     public static final long CONTENT_OUTDATED_MARKER = -10;
     /** Marker value: content is up-to-date (no extraction needed) */
     public static final long CONTENT_UPDATED_MARKER = -20;
+    /** Marker value: content extraction failed permanently (metadata not available from repository) */
+    public static final long CONTENT_IRRECOVERABLE_MARKER = -30;
 
     // Node metadata fields — from org.alfresco.repo.search.adaptor.QueryConstants
     public static final String FIELD_TYPE = "TYPE";

@@ -350,7 +350,10 @@ public class SolrJIndexingService
 
         if (metadatas == null || metadatas.isEmpty())
         {
-            LOGGER.warn("No metadata returned for DBID={} — skipping content update", docRef.dbId);
+            // Node may have been deleted or is inaccessible from the repository.
+            // Mark as irrecoverable (-30) so the ContentTracker stops retrying this DBID.
+            LOGGER.warn("No metadata returned for DBID={} — marking as irrecoverable", docRef.dbId);
+            markContentIrrecoverable(docRef.tenant, docRef.dbId);
             return;
         }
 
@@ -532,6 +535,26 @@ public class SolrJIndexingService
     public void updateTrackerState(long lastTxIdOnServer, long lastTxCommitTimeOnServer) throws IOException
     {
         SolrInputDocument doc = documentMapper.toTrackerStateDoc(lastTxIdOnServer, lastTxCommitTimeOnServer);
+        addDocument(doc);
+    }
+
+    /**
+     * Marks a document as irrecoverable for content extraction (-30).
+     * This is used when the repository returns no metadata for a DBID,
+     * typically because the node has been deleted or is otherwise inaccessible.
+     * The irrecoverable marker ensures the ContentTracker stops retrying this
+     * document, while remaining distinguishable from genuinely up-to-date
+     * content (-20/Clean).
+     */
+    private void markContentIrrecoverable(String tenant, long dbId) throws IOException
+    {
+        SolrInputDocument doc = new SolrInputDocument();
+        doc.setField(SolrDocumentMapper.FIELD_SOLR4_ID,
+                SolrDocumentMapper.getNodeDocumentId(tenant != null ? tenant : "", dbId));
+        doc.setField(SolrDocumentMapper.FIELD_LAST_INCOMING_CONTENT_VERSION_ID,
+                Collections.singletonMap("set", SolrDocumentMapper.CONTENT_IRRECOVERABLE_MARKER));
+        doc.setField(SolrDocumentMapper.FIELD_FTSSTATUS,
+                Collections.singletonMap("set", "Clean"));
         addDocument(doc);
     }
 

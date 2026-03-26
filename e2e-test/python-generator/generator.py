@@ -338,6 +338,23 @@ if __name__ == '__main__':
     if args.transformer == LIBRE_OFFICE:
         dcYaml['services']['libreoffice'] = {'image': 'xcgd/libreoffice'}
 
+    # Insert the trackers service (Spring Boot process that creates cores and indexes content).
+    trackersEnv = {
+        'ALFRESCO_TRACKER_SOLR_URL': 'http://{}:8983/solr'.format(solrHost),
+        'ALFRESCO_TRACKER_SOLR_COLLECTION': 'alfresco',
+        'ALFRESCO_TRACKER_REPOSITORY_URL': 'http://alfresco:8080/alfresco',
+    }
+    if args.communication == 'secret':
+        trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS'] = 'secret'
+        trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SHAREDSECRET'] = 'secret'
+    else:
+        trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS'] = 'none'
+    dcYaml['services']['trackers'] = {
+        'build': {'context': './trackers', 'dockerfile': 'Dockerfile.trackers'},
+        'environment': trackersEnv,
+        'ports': ['8085:8085'],
+    }
+
     # Output the yaml.
     with open(args.output + '/docker-compose.yml', 'w') as f:
         f.write(yaml.safe_dump(dcYaml))
@@ -350,6 +367,20 @@ if __name__ == '__main__':
         os.makedirs('{}/{}'.format(args.output, 'alfresco'), exist_ok=True)
     with open('{}/{}/Dockerfile'.format(args.output, 'alfresco'), 'w') as f:
         dockerfileTemplate = f.write(dockerfileString)
+
+    # Create a trackers build context with the Dockerfile and JAR.
+    trackersOutputDir = '{}/trackers'.format(args.output)
+    if not os.path.isdir(trackersOutputDir):
+        os.makedirs(trackersOutputDir, exist_ok=True)
+    import shutil
+    import glob
+    # Copy the Dockerfile.trackers
+    trackersDockerfile = os.path.join(scriptDir, '..', '..', 'search-services', 'packaging', 'src', 'docker', 'Dockerfile.trackers')
+    shutil.copy2(trackersDockerfile, trackersOutputDir)
+    # Copy the tracker JAR
+    jarPattern = os.path.join(scriptDir, '..', '..', 'search-services', 'alfresco-indexing-trackers', 'target', 'alfresco-indexing-trackers-*.jar')
+    for jar in glob.glob(jarPattern):
+        shutil.copy2(jar, trackersOutputDir)
 
     # Copy the keystores (when using mTLS)
     if args.communication == 'mtls':
