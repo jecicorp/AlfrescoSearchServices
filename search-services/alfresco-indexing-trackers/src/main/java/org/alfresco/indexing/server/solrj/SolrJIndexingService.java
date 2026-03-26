@@ -275,8 +275,7 @@ public class SolrJIndexingService
             }
             catch (Exception e)
             {
-                LOGGER.warn("Failed to index node {} — skipping: {}", node.getId(), e.getMessage());
-                LOGGER.debug("Node {} indexing error details", node.getId(), e);
+                LOGGER.warn("Failed to index node {} — skipping: {}", node.getId(), e.getMessage(), e);
             }
         }
     }

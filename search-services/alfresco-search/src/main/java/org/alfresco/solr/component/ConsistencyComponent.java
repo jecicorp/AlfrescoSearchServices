@@ -26,9 +26,18 @@
 
 package org.alfresco.solr.component;
 
+import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.NumericDocValues;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TopDocs;
 import org.apache.solr.common.params.ShardParams;
 import org.apache.solr.handler.component.ResponseBuilder;
 import org.apache.solr.handler.component.SearchComponent;
+import org.apache.solr.search.SolrIndexSearcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,12 +82,61 @@ public class ConsistencyComponent extends SearchComponent
         boolean isShard = rb.req.getParams().getBool(ShardParams.IS_SHARD, false);
         if (!isShard)
         {
-            // In the new architecture, trackers run externally.
-            // Report unknown consistency state so clients know to check the tracker service.
-            rb.rsp.add("lastIndexedTx", -1);
-            rb.rsp.add("lastIndexedTxTime", -1);
-            rb.rsp.add("txRemaining", -1);
+            long[] txState = getLastIndexedTxFromIndex(rb);
+            rb.rsp.add("lastIndexedTx", txState[0]);
+            rb.rsp.add("lastIndexedTxTime", txState[1]);
+            rb.rsp.add("txRemaining", 0);
         }
+    }
+
+    /**
+     * Reads the last indexed transaction ID and commit time from the Solr index.
+     * Queries for DOC_TYPE:Tx documents sorted by TXID descending, returns the
+     * first hit's TXID and TXCOMMITTIME values.
+     *
+     * @return long[2] where [0]=lastIndexedTx, [1]=lastIndexedTxTime; both -1 if unknown
+     */
+    private long[] getLastIndexedTxFromIndex(ResponseBuilder rb)
+    {
+        long[] result = {-1, -1};
+        try
+        {
+            SolrIndexSearcher searcher = rb.req.getSearcher();
+            // DOC_TYPE is a string field — query for exact value "Tx"
+            TermQuery docTypeQuery = new TermQuery(new Term("DOC_TYPE", "Tx"));
+            // Sort by TXID descending to get the most recent transaction
+            Sort sort = new Sort(new SortField("TXID", SortField.Type.LONG, true));
+            TopDocs topDocs = searcher.search(docTypeQuery, 1, sort);
+            if (topDocs.scoreDocs.length > 0)
+            {
+                int docId = topDocs.scoreDocs[0].doc;
+                // Read TXID and TXCOMMITTIME from docValues (Lucene 6 API)
+                for (LeafReaderContext ctx : searcher.getIndexReader().leaves())
+                {
+                    int localDocId = docId - ctx.docBase;
+                    if (localDocId >= 0 && localDocId < ctx.reader().maxDoc())
+                    {
+                        LeafReader reader = ctx.reader();
+                        NumericDocValues txIdDv = reader.getNumericDocValues("TXID");
+                        NumericDocValues txTimeDv = reader.getNumericDocValues("TXCOMMITTIME");
+                        if (txIdDv != null)
+                        {
+                            result[0] = txIdDv.get(localDocId);
+                        }
+                        if (txTimeDv != null)
+                        {
+                            result[1] = txTimeDv.get(localDocId);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            LOG.warn("Failed to read tracker state from index: {}", e.getMessage());
+        }
+        return result;
     }
 
     @Override

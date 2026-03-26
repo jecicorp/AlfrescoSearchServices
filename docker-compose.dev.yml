@@ -52,6 +52,7 @@ services:
         -Ddb.username=alfresco
         -Ddb.password=alfresco
         -Ddb.url=jdbc:postgresql://postgres:5432/alfresco
+        -Dindex.subsystem.name=solr6
         -Dsolr.secureComms=secret
         -Dsolr.sharedSecret=secret
         -Dsolr.host=solr
