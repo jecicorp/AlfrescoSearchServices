@@ -57,6 +57,7 @@ import org.slf4j.LoggerFactory;
  *   <li>{@code list} - List all registered Alfresco models with checksums</li>
  *   <li>{@code get} - Retrieve a model's XML by QName</li>
  *   <li>{@code errors} - Return model registration errors</li>
+ *   <li>{@code afterinitmodels} - Refresh CMIS dictionary after a batch of model PUT operations</li>
  * </ul>
  */
 public class ModelUpdateRequestHandler extends RequestHandlerBase
@@ -71,6 +72,7 @@ public class ModelUpdateRequestHandler extends RequestHandlerBase
     private static final String ACTION_LIST = "list";
     private static final String ACTION_GET = "get";
     private static final String ACTION_ERRORS = "errors";
+    private static final String ACTION_AFTER_INIT_MODELS = "afterinitmodels";
 
     @Override
     public void handleRequestBody(SolrQueryRequest req, SolrQueryResponse rsp) throws Exception
@@ -99,10 +101,13 @@ public class ModelUpdateRequestHandler extends RequestHandlerBase
             case ACTION_ERRORS:
                 handleErrors(rsp);
                 break;
+            case ACTION_AFTER_INIT_MODELS:
+                handleAfterInitModels(rsp);
+                break;
             default:
                 throw new SolrException(SolrException.ErrorCode.BAD_REQUEST,
                         "Unknown action: " + action
-                                + ". Supported actions: put, remove, list, get, errors");
+                                + ". Supported actions: put, remove, list, get, errors, afterinitmodels");
         }
     }
 
@@ -138,23 +143,21 @@ public class ModelUpdateRequestHandler extends RequestHandlerBase
                      model.getName(), e.getMessage());
         }
 
-        // Only refresh CMIS dictionary if model was successfully registered
-        if (success)
-        {
-            try
-            {
-                dataModel.afterInitModels();
-            }
-            catch (Exception e)
-            {
-                LOG.warn("afterInitModels failed (may resolve on next model load): {}", e.getMessage());
-            }
-        }
-
         LOG.info("Model {}: {}", success ? "registered" : "deferred", model.getName());
 
         rsp.add("status", success ? "ok" : "deferred");
         rsp.add("modelName", model.getName());
+    }
+
+    /**
+     * Refreshes CMIS dictionary services after all models have been loaded.
+     * Must be called once after a batch of PUT operations.
+     */
+    private void handleAfterInitModels(SolrQueryResponse rsp)
+    {
+        AlfrescoSolrDataModel.getInstance().afterInitModels();
+        LOG.info("afterInitModels completed successfully");
+        rsp.add("status", "ok");
     }
 
     /**

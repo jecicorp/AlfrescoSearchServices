@@ -119,8 +119,21 @@ public class LocalDictionaryService
         }
         catch (Exception e)
         {
-            LOG.warn("Failed to register model '{}' in local dictionary: {}", model.getName(), e.getMessage());
+            LOG.debug("Failed to register model '{}' in local dictionary: {}", model.getName(), e.getMessage());
         }
+    }
+
+    /**
+     * Registers a model in the local dictionary, propagating any exception.
+     * Use this when model loading failures are fatal (e.g. during bootstrap).
+     *
+     * @param model the M2Model to register
+     * @throws RuntimeException if the model cannot be compiled
+     */
+    public void putModelOrFail(M2Model model)
+    {
+        dictionaryDAO.putModelIgnoringConstraints(model);
+        LOG.debug("Registered model '{}' in local dictionary", model.getName());
     }
 
     /**

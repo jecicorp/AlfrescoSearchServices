@@ -604,8 +604,13 @@ public class ModelTracker extends AbstractTracker
             if (this.infoSrv.putModel(model))
             {
                 loadedModels.add(modelName);
+                LOGGER.info("Model loaded: {}", modelName);
             }
-            LOGGER.info("Loading model {}", model.getName());
+            else
+            {
+                throw new AlfrescoRuntimeException(
+                    "Failed to register model '" + modelName + "' in Solr — aborting tracker");
+            }
         }
     }
 

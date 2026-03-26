@@ -54,9 +54,7 @@ import org.slf4j.LoggerFactory;
  * Handles model-related operations via SolrJ, communicating with the
  * {@code /alfresco/models} request handler on the remote Solr node.
  *
- * <p>Supports the following remote actions: put, list, get, errors.</p>
- * <p>The {@code afterInitModels} action is no-op client-side because the handler
- * already calls {@code afterInitModels} as part of the {@code put} action.</p>
+ * <p>Supports the following remote actions: put, list, get, errors, afterinitmodels.</p>
  */
 public class SolrJModelService
 {
@@ -70,6 +68,7 @@ public class SolrJModelService
     private static final String ACTION_LIST = "list";
     private static final String ACTION_GET = "get";
     private static final String ACTION_ERRORS = "errors";
+    private static final String ACTION_AFTER_INIT_MODELS = "afterinitmodels";
 
     private final SolrClient solrClient;
     private final String collection;
@@ -82,8 +81,9 @@ public class SolrJModelService
 
     /**
      * Pushes a model to Solr via a POST to {@code /alfresco/models?action=put}.
-     * The handler registers the model in {@code AlfrescoSolrDataModel} and calls
-     * {@code afterInitModels} automatically.
+     * The handler registers the model in {@code AlfrescoSolrDataModel} but does
+     * NOT call {@code afterInitModels} — the caller must do so explicitly after
+     * all models in the batch have been pushed.
      *
      * @param model the M2Model to register
      * @return {@code true} if the server responded with status "ok"
@@ -120,12 +120,25 @@ public class SolrJModelService
     }
 
     /**
-     * No-op client-side: the {@code /alfresco/models?action=put} handler already
-     * invokes {@code afterInitModels} on the server when registering a model.
+     * Sends an explicit {@code afterinitmodels} request to the Solr handler to
+     * refresh CMIS dictionary services. Must be called once after all models
+     * in the batch have been pushed via {@link #putModel(M2Model)}.
      */
     public void afterInitModels()
     {
-        // Intentionally empty: afterInitModels is called server-side during putModel.
+        try
+        {
+            ModifiableSolrParams params = new ModifiableSolrParams();
+            params.set(PARAM_ACTION, ACTION_AFTER_INIT_MODELS);
+            params.set("qt", HANDLER_PATH);
+
+            solrClient.query(collection, params);
+            LOG.info("afterInitModels completed on Solr");
+        }
+        catch (Exception e)
+        {
+            LOG.warn("afterInitModels failed on Solr: {}", e.getMessage());
+        }
     }
 
     /**

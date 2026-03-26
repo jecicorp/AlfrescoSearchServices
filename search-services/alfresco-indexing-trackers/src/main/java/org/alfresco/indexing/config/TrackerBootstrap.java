@@ -33,6 +33,8 @@ import java.util.Properties;
 import org.alfresco.indexing.server.solrj.LocalDictionaryService;
 import org.alfresco.indexing.server.solrj.SolrJInformationServer;
 import org.alfresco.indexing.server.solrj.SolrJModelService;
+import org.alfresco.repo.dictionary.M2Model;
+import org.alfresco.repo.dictionary.M2Namespace;
 import org.alfresco.indexing.tracker.AclTracker;
 import org.alfresco.indexing.tracker.CascadeTracker;
 import org.alfresco.indexing.tracker.CommitTracker;
@@ -45,6 +47,7 @@ import org.alfresco.indexing.tracker.TrackerRegistry;
 import org.alfresco.indexing.tracker.TrackerScheduler;
 import org.alfresco.repo.dictionary.NamespaceDAO;
 import org.alfresco.service.namespace.QName;
+import org.alfresco.solr.client.AlfrescoModel;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.apache.solr.client.solrj.SolrClient;
 import org.slf4j.Logger;
@@ -114,7 +117,7 @@ public class TrackerBootstrap implements ApplicationRunner
         LOGGER.info("Initialising tracking subsystem for collection '{}'", coreName);
 
         // 1. Create DataModelCallback (remote/SolrJ mode):
-        //    afterInitModels is a no-op — the SolrJModelService handles it server-side.
+        //    afterInitModels sends an explicit request to the Solr handler.
         //    removeModel calls the Solr handler to remove the model from the dictionary.
         SolrJModelService modelService = new SolrJModelService(solrClient, coreName);
         DataModelCallback dataModelCallback = new DataModelCallback()
@@ -122,7 +125,7 @@ public class TrackerBootstrap implements ApplicationRunner
             @Override
             public void afterInitModels()
             {
-                LOGGER.debug("afterInitModels called (no-op in remote SolrJ mode)");
+                modelService.afterInitModels();
             }
 
             @Override
@@ -154,6 +157,12 @@ public class TrackerBootstrap implements ApplicationRunner
 
         LOGGER.info("ModelTracker: ensuring first model sync.");
         modelTracker.ensureFirstModelSync();
+
+        // The ModelTracker only syncs diffs — models already in Solr are never
+        // pushed via putModel(), so the local dictionary misses them.
+        // Load all models from Solr into the local dictionary, respecting
+        // dependency order (same approach as ModelTracker.loadPersistedModels).
+        loadSolrModelsIntoLocalDictionary(infoSrv);
 
         scheduler.schedule(modelTracker, coreName, trackerProps);
         LOGGER.info("ModelTracker has been initialised, registered and scheduled.");
@@ -268,6 +277,68 @@ public class TrackerBootstrap implements ApplicationRunner
                 LOGGER.error("Error shutting down TrackerScheduler: {}", e.getMessage(), e);
             }
         }
+    }
+
+    /**
+     * Loads all models from Solr into the local dictionary, respecting
+     * import dependencies. Uses the same topological approach as
+     * {@code ModelTracker.loadPersistedModels()}.
+     */
+    private void loadSolrModelsIntoLocalDictionary(SolrJInformationServer infoSrv)
+    {
+        List<AlfrescoModel> solrModels = infoSrv.getAlfrescoModels();
+        LOGGER.info("Loading {} models from Solr into local dictionary.", solrModels.size());
+
+        // Build a map of namespace URI → M2Model for dependency resolution
+        java.util.Map<String, M2Model> modelMap = new java.util.HashMap<>();
+        for (AlfrescoModel am : solrModels)
+        {
+            M2Model model = am.getModel();
+            if (model != null)
+            {
+                for (M2Namespace ns : model.getNamespaces())
+                {
+                    modelMap.put(ns.getUri(), model);
+                }
+            }
+        }
+
+        // Load in dependency order
+        java.util.Set<String> loaded = new java.util.HashSet<>();
+        for (M2Model model : modelMap.values())
+        {
+            loadModelWithDeps(modelMap, loaded, model);
+        }
+        LOGGER.info("Local dictionary: {} models registered.", loaded.size());
+
+        // Call afterInitModels on Solr to refresh CMIS dictionary after all models are loaded
+        if (!loaded.isEmpty())
+        {
+            SolrJModelService modelService = new SolrJModelService(solrClient,
+                    props.getSolr().getCollection());
+            modelService.afterInitModels();
+        }
+    }
+
+    private void loadModelWithDeps(java.util.Map<String, M2Model> modelMap,
+                                   java.util.Set<String> loaded, M2Model model)
+    {
+        String name = model.getName();
+        if (loaded.contains(name))
+        {
+            return;
+        }
+        // Load imports first
+        for (M2Namespace imp : model.getImports())
+        {
+            M2Model dep = modelMap.get(imp.getUri());
+            if (dep != null)
+            {
+                loadModelWithDeps(modelMap, loaded, dep);
+            }
+        }
+        localDictionaryService.putModelOrFail(model);
+        loaded.add(name);
     }
 
     // Visible for testing

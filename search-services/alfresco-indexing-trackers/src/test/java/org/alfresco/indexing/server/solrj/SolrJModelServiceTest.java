@@ -51,6 +51,7 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.junit.Before;
@@ -198,11 +199,25 @@ public class SolrJModelServiceTest
     // -------------------------------------------------------------------------
 
     @Test
-    public void afterInitModels_isNoOp()
+    public void afterInitModels_sendsRequestToSolr() throws Exception
     {
-        // Should not throw and should not call solrClient
+        QueryResponse queryResponse = mock(QueryResponse.class);
+        when(solrClient.query(eq(COLLECTION), any(ModifiableSolrParams.class)))
+                .thenReturn(queryResponse);
+
         modelService.afterInitModels();
-        // No interaction with solrClient expected
+
+        verify(solrClient).query(eq(COLLECTION), any(ModifiableSolrParams.class));
+    }
+
+    @Test
+    public void afterInitModels_handlesException() throws Exception
+    {
+        when(solrClient.query(eq(COLLECTION), any(ModifiableSolrParams.class)))
+                .thenThrow(new SolrServerException("test error"));
+
+        // Should not throw — errors are caught and logged
+        modelService.afterInitModels();
     }
 
     // -------------------------------------------------------------------------
