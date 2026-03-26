@@ -30,8 +30,10 @@ import static java.util.Optional.ofNullable;
 
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.Properties;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.solr.IndexTrackingShutdownException;
@@ -74,6 +76,9 @@ public abstract class AbstractTracker implements Tracker
     protected Throwable rollbackCausedBy;
     protected final Type type;
     protected final String trackerId;
+
+    /** Consecutive connectivity failure count — used to suppress repeated stacktraces. */
+    private final AtomicInteger consecutiveConnectivityFailures = new AtomicInteger(0);
 
     /**
      * Default constructor, strictly for testing.
@@ -183,6 +188,12 @@ public abstract class AbstractTracker implements Tracker
             try
             {
                 doTrack(iterationId);
+                int prev = consecutiveConnectivityFailures.getAndSet(0);
+                if (prev > 0)
+                {
+                    LOGGER.info("[{} / {} / {}] Connectivity restored after {} failed attempts.",
+                            coreName, trackerId, iterationId, prev);
+                }
             }
             catch(IndexTrackingShutdownException t)
             {
@@ -192,13 +203,28 @@ public abstract class AbstractTracker implements Tracker
             catch(Throwable t)
             {
                 setRollback(true, t);
-                if (t instanceof SocketTimeoutException || t instanceof ConnectException)
+                if (isConnectivityError(t))
                 {
-                    LOGGER.warn("[{} / {} / {}] Tracking communication timed out. See the stacktrace below for further details.", coreName, trackerId, iterationId);
-                    LOGGER.debug("[{} / {} / {}] Stack trace", coreName, trackerId, iterationId, t);
+                    int failures = consecutiveConnectivityFailures.incrementAndGet();
+                    if (failures == 1)
+                    {
+                        LOGGER.error("[{} / {} / {}] Connection lost: {}. Will retry every cycle.",
+                                coreName, trackerId, iterationId, rootMessage(t));
+                    }
+                    else if (failures % 30 == 0)
+                    {
+                        LOGGER.warn("[{} / {} / {}] Still unable to connect after {} attempts: {}",
+                                coreName, trackerId, iterationId, failures, rootMessage(t));
+                    }
+                    else
+                    {
+                        LOGGER.debug("[{} / {} / {}] Connectivity error (attempt {}): {}",
+                                coreName, trackerId, iterationId, failures, rootMessage(t));
+                    }
                 }
                 else
                 {
+                    consecutiveConnectivityFailures.set(0);
                     LOGGER.error("[{} / {} / {}] Tracking failure. See the stacktrace below for further details.", coreName, trackerId, iterationId, t);
                 }
             }
@@ -368,6 +394,46 @@ public abstract class AbstractTracker implements Tracker
         this.infoSrv.addCommonNodeReportInfo(nodeReport);
 
         return nodeReport;
+    }
+
+    /**
+     * Checks whether the throwable (or any cause in its chain) is a connectivity error
+     * (connection refused, timeout, DNS failure, Solr unavailable).
+     */
+    private static boolean isConnectivityError(Throwable t)
+    {
+        for (Throwable cause = t; cause != null; cause = cause.getCause())
+        {
+            if (cause instanceof ConnectException
+                    || cause instanceof SocketTimeoutException
+                    || cause instanceof UnknownHostException
+                    || cause instanceof java.net.NoRouteToHostException)
+            {
+                return true;
+            }
+            String msg = cause.getMessage();
+            if (msg != null && (msg.contains("Connection refused")
+                    || msg.contains("connect timed out")
+                    || msg.contains("IOException occured when talking to server")
+                    || msg.contains("Failed to register model")))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns the message from the deepest cause in the chain.
+     */
+    private static String rootMessage(Throwable t)
+    {
+        Throwable root = t;
+        while (root.getCause() != null)
+        {
+            root = root.getCause();
+        }
+        return root.getClass().getSimpleName() + ": " + root.getMessage();
     }
 
 }
