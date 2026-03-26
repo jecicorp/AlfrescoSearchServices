@@ -913,6 +913,9 @@
     <field name="LATEST_APPLIED_CONTENT_VERSION_ID" type="long_without_precision_step"/>
     <field name="LAST_INCOMING_CONTENT_VERSION_ID" type="long_without_precision_step" default="-10"/>
 
+    <!-- FTSSTATUS: content indexing status for admin UI facets (Clean/Dirty) -->
+    <field name="FTSSTATUS" type="identifier" indexed="true" omitNorms="true" stored="false" multiValued="false" sortMissingLast="true" />
+
     <!--
       Used to store the last transaction and acl transaction for real time get
     -->

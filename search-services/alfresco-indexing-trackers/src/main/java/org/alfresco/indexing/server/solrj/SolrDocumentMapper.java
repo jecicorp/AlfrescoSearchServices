@@ -89,6 +89,16 @@ public class SolrDocumentMapper
     public static final String FIELD_S_INACLTXID = "S_INACLTXID";
     public static final String FIELD_S_ACLTXCOMMITTIME = "S_ACLTXCOMMITTIME";
 
+    // Content versioning fields — used by ContentTracker to detect documents needing content extraction
+    public static final String FIELD_LAST_INCOMING_CONTENT_VERSION_ID = "LAST_INCOMING_CONTENT_VERSION_ID";
+    public static final String FIELD_LATEST_APPLIED_CONTENT_VERSION_ID = "LATEST_APPLIED_CONTENT_VERSION_ID";
+    public static final String FIELD_FTSSTATUS = "FTSSTATUS";
+
+    /** Marker value: content is outdated and needs extraction (schema default) */
+    public static final long CONTENT_OUTDATED_MARKER = -10;
+    /** Marker value: content is up-to-date (no extraction needed) */
+    public static final long CONTENT_UPDATED_MARKER = -20;
+
     // Node metadata fields — from org.alfresco.repo.search.adaptor.QueryConstants
     public static final String FIELD_TYPE = "TYPE";
     public static final String FIELD_ASPECT = "ASPECT";
@@ -380,7 +390,8 @@ public class SolrDocumentMapper
             doc.setField(FIELD_PARENT_ASSOC_CRC, metadata.getParentAssocsCrc());
         }
 
-        // Properties
+        // Properties — also detect content properties for content tracking
+        boolean hasContentProperty = false;
         Map<QName, PropertyValue> properties = metadata.getProperties();
         if (properties != null)
         {
@@ -392,6 +403,11 @@ public class SolrDocumentMapper
                 {
                     doc.addField(FIELD_NULLPROPERTIES, propQName.toString());
                     continue;
+                }
+
+                if (value instanceof ContentPropertyValue)
+                {
+                    hasContentProperty = true;
                 }
 
                 PropertyDefinition propDef = dictionaryService != null
@@ -415,6 +431,18 @@ public class SolrDocumentMapper
                 }
                 doc.addField(FIELD_PROPERTIES, propQName.toString());
             }
+        }
+
+        // Content versioning: mark nodes with content as needing extraction
+        if (hasContentProperty)
+        {
+            doc.setField(FIELD_LAST_INCOMING_CONTENT_VERSION_ID, CONTENT_OUTDATED_MARKER);
+            doc.setField(FIELD_FTSSTATUS, "Dirty");
+        }
+        else
+        {
+            doc.setField(FIELD_LAST_INCOMING_CONTENT_VERSION_ID, CONTENT_UPDATED_MARKER);
+            doc.setField(FIELD_FTSSTATUS, "Clean");
         }
 
         return doc;

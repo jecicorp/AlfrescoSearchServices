@@ -26,16 +26,27 @@
 
 package org.alfresco.indexing.server.solrj;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.zip.GZIPInputStream;
 
+import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
+import org.alfresco.solr.client.ContentPropertyValue;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.NodeMetaDataParameters;
+import org.alfresco.solr.client.PropertyValue;
 import org.alfresco.solr.client.SOLRAPIClient;
+import org.alfresco.solr.client.SOLRAPIClient.GetTextContentResponse;
+import org.alfresco.solr.client.SOLRAPIClient.SolrApiContentStatus;
 import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.solr.client.Transaction;
 import org.apache.solr.client.solrj.SolrClient;
@@ -64,10 +75,14 @@ public class SolrJIndexingService
     /** Document type for state documents (cap, tracker state, etc.). */
     static final String DOC_TYPE_STATE = "State";
 
+    /** Maximum content size to read from the repository (10 MB). */
+    private static final long DEFAULT_CONTENT_STREAM_LIMIT = 10L * 1024 * 1024;
+
     private final SolrClient solrClient;
     private final String collection;
     private final SolrDocumentMapper documentMapper;
     private final SOLRAPIClient repositoryClient;
+    private long contentStreamLimit = DEFAULT_CONTENT_STREAM_LIMIT;
 
     public SolrJIndexingService(SolrClient solrClient, String collection)
     {
@@ -298,17 +313,182 @@ public class SolrJIndexingService
     }
 
     /**
-     * Updates text content for a document. In the embedded implementation, this
-     * performs a partial update with extracted text content.
+     * Updates text content for a document by fetching transformed text from the
+     * Alfresco Repository and re-indexing the full document with content fields.
      *
-     * <p>In the remote implementation, this creates a partial update document
-     * with the structural fields. Full content extraction will be handled by
-     * a Solr-side update processor or separate content extraction service.</p>
+     * <p>The flow is:
+     * <ol>
+     *   <li>Fetch node metadata from the repository</li>
+     *   <li>Rebuild the full SolrInputDocument (metadata + structural fields)</li>
+     *   <li>For each ContentPropertyValue, fetch text content from the repository</li>
+     *   <li>Add content fields (text, transform status/exception/duration)</li>
+     *   <li>Mark as synchronized and send to Solr</li>
+     * </ol>
      */
     public void updateContent(TenantDbId docRef) throws IOException
     {
-        LOGGER.debug("updateContent called for DBID={}. "
-                + "Content update not yet fully implemented in remote mode.", docRef.dbId);
+        if (repositoryClient == null)
+        {
+            LOGGER.warn("updateContent: repositoryClient is null — cannot fetch content for DBID={}", docRef.dbId);
+            return;
+        }
+
+        // 1. Fetch node metadata
+        NodeMetaDataParameters nmdp = new NodeMetaDataParameters();
+        nmdp.setNodeIds(Collections.singletonList(docRef.dbId));
+        nmdp.setMaxResults(1);
+
+        List<NodeMetaData> metadatas;
+        try
+        {
+            metadatas = repositoryClient.getNodesMetaData(nmdp);
+        }
+        catch (Exception e)
+        {
+            throw new IOException("Failed to fetch metadata for DBID=" + docRef.dbId, e);
+        }
+
+        if (metadatas == null || metadatas.isEmpty())
+        {
+            LOGGER.warn("No metadata returned for DBID={} — skipping content update", docRef.dbId);
+            return;
+        }
+
+        NodeMetaData metadata = metadatas.get(0);
+
+        // 2. Rebuild the full document (we need all fields since partial update is not possible)
+        Node node = new Node();
+        node.setId(metadata.getId());
+        node.setTxnId(metadata.getTxnId());
+        node.setStatus(Node.SolrApiNodeStatus.UPDATED);
+
+        SolrInputDocument doc = documentMapper.toNodeDoc(node, metadata);
+
+        // 3. Fetch and add content for each content property
+        Map<QName, PropertyValue> properties = metadata.getProperties();
+        boolean contentExtracted = false;
+        if (properties != null)
+        {
+            for (Map.Entry<QName, PropertyValue> entry : properties.entrySet())
+            {
+                if (entry.getValue() instanceof ContentPropertyValue)
+                {
+                    QName propQName = entry.getKey();
+                    boolean ok = fetchAndAddContent(doc, docRef.dbId, propQName);
+                    if (ok)
+                    {
+                        contentExtracted = true;
+                    }
+                }
+            }
+        }
+
+        // 4. Mark as synchronized
+        doc.setField(SolrDocumentMapper.FIELD_LAST_INCOMING_CONTENT_VERSION_ID,
+                SolrDocumentMapper.CONTENT_UPDATED_MARKER);
+        doc.setField(SolrDocumentMapper.FIELD_FTSSTATUS, "Clean");
+
+        // 5. Send to Solr
+        addDocument(doc);
+
+        if (contentExtracted)
+        {
+            LOGGER.debug("Content extracted and indexed for DBID={}", docRef.dbId);
+        }
+        else
+        {
+            LOGGER.debug("No extractable content for DBID={}, marked as Clean", docRef.dbId);
+        }
+    }
+
+    /**
+     * Fetches text content for a single content property from the repository
+     * and adds the corresponding Solr fields to the document.
+     *
+     * @return true if text content was successfully extracted
+     */
+    private boolean fetchAndAddContent(SolrInputDocument doc, long dbId, QName propQName) throws IOException
+    {
+        String qnameSuffix = propQName.toString();
+
+        try (GetTextContentResponse response = repositoryClient.getTextContent(dbId, propQName, null))
+        {
+            SolrApiContentStatus status = response.getStatus();
+
+            // Transform status fields
+            doc.setField("content@s__tr_status@" + qnameSuffix, status.name());
+            if (response.getTransformException() != null)
+            {
+                doc.setField("content@s__tr_ex@" + qnameSuffix, response.getTransformException());
+            }
+            if (response.getTransformDuration() != null)
+            {
+                doc.setField("content@s__tr_time@" + qnameSuffix, response.getTransformDuration());
+            }
+
+            if (status != SolrApiContentStatus.OK)
+            {
+                LOGGER.debug("Content status for DBID={} prop={}: {}", dbId, propQName, status);
+                return false;
+            }
+
+            // Read the content stream
+            InputStream contentStream = response.getContent();
+            if (contentStream == null)
+            {
+                return false;
+            }
+
+            // Handle gzip decompression
+            String encoding = response.getContentEncoding();
+            if ("gzip".equalsIgnoreCase(encoding))
+            {
+                contentStream = new GZIPInputStream(contentStream);
+            }
+
+            String textContent = readContentStream(contentStream);
+            if (textContent != null && !textContent.isEmpty())
+            {
+                // Format: \u0000locale\u0000text — locale is empty (repository-side transform decides)
+                doc.addField("content@s__lt@" + qnameSuffix, "\u0000" + "\u0000" + textContent);
+                return true;
+            }
+        }
+        catch (Exception e)
+        {
+            LOGGER.warn("Failed to fetch content for DBID={} prop={}: {}", dbId, propQName, e.getMessage());
+            doc.setField("content@s__tr_status@" + qnameSuffix, "TRANSFORM_FAILED");
+            doc.setField("content@s__tr_ex@" + qnameSuffix, e.getMessage());
+        }
+
+        return false;
+    }
+
+    /**
+     * Reads a content stream into a String, respecting the content stream limit.
+     */
+    private String readContentStream(InputStream stream) throws IOException
+    {
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(stream, StandardCharsets.UTF_8)))
+        {
+            char[] buffer = new char[8192];
+            long totalRead = 0;
+            int charsRead;
+            while ((charsRead = reader.read(buffer)) != -1)
+            {
+                totalRead += charsRead;
+                if (totalRead > contentStreamLimit)
+                {
+                    sb.append(buffer, 0, (int) (charsRead - (totalRead - contentStreamLimit)));
+                    LOGGER.debug("Content stream limit reached ({} bytes)", contentStreamLimit);
+                    break;
+                }
+                sb.append(buffer, 0, charsRead);
+            }
+        }
+        return sb.toString();
     }
 
     /**

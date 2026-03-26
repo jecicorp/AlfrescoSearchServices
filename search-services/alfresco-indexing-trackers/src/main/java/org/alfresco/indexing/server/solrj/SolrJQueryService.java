@@ -35,14 +35,17 @@ import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLTXCOMMITTIME;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLTXID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_CASCADE_FLAG;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.CONTENT_OUTDATED_MARKER;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DBID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DOC_TYPE;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_LAST_INCOMING_CONTENT_VERSION_ID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_INTXID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_SOLR4_ID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_S_ACLTXCOMMITTIME;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_S_ACLTXID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_S_TXCOMMITTIME;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_S_TXID;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_TENANT;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_TXCOMMITTIME;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_TXID;
 
@@ -467,23 +470,57 @@ public class SolrJQueryService
     // -------------------------------------------------------------------------
 
     /**
-     * Returns documents with unclean (outdated) content.
-     * <p>In the SolrJ implementation, this queries for node documents with
-     * {@code INTXID} sorted ascending and returns their IDs. The content
-     * versioning and cache logic is simplified since we do not have direct
-     * access to the Solr searcher and numeric doc values.</p>
+     * Returns documents with unclean (outdated) content that need text extraction.
+     * Queries for node documents where {@code LAST_INCOMING_CONTENT_VERSION_ID = -10}
+     * (the CONTENT_OUTDATED_MARKER), sorted by INTXID ascending.
      *
-     * <p>TODO: The full implementation requires content versioning fields
-     * (LAST_INCOMING_CONTENT_VERSION_ID) which are Solr-internal. For now,
-     * this returns an empty list as content tracking via SolrJ is deferred.</p>
+     * @return list of TenantDbId references for documents needing content update
      */
     public List<org.alfresco.solr.client.TenantDbId> getDocsWithUncleanContent() throws IOException
     {
-        // Content tracking via SolrJ requires access to numeric doc values and
-        // content versioning fields. This is deferred to a dedicated content
-        // tracking mechanism.
-        LOGGER.warn("getDocsWithUncleanContent() via SolrJ is not yet fully implemented. Returning empty list.");
-        return new ArrayList<>();
+        return getDocsWithUncleanContent(2000);
+    }
+
+    /**
+     * Returns documents with unclean content, with configurable batch size.
+     */
+    public List<org.alfresco.solr.client.TenantDbId> getDocsWithUncleanContent(int batchSize) throws IOException
+    {
+        List<org.alfresco.solr.client.TenantDbId> result = new ArrayList<>();
+        try
+        {
+            // Escape negative value: Lucene parser treats bare "-" as NOT operator
+            String queryStr = FIELD_LAST_INCOMING_CONTENT_VERSION_ID + ":\"" + CONTENT_OUTDATED_MARKER + "\""
+                    + AND + FIELD_DOC_TYPE + ":" + DOC_TYPE_NODE;
+
+            SolrQuery query = luceneQuery(queryStr);
+            query.setRows(batchSize);
+            query.addSort(FIELD_INTXID, SolrQuery.ORDER.asc);
+            query.setFields(FIELD_DBID, FIELD_TENANT);
+
+            QueryResponse response = solrClient.query(collection, query);
+            SolrDocumentList docs = response.getResults();
+            if (docs != null)
+            {
+                for (SolrDocument doc : docs)
+                {
+                    org.alfresco.solr.client.TenantDbId tenantDbId = new org.alfresco.solr.client.TenantDbId();
+                    tenantDbId.dbId = getFieldValueLong(doc, FIELD_DBID);
+
+                    Object tenantValue = doc.getFieldValue(FIELD_TENANT);
+                    tenantDbId.tenant = tenantValue != null ? tenantValue.toString() : "";
+
+                    result.add(tenantDbId);
+                }
+            }
+
+            LOGGER.debug("Found {} documents with unclean content", result.size());
+        }
+        catch (SolrServerException e)
+        {
+            throw new IOException("Failed to query for documents with unclean content", e);
+        }
+        return result;
     }
 
     // -------------------------------------------------------------------------
