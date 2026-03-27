@@ -374,10 +374,10 @@ public class SolrJIndexingService
         {
             for (Map.Entry<QName, PropertyValue> entry : properties.entrySet())
             {
-                if (entry.getValue() instanceof ContentPropertyValue contentProp)
+                if (entry.getValue() instanceof ContentPropertyValue)
                 {
                     QName propQName = entry.getKey();
-                    boolean ok = fetchAndAddContent(doc, docRef.dbId, propQName, contentProp.getLocale());
+                    boolean ok = fetchAndAddContent(doc, docRef.dbId, propQName);
                     if (ok)
                     {
                         contentExtracted = true;
@@ -410,7 +410,7 @@ public class SolrJIndexingService
      *
      * @return true if text content was successfully extracted
      */
-    private boolean fetchAndAddContent(SolrInputDocument doc, long dbId, QName propQName, java.util.Locale locale) throws IOException
+    private boolean fetchAndAddContent(SolrInputDocument doc, long dbId, QName propQName) throws IOException
     {
         String qnameSuffix = propQName.toString();
 
@@ -452,9 +452,12 @@ public class SolrJIndexingService
             String textContent = readContentStream(contentStream);
             if (textContent != null && !textContent.isEmpty())
             {
-                // Format: \u0000locale\u0000text — alfrescoFieldType uses the locale prefix for language-specific analysis
-                String localeStr = (locale != null) ? locale.toString() : "";
-                doc.addField("content@s__lt@" + qnameSuffix, "\u0000" + localeStr + "\u0000" + textContent);
+                // Format: \u0000locale\u0000text for alfrescoFieldType.
+                // Empty locale so MLAnalayser indexes without locale prefix — this
+                // ensures the content is found regardless of the search locale
+                // (the query parser uses EXACT_LANGUAGE_AND_ALL which matches
+                // both locale-prefixed and unprefixed tokens).
+                doc.addField("content@s__lt@" + qnameSuffix, "\u0000\u0000" + textContent);
                 return true;
             }
         }

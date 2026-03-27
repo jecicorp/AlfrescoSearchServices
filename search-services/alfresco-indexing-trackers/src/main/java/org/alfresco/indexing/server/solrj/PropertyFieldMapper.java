@@ -105,8 +105,9 @@ public class PropertyFieldMapper
         switch (mode)
         {
             case TRUE:
-                // Tokenised+localised only (full-text search)
+                // Tokenised: localised + non-localised (for cross-locale match)
                 fields.add(getFieldForText(true, true, propDef));
+                fields.add(getFieldForText(false, true, propDef));
                 break;
             case FALSE:
                 // Untokenised: localised exact match + sort/docvalues field
@@ -114,10 +115,11 @@ public class PropertyFieldMapper
                 fields.add(getFieldForText(false, false, propDef));
                 break;
             case BOTH:
-                // All three: tokenised, untokenised localised, and sort/docvalues
-                fields.add(getFieldForText(true, true, propDef));
-                fields.add(getFieldForText(true, false, propDef));
-                fields.add(getFieldForText(false, false, propDef));
+                // All four combinations: the AFTS query parser searches all of them
+                fields.add(getFieldForText(true, true, propDef));   // {locale}tokenised
+                fields.add(getFieldForText(true, false, propDef));  // {locale}untokenised
+                fields.add(getFieldForText(false, true, propDef));  // tokenised (no locale — cross-locale match)
+                fields.add(getFieldForText(false, false, propDef)); // sort/docvalues
                 break;
         }
         return fields;

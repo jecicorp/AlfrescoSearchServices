@@ -7,9 +7,9 @@ alfresco:
       url: http://localhost:8080/alfresco
       secure-comms: none
     cron:
-      metadata: "0/10 * * * * ?"
-      acl: "0/10 * * * * ?"
-      content: "0/10 * * * * ?"
+      metadata: "0/5 * * * * ?"
+      acl: "0/5 * * * * ?"
+      content: "0/20 * * * * ?"
       commit: "0/20 * * * * ?"
       model: "0/30 * * * * ?"
       cascade: "0/10 * * * * ?"

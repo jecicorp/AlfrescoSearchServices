@@ -408,9 +408,11 @@ public class SolrDocumentMapper
                     continue;
                 }
 
-                if (value instanceof ContentPropertyValue)
+                if (value instanceof ContentPropertyValue contentValue)
                 {
                     hasContentProperty = true;
+                    // Add content metadata once (not per field)
+                    addContentMetadata(doc, propQName.toString(), contentValue);
                 }
 
                 PropertyDefinition propDef = dictionaryService != null
@@ -507,7 +509,9 @@ public class SolrDocumentMapper
         }
         else if (value instanceof ContentPropertyValue)
         {
-            addContentPropertyValue(doc, solrField, (ContentPropertyValue) value);
+            // Content metadata (locale, mimetype, etc.) is added separately
+            // via addContentMetadata() to avoid duplication when multiple
+            // indexed fields are generated for the same property.
         }
     }
 
@@ -544,21 +548,31 @@ public class SolrDocumentMapper
         }
         else if (value instanceof ContentPropertyValue)
         {
-            ContentPropertyValue content = (ContentPropertyValue) value;
-            if (content.getLocale() != null)
-            {
-                doc.addField("content@s__locale@" + propQName, content.getLocale().toString());
-            }
-            if (content.getMimetype() != null)
-            {
-                doc.addField("content@s__mimetype@" + propQName, content.getMimetype());
-            }
-            if (content.getEncoding() != null)
-            {
-                doc.addField("content@s__encoding@" + propQName, content.getEncoding());
-            }
-            doc.addField("content@s__size@" + propQName, content.getLength());
+            // Content metadata (locale, mimetype, etc.) is added separately
+            // via addContentMetadata() to avoid duplication when multiple
+            // indexed fields are generated for the same property.
         }
+    }
+
+    /**
+     * Adds content property metadata fields (locale, mimetype, encoding, size) once per property.
+     * Called separately from the per-field indexing to avoid duplication.
+     */
+    private void addContentMetadata(SolrInputDocument doc, String propQName, ContentPropertyValue content)
+    {
+        if (content.getLocale() != null)
+        {
+            doc.addField("content@s__locale@" + propQName, content.getLocale().toString());
+        }
+        if (content.getMimetype() != null)
+        {
+            doc.addField("content@s__mimetype@" + propQName, content.getMimetype());
+        }
+        if (content.getEncoding() != null)
+        {
+            doc.addField("content@s__encoding@" + propQName, content.getEncoding());
+        }
+        doc.addField("content@s__size@" + propQName, content.getLength());
     }
 
     /**

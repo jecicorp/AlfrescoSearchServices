@@ -44,6 +44,7 @@ import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
+import org.alfresco.solr.client.ContentPropertyValue;
 import org.alfresco.solr.client.MLTextPropertyValue;
 import org.alfresco.solr.client.MultiPropertyValue;
 import org.alfresco.solr.client.Node;
@@ -448,5 +449,81 @@ public class SolrDocumentMapperTest
     {
         String id = SolrDocumentMapper.getNodeDocumentId("tenant.com", 500L);
         assertTrue(id.startsWith("tenant.com!"));
+    }
+
+    // =========================================================================
+    // Content property metadata — must not be duplicated
+    // =========================================================================
+
+    @Test
+    public void testToNodeDocWithContentProperty_metadataNotDuplicated()
+    {
+        Node node = new Node();
+        node.setId(700L);
+        node.setTxnId(60L);
+
+        QName contentProp = QName.createQName("{http://www.alfresco.org/model/content/1.0}content");
+        ContentPropertyValue content = new ContentPropertyValue(Locale.ENGLISH, 1024L, "UTF-8", "text/plain", 1L);
+
+        Map<QName, PropertyValue> properties = new HashMap<>();
+        properties.put(contentProp, content);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(700L);
+        metadata.setTxnId(60L);
+        metadata.setAclId(500L);
+        metadata.setTenantDomain("");
+        metadata.setProperties(properties);
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        // Content metadata fields must exist exactly once (not duplicated)
+        String localeField = "content@s__locale@" + contentProp.toString();
+        String mimetypeField = "content@s__mimetype@" + contentProp.toString();
+        String encodingField = "content@s__encoding@" + contentProp.toString();
+        String sizeField = "content@s__size@" + contentProp.toString();
+
+        Collection<Object> localeValues = doc.getFieldValues(localeField);
+        assertNotNull("locale field must exist", localeValues);
+        assertEquals("locale field must have exactly 1 value", 1, localeValues.size());
+
+        Collection<Object> mimetypeValues = doc.getFieldValues(mimetypeField);
+        assertNotNull("mimetype field must exist", mimetypeValues);
+        assertEquals("mimetype field must have exactly 1 value", 1, mimetypeValues.size());
+
+        Collection<Object> encodingValues = doc.getFieldValues(encodingField);
+        assertNotNull("encoding field must exist", encodingValues);
+        assertEquals("encoding field must have exactly 1 value", 1, encodingValues.size());
+
+        Collection<Object> sizeValues = doc.getFieldValues(sizeField);
+        assertNotNull("size field must exist", sizeValues);
+        assertEquals("size field must have exactly 1 value", 1, sizeValues.size());
+    }
+
+    @Test
+    public void testToNodeDocWithContentProperty_markedDirty()
+    {
+        Node node = new Node();
+        node.setId(701L);
+        node.setTxnId(61L);
+
+        QName contentProp = QName.createQName("{http://www.alfresco.org/model/content/1.0}content");
+        ContentPropertyValue content = new ContentPropertyValue(Locale.ENGLISH, 512L, "UTF-8", "application/pdf", 2L);
+
+        Map<QName, PropertyValue> properties = new HashMap<>();
+        properties.put(contentProp, content);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(701L);
+        metadata.setTxnId(61L);
+        metadata.setAclId(501L);
+        metadata.setTenantDomain("");
+        metadata.setProperties(properties);
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        // Node with content should be marked as needing content extraction
+        assertEquals(CONTENT_OUTDATED_MARKER, doc.getFieldValue(FIELD_LAST_INCOMING_CONTENT_VERSION_ID));
+        assertEquals("Dirty", doc.getFieldValue(FIELD_FTSSTATUS));
     }
 }

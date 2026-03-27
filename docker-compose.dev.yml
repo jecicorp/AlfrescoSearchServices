@@ -59,8 +59,9 @@ services:
         -Dsolr.port=8983
         -Dalfresco.host=alfresco
         -Dalfresco.port=8080
-        -Dtransform.service.enabled=false
-        -Dlocal.transform.service.enabled=false
+        -Dtransform.service.enabled=true
+        -Dlocal.transform.service.enabled=true
+        -DlocalTransform.core-aio.url=http://transform-core-aio:8090/
         -Dcsrf.filter.enabled=false
         -Dencryption.keystore.type=JCEKS
         -Dencryption.keystore.location=classpath:alfresco/keystore/keystore
