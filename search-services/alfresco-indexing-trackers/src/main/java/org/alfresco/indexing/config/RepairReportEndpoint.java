@@ -26,7 +26,6 @@
 
 package org.alfresco.indexing.config;
 
-import org.alfresco.indexing.tracker.TrackerRegistry;
 import org.alfresco.indexing.tracker.repair.RepairReport;
 import org.alfresco.indexing.tracker.repair.RepairTracker;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
@@ -37,25 +36,23 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Component
-@Endpoint(id = "repair-report")
+@Endpoint(id = "repairreport")
 public class RepairReportEndpoint
 {
-    private final TrackerRegistry registry;
-    private final String coreName;
+    private final TrackerBootstrap bootstrap;
 
-    public RepairReportEndpoint(TrackerRegistry registry, TrackerProperties props)
+    public RepairReportEndpoint(TrackerBootstrap bootstrap)
     {
-        this.registry = registry;
-        this.coreName = props.getSolr().getCollection();
+        this.bootstrap = bootstrap;
     }
 
     @ReadOperation
     public Map<String, Object> repairReport()
     {
-        RepairTracker tracker = registry.getTrackerForCore(coreName, RepairTracker.class);
+        RepairTracker tracker = bootstrap.getRepairTracker();
         if (tracker == null)
         {
-            return Map.of("error", "RepairTracker not registered");
+            return Map.of("error", "RepairTracker not yet initialised");
         }
 
         RepairReport report = tracker.getReport();

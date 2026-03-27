@@ -91,6 +91,7 @@ public class TrackerBootstrap implements ApplicationRunner
 
     private TrackerScheduler scheduler;
     private TrackerRegistry registry;
+    private RepairTracker repairTracker;
     private final List<Tracker> trackers = new ArrayList<>();
 
     public TrackerBootstrap(SolrClient solrClient,
@@ -214,7 +215,7 @@ public class TrackerBootstrap implements ApplicationRunner
                 new UnresolvedModelStrategy(repoClient, infoSrv, localDictionaryService),
                 new EmptyNodeStrategy(repoClient, infoSrv)
         );
-        RepairTracker repairTracker = new RepairTracker(
+        repairTracker = new RepairTracker(
                 trackerProps, repoClient, coreName, infoSrv,
                 repairStrategies, registry, props.getRepairMaxRetries());
         registry.register(coreName, repairTracker);
@@ -375,5 +376,11 @@ public class TrackerBootstrap implements ApplicationRunner
     List<Tracker> getTrackers()
     {
         return trackers;
+    }
+
+    /** Returns the RepairTracker instance, or null if not yet initialised. */
+    public RepairTracker getRepairTracker()
+    {
+        return repairTracker;
     }
 }
