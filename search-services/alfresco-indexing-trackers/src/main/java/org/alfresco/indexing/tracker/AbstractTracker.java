@@ -58,7 +58,7 @@ public abstract class AbstractTracker implements Tracker
 
     protected Properties props;
     protected SOLRAPIClient client;
-    InformationServer infoSrv;
+    protected InformationServer infoSrv;
     protected String coreName;
     StoreRef storeRef;
     long batchCount;
@@ -332,7 +332,7 @@ public abstract class AbstractTracker implements Tracker
         return maxLiveSearchers;
     }
 
-    void checkShutdown()
+    protected void checkShutdown()
     {
         if(shutdown)
         {
