@@ -45,6 +45,10 @@ import org.alfresco.indexing.tracker.ModelTracker;
 import org.alfresco.indexing.tracker.Tracker;
 import org.alfresco.indexing.tracker.TrackerRegistry;
 import org.alfresco.indexing.tracker.TrackerScheduler;
+import org.alfresco.indexing.tracker.repair.RepairTracker;
+import org.alfresco.indexing.tracker.repair.RepairStrategy;
+import org.alfresco.indexing.tracker.repair.UnresolvedModelStrategy;
+import org.alfresco.indexing.tracker.repair.EmptyNodeStrategy;
 import org.alfresco.repo.dictionary.NamespaceDAO;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.AlfrescoModel;
@@ -205,9 +209,22 @@ public class TrackerBootstrap implements ApplicationRunner
         scheduler.schedule(commitTracker, coreName, trackerProps);
         LOGGER.info("CommitTracker registered and scheduled.");
 
+        // 8. Create and schedule RepairTracker
+        List<RepairStrategy> repairStrategies = List.of(
+                new UnresolvedModelStrategy(repoClient, infoSrv, localDictionaryService),
+                new EmptyNodeStrategy(repoClient, infoSrv)
+        );
+        RepairTracker repairTracker = new RepairTracker(
+                trackerProps, repoClient, coreName, infoSrv,
+                repairStrategies, registry, props.getRepairMaxRetries());
+        registry.register(coreName, repairTracker);
+        scheduler.schedule(repairTracker, coreName, trackerProps);
+        LOGGER.info("RepairTracker registered and scheduled with {} strategies.", repairStrategies.size());
+
         // Keep references for shutdown
         trackers.addAll(coreTrackers);
         trackers.add(commitTracker);
+        trackers.add(repairTracker);
 
         LOGGER.info("Tracking subsystem fully initialised for collection '{}': {} trackers active.",
                 coreName, trackers.size() + 1 /* +1 for ModelTracker */);
@@ -233,6 +250,7 @@ public class TrackerBootstrap implements ApplicationRunner
         p.setProperty("alfresco.metadata.tracker.cron", cron.getMetadata());
         p.setProperty("alfresco.cascade.tracker.cron", cron.getCascade());
         p.setProperty("alfresco.commit.tracker.cron", cron.getCommit());
+        p.setProperty("alfresco.repair.tracker.cron", cron.getRepair());
 
         // Cascade tracker enabled flag
         p.setProperty("alfresco.cascade.tracker.enabled", String.valueOf(props.isCascadeTrackingEnabled()));
