@@ -69,6 +69,7 @@ public interface Tracker
         CASCADE,
         COMMIT,
         METADATA,
-        NODE_STATE_PUBLISHER
+        NODE_STATE_PUBLISHER,
+        REPAIR
     }
 }

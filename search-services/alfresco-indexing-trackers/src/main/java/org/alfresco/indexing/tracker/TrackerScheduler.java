@@ -135,6 +135,9 @@ public class TrackerScheduler
             case NODE_STATE_PUBLISHER:
                 cron = getCron(props,"alfresco.nodestate.tracker.cron");
                 break;
+            case REPAIR:
+                cron = getCron(props,"alfresco.repair.tracker.cron");
+                break;
             default:
                 cron = props.getProperty("alfresco.cron",DEFAULT_CRON);
                 break;

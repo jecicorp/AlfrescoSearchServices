@@ -37,6 +37,7 @@ public class TrackerProperties
     private boolean cascadeTrackingEnabled = true;
     private long commitInterval = 10000;
     private String solrHome = "/opt/solr/data";
+    private int repairMaxRetries = 10;
 
     public SolrConfig getSolr()
     {
@@ -106,6 +107,16 @@ public class TrackerProperties
     public void setSolrHome(String solrHome)
     {
         this.solrHome = solrHome;
+    }
+
+    public int getRepairMaxRetries()
+    {
+        return repairMaxRetries;
+    }
+
+    public void setRepairMaxRetries(int repairMaxRetries)
+    {
+        this.repairMaxRetries = repairMaxRetries;
     }
 
     public static class SolrConfig
@@ -179,6 +190,7 @@ public class TrackerProperties
         private String commit = "0/20 * * * * ?";
         private String model = "0/30 * * * * ?";
         private String cascade = "0/10 * * * * ?";
+        private String repair = "0/60 * * * * ?";
 
         public String getMetadata()
         {
@@ -238,6 +250,16 @@ public class TrackerProperties
         public void setCascade(String cascade)
         {
             this.cascade = cascade;
+        }
+
+        public String getRepair()
+        {
+            return repair;
+        }
+
+        public void setRepair(String repair)
+        {
+            this.repair = repair;
         }
     }
 }
