@@ -32,6 +32,7 @@ import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_ERR
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_NODE;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_TX;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLID;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ANCESTOR;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLTXCOMMITTIME;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLTXID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_CASCADE_FLAG;
@@ -673,6 +674,53 @@ public class SolrJQueryService
             throw new IOException("Failed to get cascade node IDs for txnIds " + txnIds, e);
         }
         return nodeIds;
+    }
+
+    /**
+     * Returns the DBIDs and transaction IDs of all descendants of the given ancestor node.
+     * <p>Query: {@code ANCESTOR:"<ancestorNodeRef>" AND DOC_TYPE:Node}</p>
+     *
+     * <p>Uses {@code setRows(Integer.MAX_VALUE)} like {@link #getCascadeNodeIds}. Cursor-mark
+     * pagination can be added during Solr 8/9 migration if needed for very large hierarchies.</p>
+     *
+     * @param ancestorNodeRef the NodeRef string of the ancestor (e.g. "workspace://SpacesStore/uuid")
+     * @return map of DBID to txnId for all descendants
+     * @throws IOException if the Solr query fails
+     */
+    public Map<Long, Long> getDescendantNodeIds(String ancestorNodeRef) throws IOException
+    {
+        Map<Long, Long> result = new LinkedHashMap<>();
+        if (ancestorNodeRef == null || ancestorNodeRef.isEmpty())
+        {
+            return result;
+        }
+
+        try
+        {
+            String queryStr = FIELD_ANCESTOR + ":\"" + ancestorNodeRef + "\""
+                    + AND + FIELD_DOC_TYPE + ":" + DOC_TYPE_NODE;
+
+            SolrQuery query = luceneQuery(queryStr);
+            query.setRows(Integer.MAX_VALUE);
+            query.setFields(FIELD_DBID, FIELD_TXID);
+
+            QueryResponse response = solrClient.query(collection, query);
+            SolrDocumentList docs = response.getResults();
+            if (docs != null)
+            {
+                for (SolrDocument doc : docs)
+                {
+                    long dbid = getFieldValueLong(doc, FIELD_DBID);
+                    long txnId = getFieldValueLong(doc, FIELD_TXID);
+                    result.put(dbid, txnId);
+                }
+            }
+        }
+        catch (SolrServerException e)
+        {
+            throw new IOException("Failed to get descendants of " + ancestorNodeRef, e);
+        }
+        return result;
     }
 
     // -------------------------------------------------------------------------

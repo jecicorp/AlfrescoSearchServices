@@ -582,6 +582,64 @@ public class SolrJQueryServiceTest
     }
 
     // -------------------------------------------------------------------------
+    // getDescendantNodeIds
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void getDescendantNodeIds_returnsDbidToTxnIdMap() throws Exception
+    {
+        SolrDocumentList docs = new SolrDocumentList();
+        docs.setNumFound(2);
+
+        SolrDocument doc1 = new SolrDocument();
+        doc1.addField(FIELD_DBID, 100L);
+        doc1.addField(FIELD_TXID, 5L);
+        docs.add(doc1);
+
+        SolrDocument doc2 = new SolrDocument();
+        doc2.addField(FIELD_DBID, 200L);
+        doc2.addField(FIELD_TXID, 8L);
+        docs.add(doc2);
+
+        QueryResponse response = mockQueryResponse(docs);
+        when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
+
+        Map<Long, Long> result = queryService.getDescendantNodeIds("workspace://SpacesStore/parent-uuid");
+        assertEquals(2, result.size());
+        assertEquals(Long.valueOf(5L), result.get(100L));
+        assertEquals(Long.valueOf(8L), result.get(200L));
+
+        // Verify the query format: ANCESTOR:<nodeRef> AND DOC_TYPE:Node
+        ArgumentCaptor<SolrQuery> queryCaptor = ArgumentCaptor.forClass(SolrQuery.class);
+        verify(solrClient).query(eq(COLLECTION), queryCaptor.capture());
+        String q = queryCaptor.getValue().get("q");
+        assertTrue(q.contains("ANCESTOR:\"workspace://SpacesStore/parent-uuid\""));
+        assertTrue(q.contains("DOC_TYPE:Node"));
+    }
+
+    @Test
+    public void getDescendantNodeIds_emptyResults_returnsEmptyMap() throws Exception
+    {
+        SolrDocumentList docs = new SolrDocumentList();
+        docs.setNumFound(0);
+
+        QueryResponse response = mockQueryResponse(docs);
+        when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
+
+        Map<Long, Long> result = queryService.getDescendantNodeIds("workspace://SpacesStore/some-uuid");
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    public void getDescendantNodeIds_nullOrEmpty_returnsEmptyMap() throws Exception
+    {
+        assertTrue(queryService.getDescendantNodeIds(null).isEmpty());
+        assertTrue(queryService.getDescendantNodeIds("").isEmpty());
+        // No Solr query should have been made
+        verify(solrClient, never()).query(eq(COLLECTION), any(SolrQuery.class));
+    }
+
+    // -------------------------------------------------------------------------
     // getFieldValueLong
     // -------------------------------------------------------------------------
 
