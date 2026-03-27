@@ -31,6 +31,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,12 +40,22 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
+import org.alfresco.indexing.server.solrj.LocalDictionaryService;
+import org.alfresco.indexing.server.solrj.SolrJQueryService;
+import org.alfresco.repo.dictionary.DictionaryComponent;
+import org.alfresco.service.cmr.dictionary.AspectDefinition;
+import org.alfresco.service.cmr.dictionary.ChildAssociationDefinition;
+import org.alfresco.service.cmr.dictionary.TypeDefinition;
+import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.Node.SolrApiNodeStatus;
 import org.alfresco.solr.client.NodeMetaData;
+import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.Transaction;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -64,12 +75,30 @@ public class SolrJIndexingServiceTest
     @Mock
     private SolrClient solrClient;
 
+    @Mock
+    private SolrJQueryService queryService;
+
+    @Mock
+    private LocalDictionaryService dictionaryService;
+
+    @Mock
+    private DictionaryComponent dictionaryComponent;
+
+    @Mock
+    private SOLRAPIClient repositoryClient;
+
     private SolrJIndexingService service;
+
+    private SolrJIndexingService serviceWithDeps;
 
     @Before
     public void setUp()
     {
         service = new SolrJIndexingService(solrClient, COLLECTION);
+
+        when(dictionaryService.getDictionaryComponent()).thenReturn(dictionaryComponent);
+        serviceWithDeps = new SolrJIndexingService(solrClient, COLLECTION,
+                new SolrDocumentMapper(), repositoryClient, queryService, dictionaryService);
     }
 
     // =========================================================================
@@ -370,5 +399,81 @@ public class SolrJIndexingServiceTest
         txn.setId(1L);
 
         assertThrows(IOException.class, () -> service.indexTransaction(txn, true));
+    }
+
+    // =========================================================================
+    // cascadeNodes / mayHaveChildren tests
+    // =========================================================================
+
+    @Test
+    public void cascadeNodes_skipsNodeWhoseTypeHasNoChildAssocs() throws Exception
+    {
+        QName contentType = QName.createQName("http://www.alfresco.org/model/content/1.0", "content");
+        TypeDefinition typeDef = mock(TypeDefinition.class);
+        when(typeDef.getChildAssociations()).thenReturn(Collections.emptyMap());
+        when(dictionaryComponent.getType(contentType)).thenReturn(typeDef);
+
+        NodeMetaData parent = new NodeMetaData();
+        parent.setType(contentType);
+        parent.setAspects(Collections.emptySet());
+        parent.setTxnId(10L);
+
+        serviceWithDeps.cascadeNodes(Collections.singletonList(parent), true);
+
+        verify(queryService, never()).getDescendantNodeIds(any());
+    }
+
+    @Test
+    public void cascadeNodes_proceedsWhenTypeHasChildAssocs() throws Exception
+    {
+        QName folderType = QName.createQName("http://www.alfresco.org/model/content/1.0", "folder");
+        TypeDefinition typeDef = mock(TypeDefinition.class);
+        ChildAssociationDefinition childAssocDef = mock(ChildAssociationDefinition.class);
+        Map<QName, ChildAssociationDefinition> childAssocs = Map.of(
+                QName.createQName("http://www.alfresco.org/model/content/1.0", "contains"), childAssocDef);
+        when(typeDef.getChildAssociations()).thenReturn(childAssocs);
+        when(dictionaryComponent.getType(folderType)).thenReturn(typeDef);
+
+        NodeMetaData parent = new NodeMetaData();
+        parent.setType(folderType);
+        parent.setAspects(Collections.emptySet());
+        parent.setTxnId(10L);
+        parent.setNodeRef(new org.alfresco.service.cmr.repository.NodeRef("workspace://SpacesStore/parent-uuid"));
+
+        when(queryService.getDescendantNodeIds("workspace://SpacesStore/parent-uuid"))
+                .thenReturn(Collections.emptyMap());
+
+        serviceWithDeps.cascadeNodes(Collections.singletonList(parent), true);
+
+        verify(queryService).getDescendantNodeIds("workspace://SpacesStore/parent-uuid");
+    }
+
+    @Test
+    public void cascadeNodes_proceedsWhenAspectHasChildAssocs() throws Exception
+    {
+        QName nodeType = QName.createQName("http://www.alfresco.org/model/content/1.0", "content");
+        TypeDefinition typeDef = mock(TypeDefinition.class);
+        when(typeDef.getChildAssociations()).thenReturn(Collections.emptyMap());
+        when(dictionaryComponent.getType(nodeType)).thenReturn(typeDef);
+
+        QName aspectQName = QName.createQName("http://custom", "hasChildren");
+        AspectDefinition aspectDef = mock(AspectDefinition.class);
+        ChildAssociationDefinition childAssocDef = mock(ChildAssociationDefinition.class);
+        when(aspectDef.getChildAssociations()).thenReturn(Map.of(
+                QName.createQName("http://custom", "childAssoc"), childAssocDef));
+        when(dictionaryComponent.getAspect(aspectQName)).thenReturn(aspectDef);
+
+        NodeMetaData parent = new NodeMetaData();
+        parent.setType(nodeType);
+        parent.setAspects(Set.of(aspectQName));
+        parent.setTxnId(10L);
+        parent.setNodeRef(new org.alfresco.service.cmr.repository.NodeRef("workspace://SpacesStore/aspect-uuid"));
+
+        when(queryService.getDescendantNodeIds("workspace://SpacesStore/aspect-uuid"))
+                .thenReturn(Collections.emptyMap());
+
+        serviceWithDeps.cascadeNodes(Collections.singletonList(parent), true);
+
+        verify(queryService).getDescendantNodeIds("workspace://SpacesStore/aspect-uuid");
     }
 }

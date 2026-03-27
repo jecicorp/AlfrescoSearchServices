@@ -31,11 +31,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.GZIPInputStream;
 
+import org.alfresco.repo.dictionary.DictionaryComponent;
+import org.alfresco.service.cmr.dictionary.AspectDefinition;
+import org.alfresco.service.cmr.dictionary.TypeDefinition;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
@@ -307,20 +312,122 @@ public class SolrJIndexingService
     }
 
     /**
-     * Processes cascade updates for parent nodes. In the embedded implementation,
-     * this updates child documents with new path/ancestor information when a parent
-     * node changes.
-     *
-     * <p>In the remote implementation, this is a placeholder that logs a warning.
-     * Full cascade update support requires querying the index for child documents
-     * and performing partial updates, which will be implemented incrementally.</p>
+     * Processes cascade updates for parent nodes whose path/structure changed.
+     * For each parent, finds all descendants via ANCESTOR query, fetches fresh
+     * metadata from the repository, and re-indexes them.
      */
     public void cascadeNodes(List<NodeMetaData> nodeMetaDatas, boolean overwrite) throws IOException
     {
-        // Cascade updates require querying the index for children of each node
-        // and doing partial updates. This is complex and will be implemented later.
-        LOGGER.debug("cascadeNodes called for {} nodes. "
-                + "Cascade updates not yet fully implemented in remote mode.", nodeMetaDatas.size());
+        if (queryService == null || repositoryClient == null)
+        {
+            LOGGER.debug("cascadeNodes called for {} nodes but queryService or repositoryClient is null — skipping.",
+                    nodeMetaDatas.size());
+            return;
+        }
+
+        for (NodeMetaData parentMeta : nodeMetaDatas)
+        {
+            if (!mayHaveChildren(parentMeta))
+            {
+                LOGGER.debug("cascadeNodes: skipping node {} — type/aspects have no child associations",
+                        parentMeta.getId());
+                continue;
+            }
+
+            if (parentMeta.getNodeRef() == null)
+            {
+                LOGGER.warn("cascadeNodes: skipping node {} — nodeRef is null", parentMeta.getId());
+                continue;
+            }
+
+            String parentNodeRef = parentMeta.getNodeRef().toString();
+            long parentTxnId = parentMeta.getTxnId();
+
+            Map<Long, Long> descendants = queryService.getDescendantNodeIds(parentNodeRef);
+            LOGGER.info("cascadeNodes: node {} has {} descendants to check", parentMeta.getId(), descendants.size());
+
+            // Filter descendants: only cascade those with txnId < parent txnId
+            List<Long> childDbIds = new ArrayList<>();
+            for (Map.Entry<Long, Long> entry : descendants.entrySet())
+            {
+                if (entry.getValue() < parentTxnId)
+                {
+                    childDbIds.add(entry.getKey());
+                }
+            }
+
+            if (childDbIds.isEmpty())
+            {
+                LOGGER.debug("cascadeNodes: no descendants to update for node {}", parentMeta.getId());
+                continue;
+            }
+
+            LOGGER.info("cascadeNodes: re-indexing {} descendants for parent node {}", childDbIds.size(), parentMeta.getId());
+            reindexDescendants(childDbIds, overwrite);
+        }
+    }
+
+    /**
+     * Checks whether the given node's type or aspects declare child associations,
+     * meaning the node could potentially have children in the repository.
+     */
+    boolean mayHaveChildren(NodeMetaData metadata)
+    {
+        if (dictionaryService == null)
+        {
+            return true;
+        }
+
+        DictionaryComponent dictionary = dictionaryService.getDictionaryComponent();
+
+        QName typeName = metadata.getType();
+        if (typeName != null)
+        {
+            try
+            {
+                TypeDefinition typeDef = dictionary.getType(typeName);
+                if (typeDef != null && typeDef.getChildAssociations() != null
+                        && !typeDef.getChildAssociations().isEmpty())
+                {
+                    return true;
+                }
+            }
+            catch (Exception e)
+            {
+                LOGGER.trace("Could not resolve type {} in dictionary", typeName, e);
+            }
+        }
+
+        Set<QName> aspects = metadata.getAspects();
+        if (aspects != null)
+        {
+            for (QName aspectName : aspects)
+            {
+                try
+                {
+                    AspectDefinition aspectDef = dictionary.getAspect(aspectName);
+                    if (aspectDef != null && aspectDef.getChildAssociations() != null
+                            && !aspectDef.getChildAssociations().isEmpty())
+                    {
+                        return true;
+                    }
+                }
+                catch (Exception e)
+                {
+                    LOGGER.trace("Could not resolve aspect {} in dictionary", aspectName, e);
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Placeholder for descendant re-indexing — will be implemented in the next task.
+     */
+    private void reindexDescendants(List<Long> childDbIds, boolean overwrite) throws IOException
+    {
+        LOGGER.debug("reindexDescendants: {} descendants to re-index (not yet implemented)", childDbIds.size());
     }
 
     /**
