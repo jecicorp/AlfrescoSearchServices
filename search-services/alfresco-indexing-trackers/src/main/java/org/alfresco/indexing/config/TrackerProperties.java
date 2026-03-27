@@ -190,7 +190,7 @@ public class TrackerProperties
         private String commit = "0/20 * * * * ?";
         private String model = "0/30 * * * * ?";
         private String cascade = "0/10 * * * * ?";
-        private String repair = "0/60 * * * * ?";
+        private String repair = "0 0/1 * * * ?";
 
         public String getMetadata()
         {
