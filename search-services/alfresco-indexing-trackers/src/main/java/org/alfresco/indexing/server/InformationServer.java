@@ -168,6 +168,15 @@ public interface InformationServer extends InformationServerCollectionProvider
 
     List<TenantDbId> getDocsWithUncleanContent() throws IOException;
 
+    /** Returns nodes marked with HAS_INDEXING_ERROR:true */
+    List<TenantDbId> getDocsWithIndexingError() throws IOException;
+
+    /** Marks a node with HAS_INDEXING_ERROR:true via atomic update */
+    void markIndexingError(long dbId, String tenant) throws IOException;
+
+    /** Clears HAS_INDEXING_ERROR on a node via atomic update */
+    void clearIndexingError(long dbId, String tenant) throws IOException;
+
     void updateContent(TenantDbId docRef) throws Exception;
 
     void addCommonNodeReportInfo(NodeReport nodeReport);

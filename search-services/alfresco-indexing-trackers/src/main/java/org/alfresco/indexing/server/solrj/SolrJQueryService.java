@@ -524,6 +524,56 @@ public class SolrJQueryService
     }
 
     // -------------------------------------------------------------------------
+    // Indexing error queries
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns documents marked with HAS_INDEXING_ERROR:true.
+     */
+    public List<org.alfresco.solr.client.TenantDbId> getDocsWithIndexingError() throws IOException
+    {
+        return getDocsWithIndexingError(100);
+    }
+
+    /**
+     * Returns documents with indexing errors, with configurable batch size.
+     */
+    public List<org.alfresco.solr.client.TenantDbId> getDocsWithIndexingError(int batchSize) throws IOException
+    {
+        List<org.alfresco.solr.client.TenantDbId> result = new ArrayList<>();
+        try
+        {
+            String queryStr = "HAS_INDEXING_ERROR:true"
+                    + AND + FIELD_DOC_TYPE + ":" + DOC_TYPE_NODE;
+
+            SolrQuery query = luceneQuery(queryStr);
+            query.setRows(batchSize);
+            query.addSort(FIELD_DBID, SolrQuery.ORDER.asc);
+            query.setFields(FIELD_DBID, FIELD_TENANT);
+
+            QueryResponse response = solrClient.query(collection, query);
+            SolrDocumentList docs = response.getResults();
+            if (docs != null)
+            {
+                for (SolrDocument doc : docs)
+                {
+                    org.alfresco.solr.client.TenantDbId tenantDbId = new org.alfresco.solr.client.TenantDbId();
+                    tenantDbId.dbId = getFieldValueLong(doc, FIELD_DBID);
+                    Object tenantValue = doc.getFieldValue(FIELD_TENANT);
+                    tenantDbId.tenant = tenantValue != null ? tenantValue.toString() : "";
+                    result.add(tenantDbId);
+                }
+            }
+            LOGGER.debug("Found {} documents with indexing errors", result.size());
+        }
+        catch (SolrServerException e)
+        {
+            throw new IOException("Failed to query for docs with indexing errors", e);
+        }
+        return result;
+    }
+
+    // -------------------------------------------------------------------------
     // Cascade queries
     // -------------------------------------------------------------------------
 

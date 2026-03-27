@@ -559,6 +559,36 @@ public class SolrJIndexingService
     }
 
     // =========================================================================
+    // Indexing error markers
+    // =========================================================================
+
+    /**
+     * Marks a node with HAS_INDEXING_ERROR:true via atomic update.
+     */
+    public void markIndexingError(long dbId, String tenant) throws IOException
+    {
+        SolrInputDocument doc = new SolrInputDocument();
+        doc.setField(SolrDocumentMapper.FIELD_SOLR4_ID,
+                SolrDocumentMapper.getNodeDocumentId(tenant != null ? tenant : "", dbId));
+        doc.setField("HAS_INDEXING_ERROR",
+                Collections.singletonMap("set", true));
+        addDocument(doc);
+    }
+
+    /**
+     * Clears HAS_INDEXING_ERROR on a node via atomic update.
+     */
+    public void clearIndexingError(long dbId, String tenant) throws IOException
+    {
+        SolrInputDocument doc = new SolrInputDocument();
+        doc.setField(SolrDocumentMapper.FIELD_SOLR4_ID,
+                SolrDocumentMapper.getNodeDocumentId(tenant != null ? tenant : "", dbId));
+        doc.setField("HAS_INDEXING_ERROR",
+                Collections.singletonMap("set", false));
+        addDocument(doc);
+    }
+
+    // =========================================================================
     // Internal helpers
     // =========================================================================
 

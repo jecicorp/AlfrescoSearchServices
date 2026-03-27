@@ -571,6 +571,24 @@ public class SolrJInformationServer implements InformationServer
     }
 
     @Override
+    public List<TenantDbId> getDocsWithIndexingError() throws IOException
+    {
+        return queryService.getDocsWithIndexingError();
+    }
+
+    @Override
+    public void markIndexingError(long dbId, String tenant) throws IOException
+    {
+        indexingService.markIndexingError(dbId, tenant);
+    }
+
+    @Override
+    public void clearIndexingError(long dbId, String tenant) throws IOException
+    {
+        indexingService.clearIndexingError(dbId, tenant);
+    }
+
+    @Override
     public void updateContent(TenantDbId docRef) throws Exception
     {
         indexingService.updateContent(docRef);
