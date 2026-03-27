@@ -423,11 +423,52 @@ public class SolrJIndexingService
     }
 
     /**
-     * Placeholder for descendant re-indexing — will be implemented in the next task.
+     * Fetches fresh metadata from the repository for the given descendant node IDs
+     * and re-indexes each one as a full document.
      */
     private void reindexDescendants(List<Long> childDbIds, boolean overwrite) throws IOException
     {
-        LOGGER.debug("reindexDescendants: {} descendants to re-index (not yet implemented)", childDbIds.size());
+        int batchSize = 50;
+        for (int i = 0; i < childDbIds.size(); i += batchSize)
+        {
+            List<Long> batch = childDbIds.subList(i, Math.min(i + batchSize, childDbIds.size()));
+
+            NodeMetaDataParameters nmdp = new NodeMetaDataParameters();
+            nmdp.setNodeIds(batch);
+            nmdp.setMaxResults(batch.size());
+
+            List<NodeMetaData> metadatas;
+            try
+            {
+                metadatas = repositoryClient.getNodesMetaData(nmdp);
+            }
+            catch (Exception e)
+            {
+                LOGGER.warn("cascadeNodes: failed to fetch metadata for batch starting at index {} — skipping: {}",
+                        i, e.getMessage());
+                continue;
+            }
+
+            if (metadatas == null)
+            {
+                continue;
+            }
+
+            for (NodeMetaData childMeta : metadatas)
+            {
+                try
+                {
+                    // The Node parameter is unused by toNodeDoc — passing null is safe.
+                    SolrInputDocument doc = documentMapper.toNodeDoc(null, childMeta);
+                    addDocument(doc);
+                }
+                catch (Exception e)
+                {
+                    LOGGER.warn("cascadeNodes: failed to re-index descendant {} — skipping: {}",
+                            childMeta.getId(), e.getMessage());
+                }
+            }
+        }
     }
 
     /**

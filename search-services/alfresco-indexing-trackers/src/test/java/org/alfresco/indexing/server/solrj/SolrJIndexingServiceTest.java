@@ -39,6 +39,7 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,6 +56,7 @@ import org.alfresco.solr.client.AclReaders;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.Node.SolrApiNodeStatus;
 import org.alfresco.solr.client.NodeMetaData;
+import org.alfresco.solr.client.NodeMetaDataParameters;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.Transaction;
 import org.apache.solr.client.solrj.SolrClient;
@@ -475,5 +477,80 @@ public class SolrJIndexingServiceTest
         serviceWithDeps.cascadeNodes(Collections.singletonList(parent), true);
 
         verify(queryService).getDescendantNodeIds("workspace://SpacesStore/aspect-uuid");
+    }
+
+    @Test
+    public void cascadeNodes_reindexesDescendantsWithFreshMetadata() throws Exception
+    {
+        // Set up parent: folder type with child assocs
+        QName folderType = QName.createQName("http://www.alfresco.org/model/content/1.0", "folder");
+        TypeDefinition typeDef = mock(TypeDefinition.class);
+        ChildAssociationDefinition childAssocDef = mock(ChildAssociationDefinition.class);
+        when(typeDef.getChildAssociations()).thenReturn(Map.of(
+                QName.createQName("http://www.alfresco.org/model/content/1.0", "contains"), childAssocDef));
+        when(dictionaryComponent.getType(folderType)).thenReturn(typeDef);
+
+        NodeMetaData parent = new NodeMetaData();
+        parent.setId(1L);
+        parent.setType(folderType);
+        parent.setAspects(Collections.emptySet());
+        parent.setTxnId(10L);
+        parent.setNodeRef(new org.alfresco.service.cmr.repository.NodeRef("workspace://SpacesStore/parent-uuid"));
+
+        // Two descendants: one with txnId < parent (cascade), one with txnId >= parent (skip)
+        Map<Long, Long> descendants = new LinkedHashMap<>();
+        descendants.put(100L, 5L);   // txnId 5 < 10 -> cascade
+        descendants.put(200L, 10L);  // txnId 10 >= 10 -> skip
+        when(queryService.getDescendantNodeIds("workspace://SpacesStore/parent-uuid"))
+                .thenReturn(descendants);
+
+        // Repository returns fresh metadata for descendant 100
+        NodeMetaData childMeta = new NodeMetaData();
+        childMeta.setId(100L);
+        childMeta.setTxnId(5L);
+        childMeta.setNodeRef(new org.alfresco.service.cmr.repository.NodeRef("workspace://SpacesStore/child-uuid"));
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Collections.singletonList(childMeta));
+
+        serviceWithDeps.cascadeNodes(Collections.singletonList(parent), true);
+
+        // Verify: only descendant 100 was re-indexed (one add call for the child document)
+        ArgumentCaptor<SolrInputDocument> docCaptor = ArgumentCaptor.forClass(SolrInputDocument.class);
+        verify(solrClient).add(eq(COLLECTION), docCaptor.capture());
+
+        SolrInputDocument indexedDoc = docCaptor.getValue();
+        assertEquals(100L, indexedDoc.getFieldValue("DBID"));
+    }
+
+    @Test
+    public void cascadeNodes_handlesRepositoryErrorGracefully() throws Exception
+    {
+        QName folderType = QName.createQName("http://www.alfresco.org/model/content/1.0", "folder");
+        TypeDefinition typeDef = mock(TypeDefinition.class);
+        ChildAssociationDefinition childAssocDef = mock(ChildAssociationDefinition.class);
+        when(typeDef.getChildAssociations()).thenReturn(Map.of(
+                QName.createQName("http://www.alfresco.org/model/content/1.0", "contains"), childAssocDef));
+        when(dictionaryComponent.getType(folderType)).thenReturn(typeDef);
+
+        NodeMetaData parent = new NodeMetaData();
+        parent.setId(1L);
+        parent.setType(folderType);
+        parent.setAspects(Collections.emptySet());
+        parent.setTxnId(10L);
+        parent.setNodeRef(new org.alfresco.service.cmr.repository.NodeRef("workspace://SpacesStore/parent-uuid"));
+
+        Map<Long, Long> descendants = Map.of(100L, 5L);
+        when(queryService.getDescendantNodeIds("workspace://SpacesStore/parent-uuid"))
+                .thenReturn(descendants);
+
+        // Repository throws an error
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenThrow(new IOException("repo unavailable"));
+
+        // Should not throw — errors are logged and skipped
+        serviceWithDeps.cascadeNodes(Collections.singletonList(parent), true);
+
+        // No documents should have been indexed
+        verify(solrClient, never()).add(eq(COLLECTION), any(SolrInputDocument.class));
     }
 }
