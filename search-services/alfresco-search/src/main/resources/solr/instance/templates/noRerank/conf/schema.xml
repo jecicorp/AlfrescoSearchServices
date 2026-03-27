@@ -790,7 +790,7 @@
       <copyField source="suggest_*" dest="suggest" />
 
       <!-- Indexing error flag — set by trackers when a node cannot be indexed correctly. -->
-      <field name="HAS_INDEXING_ERROR" type="boolean" indexed="true" stored="true" default="false" />
+      <field name="HAS_INDEXING_ERROR" type="identifier" indexed="true" stored="true" default="false" />
 
    </fields>
 

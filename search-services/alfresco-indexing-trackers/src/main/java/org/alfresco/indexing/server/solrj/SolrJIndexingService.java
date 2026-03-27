@@ -571,7 +571,7 @@ public class SolrJIndexingService
         doc.setField(SolrDocumentMapper.FIELD_SOLR4_ID,
                 SolrDocumentMapper.getNodeDocumentId(tenant != null ? tenant : "", dbId));
         doc.setField("HAS_INDEXING_ERROR",
-                Collections.singletonMap("set", true));
+                Collections.singletonMap("set", "true"));
         addDocument(doc);
     }
 
@@ -584,7 +584,7 @@ public class SolrJIndexingService
         doc.setField(SolrDocumentMapper.FIELD_SOLR4_ID,
                 SolrDocumentMapper.getNodeDocumentId(tenant != null ? tenant : "", dbId));
         doc.setField("HAS_INDEXING_ERROR",
-                Collections.singletonMap("set", false));
+                Collections.singletonMap("set", "false"));
         addDocument(doc);
     }
 

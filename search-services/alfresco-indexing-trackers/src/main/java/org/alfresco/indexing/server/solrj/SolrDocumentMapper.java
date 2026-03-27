@@ -439,7 +439,7 @@ public class SolrDocumentMapper
 
         if (hasUnresolvedProperty)
         {
-            doc.setField("HAS_INDEXING_ERROR", true);
+            doc.setField("HAS_INDEXING_ERROR", "true");
         }
 
         // Content versioning: mark nodes with content as needing extraction

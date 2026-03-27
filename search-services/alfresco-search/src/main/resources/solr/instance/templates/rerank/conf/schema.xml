@@ -922,7 +922,7 @@
 
     <!-- Indexing error flag — set by trackers when a node cannot be indexed correctly.
          The RepairTracker queries this field to find nodes needing remediation. -->
-    <field name="HAS_INDEXING_ERROR" type="boolean" indexed="true" stored="true" default="false" />
+    <field name="HAS_INDEXING_ERROR" type="identifier" indexed="true" stored="true" default="false" />
 
     <!--
       Used to store the last transaction and acl transaction for real time get
