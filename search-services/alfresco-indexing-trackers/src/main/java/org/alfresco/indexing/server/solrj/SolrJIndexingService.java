@@ -82,6 +82,8 @@ public class SolrJIndexingService
     private final String collection;
     private final SolrDocumentMapper documentMapper;
     private final SOLRAPIClient repositoryClient;
+    private final SolrJQueryService queryService;
+    private final LocalDictionaryService dictionaryService;
     private long contentStreamLimit = DEFAULT_CONTENT_STREAM_LIMIT;
 
     public SolrJIndexingService(SolrClient solrClient, String collection)
@@ -97,10 +99,19 @@ public class SolrJIndexingService
     public SolrJIndexingService(SolrClient solrClient, String collection,
                                 SolrDocumentMapper documentMapper, SOLRAPIClient repositoryClient)
     {
+        this(solrClient, collection, documentMapper, repositoryClient, null, null);
+    }
+
+    public SolrJIndexingService(SolrClient solrClient, String collection,
+                                SolrDocumentMapper documentMapper, SOLRAPIClient repositoryClient,
+                                SolrJQueryService queryService, LocalDictionaryService dictionaryService)
+    {
         this.solrClient = solrClient;
         this.collection = collection;
         this.documentMapper = documentMapper;
         this.repositoryClient = repositoryClient;
+        this.queryService = queryService;
+        this.dictionaryService = dictionaryService;
     }
 
     // =========================================================================

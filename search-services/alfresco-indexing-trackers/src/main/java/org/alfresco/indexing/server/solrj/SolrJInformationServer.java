@@ -137,9 +137,10 @@ public class SolrJInformationServer implements InformationServer
         SolrDocumentMapper documentMapper = new SolrDocumentMapper(
                 Boolean.parseBoolean(props.getProperty("alfresco.cascade.tracker.enabled", "true")),
                 this.localDictionaryService);
-        this.indexingService = new SolrJIndexingService(solrClient, collection, documentMapper, repositoryClient);
-        this.commitService = new SolrJCommitService(solrClient, collection);
         this.queryService = new SolrJQueryService(solrClient, collection);
+        this.indexingService = new SolrJIndexingService(solrClient, collection, documentMapper, repositoryClient,
+                this.queryService, this.localDictionaryService);
+        this.commitService = new SolrJCommitService(solrClient, collection);
         this.modelService = new SolrJModelService(solrClient, collection);
     }
 
