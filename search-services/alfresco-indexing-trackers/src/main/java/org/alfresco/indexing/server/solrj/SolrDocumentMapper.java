@@ -394,6 +394,7 @@ public class SolrDocumentMapper
 
         // Properties — also detect content properties for content tracking
         boolean hasContentProperty = false;
+        boolean hasUnresolvedProperty = false;
         Map<QName, PropertyValue> properties = metadata.getProperties();
         if (properties != null)
         {
@@ -430,9 +431,15 @@ public class SolrDocumentMapper
                     LOGGER.warn("No property definition for {} — falling back to text@s__lt@ prefix. "
                             + "Dictionary may not be loaded.", propQName);
                     addPropertyValue(doc, propQName.toString(), value);
+                    hasUnresolvedProperty = true;
                 }
                 doc.addField(FIELD_PROPERTIES, propQName.toString());
             }
+        }
+
+        if (hasUnresolvedProperty)
+        {
+            doc.setField("HAS_INDEXING_ERROR", true);
         }
 
         // Content versioning: mark nodes with content as needing extraction
