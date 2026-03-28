@@ -63,7 +63,7 @@ public class CascadeTracker extends ActivatableTracker
 
     private static final int DEFAULT_CASCADE_TRACKER_MAX_PARALLELISM = 32;
     private static final int DEFAULT_CASCADE_NODE_BATCH_SIZE = 10;
-
+    private static final int DEFAULT_CASCADE_COMMIT_INTERVAL = 30;
 
     // Share run and write locks across all CascadeTracker threads
     private static Map<String, Semaphore> RUN_LOCK_BY_CORE = new ConcurrentHashMap<>();
@@ -71,6 +71,7 @@ public class CascadeTracker extends ActivatableTracker
     private int cascadeBatchSize;
     private ForkJoinPool forkJoinPool;
     private int cascadeTrackerParallelism;
+    private int cascadeCommitInterval;
 
     @Override
     public Semaphore getWriteLock()
@@ -93,7 +94,10 @@ public class CascadeTracker extends ActivatableTracker
                 String.valueOf(DEFAULT_CASCADE_TRACKER_MAX_PARALLELISM)));
 
         cascadeBatchSize = Integer.parseInt(p.getProperty("alfresco.cascade.tracker.nodeBatchSize",
-                String.valueOf(DEFAULT_CASCADE_NODE_BATCH_SIZE)));;
+                String.valueOf(DEFAULT_CASCADE_NODE_BATCH_SIZE)));
+
+        cascadeCommitInterval = Integer.parseInt(p.getProperty("alfresco.cascade.tracker.commitInterval",
+                String.valueOf(DEFAULT_CASCADE_COMMIT_INTERVAL)));
 
         forkJoinPool = new ForkJoinPool(cascadeTrackerParallelism);
         RUN_LOCK_BY_CORE.put(coreName, new Semaphore(1, true));
@@ -172,48 +176,57 @@ public class CascadeTracker extends ActivatableTracker
     private void processCascades(String iterationId) throws IOException
     {
         int num = 50;
-        List<Transaction> txBatch = null;
         long totalUpdatedDocs = 0;
+        Set<Long> processedTxIds = new HashSet<>();
+        int batchesSinceCommit = 0;
 
-        do {
-            try {
+        while (true)
+        {
+            List<Transaction> txBatch;
+            try
+            {
                 getWriteLock().acquire();
+
                 txBatch = infoSrv.getCascades(num);
 
-                if (txBatch.size() > 0)
+                // Filter out transactions already processed in this iteration
+                // (Solr searcher may not yet reflect the flag=0 updates)
+                txBatch.removeIf(tx -> processedTxIds.contains(tx.getId()));
+
+                if (txBatch.isEmpty())
                 {
-                    LOGGER.info("{}-[CORE {}] Found {} transactions, transactions from {} to {}",
-                            Thread.currentThread().getId(),
-                            coreName,
-                            txBatch.size(),
-                            txBatch.get(0),
-                            txBatch.get(txBatch.size() - 1));
-                }
-                else
-                {
-                    LOGGER.info("{}-[CORE {}] No transaction found",
-                            Thread.currentThread().getId(), coreName);
+                    if (batchesSinceCommit > 0)
+                    {
+                        // Final hard commit with waitSearcher=true
+                        infoSrv.commit(true);
+                        LOGGER.info("{}-[CORE {}] Final commit after {} batches",
+                                Thread.currentThread().getId(), coreName, batchesSinceCommit);
+                    }
+                    break;
                 }
 
-                if(txBatch.size() == 0) {
-                    return;
-                }
+                LOGGER.info("{}-[CORE {}] Processing {} transactions (cascade), from {} to {}",
+                        Thread.currentThread().getId(),
+                        coreName,
+                        txBatch.size(),
+                        txBatch.get(0),
+                        txBatch.get(txBatch.size() - 1));
 
                 ArrayList<Long> txIds = new ArrayList<>();
-                Set<Long> txIdSet = new HashSet<>();
-                for (Transaction tx : txBatch) {
+                for (Transaction tx : txBatch)
+                {
                     txIds.add(tx.getId());
-                    txIdSet.add(tx.getId());
                 }
 
                 List<NodeMetaData> nodeMetaDatas = infoSrv.getCascadeNodes(txIds);
-                Integer processedCascades = 0;
+                int processedCascades = 0;
 
-                if(nodeMetaDatas.size() > 0) {
+                if (!nodeMetaDatas.isEmpty())
+                {
                     List<List<NodeMetaData>> nodeBatches = Lists.partition(nodeMetaDatas, cascadeBatchSize);
 
-                    processedCascades = forkJoinPool.submit( () ->
-                            nodeBatches.parallelStream().map( batch -> {
+                    processedCascades = forkJoinPool.submit(() ->
+                            nodeBatches.parallelStream().map(batch -> {
 
                                 CascadeIndexWorker worker = new CascadeIndexWorker(batch, infoSrv);
                                 worker.run();
@@ -225,43 +238,49 @@ public class CascadeTracker extends ActivatableTracker
                                             .map(NodeMetaData::getId)
                                             .map(Object::toString)
                                             .collect(joining(","));
-                                    LOGGER.trace("[{} / {} / {} / {}] Worker has been created for nodes {}", coreName, trackerId, iterationId, worker.hashCode(), nodes);
+                                    LOGGER.trace("[{} / {} / {} / {}] Worker has been created for nodes {}",
+                                            coreName, trackerId, iterationId, worker.hashCode(), nodes);
                                 }
                                 return batch.size();
                             }).reduce(0, Integer::sum)
                     ).get();
-
-
                 }
-                //Update the transaction records (set cascade flag to 0).
+
+                // Update the transaction records (set cascade flag to 0) — no commit yet.
                 updateTransactionsAfterWorker(txBatch);
-                // Soft-commit so the next getCascades() query sees the updated flag.
-                infoSrv.commit(false);
+                processedTxIds.addAll(txIds);
                 totalUpdatedDocs += processedCascades;
+                batchesSinceCommit++;
+
+                // Periodic hard commit to flush to disk and refresh the searcher
+                if (batchesSinceCommit >= cascadeCommitInterval)
+                {
+                    infoSrv.commit(true);
+                    LOGGER.info("{}-[CORE {}] Periodic commit after {} batches ({} txns processed so far)",
+                            Thread.currentThread().getId(), coreName, batchesSinceCommit, processedTxIds.size());
+                    processedTxIds.clear();
+                    batchesSinceCommit = 0;
+                }
             }
-            catch (AuthenticationException e)
+            catch (AuthenticationException | JSONException e)
             {
                 throw new IOException(e);
             }
-            catch (JSONException e)
-            {
-                throw new IOException(e);
-            }
-            catch(InterruptedException e)
+            catch (InterruptedException e)
             {
                 throw new IOException(e);
             }
             catch (ExecutionException e)
             {
-                e.printStackTrace();
+                LOGGER.error("{}-[CORE {}] Cascade worker execution failed", Thread.currentThread().getId(), coreName, e);
             }
             finally
             {
                 getWriteLock().release();
             }
-        } while(txBatch.size() > 0);
+        }
 
-        LOGGER.info("{}-[CORE {}] Updated {} DOCs", Thread.currentThread().getId(), coreName, totalUpdatedDocs);
-
+        LOGGER.info("{}-[CORE {}] Cascade processing complete — updated {} docs",
+                Thread.currentThread().getId(), coreName, totalUpdatedDocs);
     }
 }
