@@ -92,6 +92,7 @@ public class TrackerBootstrap implements ApplicationRunner
     private TrackerScheduler scheduler;
     private TrackerRegistry registry;
     private RepairTracker repairTracker;
+    private SolrJInformationServer informationServer;
     private final List<Tracker> trackers = new ArrayList<>();
 
     public TrackerBootstrap(SolrClient solrClient,
@@ -143,6 +144,7 @@ public class TrackerBootstrap implements ApplicationRunner
         // 2. Create SolrJInformationServer
         SolrJInformationServer infoSrv = new SolrJInformationServer(
                 solrClient, coreName, trackerProps, dataModelCallback, repoClient, localDictionaryService);
+        this.informationServer = infoSrv;
 
         // 3. Set the local NamespaceDAO for QName resolution
         infoSrv.setNamespaceDAO(localNamespaceDAO);
@@ -360,10 +362,14 @@ public class TrackerBootstrap implements ApplicationRunner
         loaded.add(name);
     }
 
-    // Visible for testing
-    TrackerRegistry getRegistry()
+    public TrackerRegistry getRegistry()
     {
         return registry;
+    }
+
+    public SolrJInformationServer getInformationServer()
+    {
+        return informationServer;
     }
 
     // Visible for testing
