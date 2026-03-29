@@ -38,11 +38,28 @@ import org.alfresco.test.search.functional.AbstractE2EFunctionalTest;
 import org.alfresco.utility.Utility;
 import org.alfresco.utility.model.FileModel;
 import org.alfresco.utility.model.FileType;
+import org.springframework.beans.factory.annotation.Value;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /** E2E tests for the SUMMARY admin report. */
 public class SolrE2ESummaryTest extends AbstractE2EFunctionalTest
 {
+    @Value("${tracker.scheme:http}")
+    private String trackerScheme;
+    @Value("${tracker.server:localhost}")
+    private String trackerServer;
+    @Value("${tracker.port:8085}")
+    private int trackerPort;
+
+    private TrackerAdminClient trackerAdmin;
+
+    @BeforeClass(alwaysRun = true)
+    public void setupTrackerClient()
+    {
+        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort);
+    }
+
     /** The maximum time to wait for a report to update (in ms). */
     private static final int MAX_TIME = 60 * 1000;
     /** The frequency to check the report (in ms). */
@@ -52,7 +69,7 @@ public class SolrE2ESummaryTest extends AbstractE2EFunctionalTest
     @Test
     public void testFTSReport() throws Exception
     {
-        RestResponse response = restClient.withParams("core=alfresco").withSolrAdminAPI().getAction("SUMMARY");
+        RestResponse response = trackerAdmin.getAction("SUMMARY", "core=alfresco");
 
         int toUpdate = response.getResponse().body().jsonPath().get("Summary.alfresco.FTS.'Node count whose content needs to be updated'");
         assertTrue(toUpdate >= 0, "Expecting non-negative pieces of content to need updating.");
@@ -65,7 +82,7 @@ public class SolrE2ESummaryTest extends AbstractE2EFunctionalTest
     @Test
     public void testFTSReport_contentUpdate() throws Exception
     {
-        RestResponse response2 = restClient.withParams("core=alfresco").withSolrAdminAPI().getAction("SUMMARY");
+        RestResponse response2 = trackerAdmin.getAction("SUMMARY", "core=alfresco");
         int previousInSync = response2.getResponse().body().jsonPath().get("Summary.alfresco.FTS.'Node count whose content is in sync'");
 
         FileModel file = new FileModel("file.txt", "file.txt", "", FileType.TEXT_PLAIN, "file.txt");
@@ -73,7 +90,7 @@ public class SolrE2ESummaryTest extends AbstractE2EFunctionalTest
 
         // Wait for the number of "in-sync" documents to increase (i.e. when the document is indexed).
         Utility.sleep(RETRY_INTERVAL, MAX_TIME, () -> {
-            RestResponse response = restClient.withParams("core=alfresco").withSolrAdminAPI().getAction("SUMMARY");
+            RestResponse response = trackerAdmin.getAction("SUMMARY", "core=alfresco");
             int inSync = response.getResponse().body().jsonPath().get("Summary.alfresco.FTS.'Node count whose content is in sync'");
             assertTrue(inSync > previousInSync, "Expected a document to be indexed.");
         });
@@ -81,7 +98,7 @@ public class SolrE2ESummaryTest extends AbstractE2EFunctionalTest
         // Wait for the number of outdated documents to become zero.
         Utility.sleep(RETRY_INTERVAL, MAX_TIME, () ->
         {
-            RestResponse response = restClient.withParams("core=alfresco").withSolrAdminAPI().getAction("SUMMARY");
+            RestResponse response = trackerAdmin.getAction("SUMMARY", "core=alfresco");
             int toUpdate = response.getResponse().body().jsonPath().get("Summary.alfresco.FTS.'Node count whose content needs to be updated'");
             assertEquals(toUpdate, 0, "Expected number of outdated documents to drop to zero.");
         });
@@ -94,7 +111,7 @@ public class SolrE2ESummaryTest extends AbstractE2EFunctionalTest
         // Expect to spot the number of outdated documents increase beyond zero.
         Utility.sleep(RETRY_INTERVAL, MAX_TIME, () ->
         {
-            RestResponse response = restClient.withParams("core=alfresco").withSolrAdminAPI().getAction("SUMMARY");
+            RestResponse response = trackerAdmin.getAction("SUMMARY", "core=alfresco");
             int toUpdate = response.getResponse().body().jsonPath().get("Summary.alfresco.FTS.'Node count whose content needs to be updated'");
             assertNotEquals(toUpdate, 0, "Expected number of outdated documents to be greater than zero.");
         });

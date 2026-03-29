@@ -36,6 +36,7 @@ import org.alfresco.test.search.functional.AbstractE2EFunctionalTest;
 import org.alfresco.utility.data.CustomObjectTypeProperties;
 import org.alfresco.utility.model.FileModel;
 import org.alfresco.utility.model.FolderModel;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -48,6 +49,15 @@ import org.testng.annotations.Test;
 public class SolrE2eActionTest extends AbstractE2EFunctionalTest
 {
 
+    @Value("${tracker.scheme:http}")
+    private String trackerScheme;
+    @Value("${tracker.server:localhost}")
+    private String trackerServer;
+    @Value("${tracker.port:8085}")
+    private int trackerPort;
+
+    private TrackerAdminClient trackerAdmin;
+
     // DBID (sys:node-dbid) value for the document
     Integer dbId;
 
@@ -57,6 +67,7 @@ public class SolrE2eActionTest extends AbstractE2EFunctionalTest
     @BeforeClass(alwaysRun = true)
     public void dataPreparation() throws Exception
     {
+        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort);
 
         // Create a new document
         FolderModel folder = new FolderModel("folder-aspect");
@@ -96,8 +107,7 @@ public class SolrE2eActionTest extends AbstractE2EFunctionalTest
             restClient.withSolrAPI().postAction("delete", deleteQueryBody);
 
             // Re-index document using nodeId
-            RestResponse response = restClient.withParams("core=alfresco", "nodeId=" + dbId).withSolrAdminAPI()
-                        .getAction("reindex");
+            RestResponse response = trackerAdmin.getAction("reindex", "core=alfresco", "nodeId=" + dbId);
             String actionStatus = response.getResponse().body().jsonPath().get("action.alfresco.status");
             Assert.assertEquals(actionStatus, "scheduled");
             waitForMetadataIndexing("DBID:" + dbId, true);

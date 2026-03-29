@@ -33,8 +33,10 @@ import java.util.Map;
 import org.alfresco.rest.core.RestResponse;
 import org.alfresco.search.TestGroup;
 import org.alfresco.test.search.functional.AbstractE2EFunctionalTest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static java.util.Collections.emptyList;
@@ -51,7 +53,22 @@ import static java.util.Collections.emptyList;
 @Configuration
 public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
 {
-    
+
+    @Value("${tracker.scheme:http}")
+    private String trackerScheme;
+    @Value("${tracker.server:localhost}")
+    private String trackerServer;
+    @Value("${tracker.port:8085}")
+    private int trackerPort;
+
+    private TrackerAdminClient trackerAdmin;
+
+    @BeforeClass(alwaysRun = true)
+    public void setupTrackerClient()
+    {
+        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort);
+    }
+
     // SOLR default response status codes (returned in responseHeader.status)
     private static final Integer SOLR_RESPONSE_STATUS_OK = 0;
     
@@ -81,7 +98,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     public void testNodeReport() throws Exception
     {
         Integer nodeid = 200;
-        RestResponse response = restClient.withParams("nodeid=" + nodeid).withSolrAdminAPI().getAction("nodeReport");
+        RestResponse response = trackerAdmin.getAction("nodeReport", "nodeid=" + nodeid);
         
         checkResponseStatusOk(response);
         
@@ -105,7 +122,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
             try
             {
             
-                RestResponse response = restClient.withParams("nodeid=" + nodeid, "core=" + core).withSolrAdminAPI().getAction("nodeReport");
+                RestResponse response = trackerAdmin.getAction("nodeReport", "nodeid=" + nodeid, "core=" + core);
                 
                 checkResponseStatusOk(response);
                 
@@ -129,7 +146,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     @Test(priority = 3)
     public void testNodeReportError() throws Exception
     {
-        RestResponse response = restClient.withSolrAdminAPI().getAction("nodeReport");
+        RestResponse response = trackerAdmin.getAction("nodeReport");
         
         checkResponseStatusOk(response);
         
@@ -146,7 +163,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     public void testAclReport() throws Exception
     {
         Integer aclid = 1;
-        RestResponse response = restClient.withParams("aclid=" + aclid).withSolrAdminAPI().getAction("aclReport");
+        RestResponse response = trackerAdmin.getAction("aclReport", "aclid=" + aclid);
         
         checkResponseStatusOk(response);
 
@@ -168,7 +185,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
             
             try
             {
-                RestResponse response = restClient.withParams("aclid=" + aclid, "core=" + core).withSolrAdminAPI().getAction("aclReport");
+                RestResponse response = trackerAdmin.getAction("aclReport", "aclid=" + aclid, "core=" + core);
                 
                 checkResponseStatusOk(response);
         
@@ -191,7 +208,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     @Test(priority = 6)
     public void testAclReportError() throws Exception
     {
-        RestResponse response = restClient.withSolrAdminAPI().getAction("aclReport");
+        RestResponse response = trackerAdmin.getAction("aclReport");
         
         checkResponseStatusOk(response);
         
@@ -208,8 +225,8 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     {
         Integer txid = 1;
         
-        RestResponse response = restClient.withParams("txid=" + txid).withSolrAdminAPI().getAction("txReport");
-        
+        RestResponse response = trackerAdmin.getAction("txReport", "txid=" + txid);
+
         checkResponseStatusOk(response);
 
         DEFAULT_CORE_NAMES.forEach(core -> {
@@ -217,7 +234,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
             Assert.assertEquals(reportTxid, txid, "Expected " + txid + " in " + ACTION_RESPONSE_REPORT + "." + core + ".TXID,");
         });
     }
-    
+
     /**
      * TX Report for an specific core.
      * @throws Exception
@@ -227,11 +244,11 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     {
         final Integer txid = 1;
         DEFAULT_CORE_NAMES.forEach(core -> {
-            
+
             try
             {
-        
-                RestResponse response = restClient.withParams("coreName=" + core, "txid=" + txid).withSolrAdminAPI().getAction("txReport");
+
+                RestResponse response = trackerAdmin.getAction("txReport", "coreName=" + core, "txid=" + txid);
                 
                 checkResponseStatusOk(response);
         
@@ -256,7 +273,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     {
         String coreName = "alfresco";
         
-        RestResponse response = restClient.withParams("coreName=" + coreName).withSolrAdminAPI().getAction("txReport");
+        RestResponse response = trackerAdmin.getAction("txReport", "coreName=" + coreName);
         
         checkResponseStatusOk(response);
         
@@ -273,7 +290,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     {
         Integer acltxid = 1;
         
-        RestResponse response = restClient.withParams("acltxid=" + acltxid).withSolrAdminAPI().getAction("aclTxReport");
+        RestResponse response = trackerAdmin.getAction("aclTxReport", "acltxid=" + acltxid);
         
         checkResponseStatusOk(response);
 
@@ -295,7 +312,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
             
             try
             {
-                RestResponse response = restClient.withParams("acltxid=" + acltxid, "core=" + core).withSolrAdminAPI().getAction("aclTxReport");
+                RestResponse response = trackerAdmin.getAction("aclTxReport", "acltxid=" + acltxid, "core=" + core);
                 
                 checkResponseStatusOk(response);
         
@@ -318,7 +335,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     @Test(priority = 12)
     public void testAclTxReportError() throws Exception
     {
-        RestResponse response = restClient.withSolrAdminAPI().getAction("aclTxReport");
+        RestResponse response = trackerAdmin.getAction("aclTxReport");
         
         checkResponseStatusOk(response);
         
@@ -333,8 +350,8 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     @Test(priority = 13)
     public void testReport() throws Exception
     {
-        RestResponse response = restClient.withSolrAdminAPI().getAction(ACTION_RESPONSE_REPORT);
-        
+        RestResponse response = trackerAdmin.getAction(ACTION_RESPONSE_REPORT);
+
         checkResponseStatusOk(response);
 
         DEFAULT_CORE_NAMES.forEach(core -> {
@@ -342,7 +359,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
             Assert.assertTrue(reportTxCount > 0, "Expecting a positive integer in " + ACTION_RESPONSE_REPORT + "." + core + ".'DB transaction count',");
         });
     }
-    
+
     /**
      * Report for specific core.
      * @throws Exception
@@ -351,10 +368,10 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     public void testReportCore() throws Exception
     {
         DEFAULT_CORE_NAMES.forEach(core -> {
-            
+
             try
             {
-                RestResponse response = restClient.withParams("coreName=" + core).withSolrAdminAPI().getAction(ACTION_RESPONSE_REPORT);
+                RestResponse response = trackerAdmin.getAction(ACTION_RESPONSE_REPORT, "coreName=" + core);
                 
                 checkResponseStatusOk(response);
         
@@ -379,8 +396,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
         Long fromTime = 0l;
         Long toTime = 0l;
         
-        RestResponse response = restClient.withParams("fromTime=" + fromTime, "toTime=" + toTime).withSolrAdminAPI()
-                .getAction(ACTION_RESPONSE_REPORT);
+        RestResponse response = trackerAdmin.getAction(ACTION_RESPONSE_REPORT, "fromTime=" + fromTime, "toTime=" + toTime);
         
         checkResponseStatusOk(response);
 
@@ -397,17 +413,17 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     @Test(priority = 16)
     public void testSummary() throws Exception
     {
-        RestResponse response = restClient.withSolrAdminAPI().getAction("summary");
-        
+        RestResponse response = trackerAdmin.getAction("summary");
+
         checkResponseStatusOk(response);
-        
+
         DEFAULT_CORE_NAMES.forEach(core -> {
             Integer reportTxCount = response.getResponse().body().jsonPath().get("Summary." + core + ".'Alfresco Transactions in Index'");
             Assert.assertTrue(reportTxCount > 0, "Expecting a positive integer in Summary." + core + ".'Alfresco Transactions in Index',");
-            
+
         });
     }
-    
+
     /**
      * Summary for specific core.
      * @throws Exception
@@ -416,10 +432,10 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     public void testSummaryCore() throws Exception
     {
         DEFAULT_CORE_NAMES.forEach(core -> {
-            
+
             try
             {
-                RestResponse response = restClient.withParams("core=" + core).withSolrAdminAPI().getAction("summary");
+                RestResponse response = trackerAdmin.getAction("summary", "core=" + core);
                 
                 checkResponseStatusOk(response);
                 
@@ -441,14 +457,14 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     @Test(priority = 18)
     public void testCheck() throws Exception
     {
-        RestResponse response = restClient.withSolrAdminAPI().getAction("check");
-        
+        RestResponse response = trackerAdmin.getAction("check");
+
         checkResponseStatusOk(response);
-        
+
         String actionStatus = response.getResponse().body().jsonPath().get("action.status");
         Assert.assertEquals(actionStatus, "success");
     }
-    
+
     /**
      * Check specific core.
      * @throws Exception
@@ -457,10 +473,10 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     public void testCheckCore() throws Exception
     {
         DEFAULT_CORE_NAMES.forEach(core -> {
-            
+
             try
             {
-                RestResponse response = restClient.withParams("core=" + core).withSolrAdminAPI().getAction("check");
+                RestResponse response = trackerAdmin.getAction("check", "core=" + core);
                 
                 checkResponseStatusOk(response);
                 
@@ -484,8 +500,8 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     {
         Integer txid = 1;
         
-        RestResponse response = restClient.withParams("txid=" + txid).withSolrAdminAPI().getAction("purge");
-        
+        RestResponse response = trackerAdmin.getAction("purge", "txid=" + txid);
+
         checkResponseStatusOk(response);
 
         DEFAULT_CORE_NAMES.forEach(core -> {
@@ -493,7 +509,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
             Assert.assertEquals(actionStatus, "scheduled");
         });
     }
-    
+
     /**
      * Purge TX in specific core.
      * @throws Exception
@@ -502,12 +518,12 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     public void testPurgeCore()
     {
         final Integer txid = 1;
-        
+
         DEFAULT_CORE_NAMES.forEach(core -> {
-            
+
             try
             {
-                RestResponse response = restClient.withParams("core=" + core, "txid=" + txid).withSolrAdminAPI().getAction("purge");
+                RestResponse response = trackerAdmin.getAction("purge", "core=" + core, "txid=" + txid);
                 
                 checkResponseStatusOk(response);
                 
@@ -529,7 +545,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     @Test(priority = 26)
     public void testPurgeEmpty() throws Exception
     {
-        RestResponse response = restClient.withSolrAdminAPI().getAction("purge");
+        RestResponse response = trackerAdmin.getAction("purge");
         
         checkResponseStatusOk(response);
 
@@ -594,8 +610,8 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     {
         Integer txid = 1;
         
-        RestResponse response = restClient.withParams("txid=" + txid).withSolrAdminAPI().getAction("reindex");
-        
+        RestResponse response = trackerAdmin.getAction("reindex", "txid=" + txid);
+
         checkResponseStatusOk(response);
 
         DEFAULT_CORE_NAMES.forEach(core -> {
@@ -603,7 +619,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
             Assert.assertEquals(actionStatus, "scheduled");
         });
     }
-    
+
     /**
      * REINDEX for specific core.
      * @throws Exception
@@ -612,12 +628,12 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     public void testReindexCore()
     {
         Integer txid = 1;
-        
+
         DEFAULT_CORE_NAMES.forEach(core -> {
-            
+
             try
             {
-                RestResponse response = restClient.withParams("core=" + core, "txid=" + txid).withSolrAdminAPI().getAction("reindex");
+                RestResponse response = trackerAdmin.getAction("reindex", "core=" + core, "txid=" + txid);
                 
                 checkResponseStatusOk(response);
                 
@@ -639,10 +655,10 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     @Test(priority = 31)
     public void testRetry() throws Exception
     {
-        RestResponse response = restClient.withSolrAdminAPI().getAction("retry");
-        
+        RestResponse response = trackerAdmin.getAction("retry");
+
         checkResponseStatusOk(response);
-        
+
         DEFAULT_CORE_NAMES.forEach(core -> {
             String actionStatus = response.getResponse().body().jsonPath().get("action." + core + ".status");
             Assert.assertEquals(actionStatus, "scheduled");
@@ -651,7 +667,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
             Assert.assertEquals(errorNodeList, emptyList(), "Expected no error nodes,");
         });
     }
-    
+
     /**
      * RETRY for specific core.
      * @throws Exception
@@ -660,10 +676,10 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     public void testRetryCore()
     {
         DEFAULT_CORE_NAMES.forEach(core -> {
-            
+
             try
             {
-                RestResponse response = restClient.withParams("core=" + core).withSolrAdminAPI().getAction("retry");
+                RestResponse response = trackerAdmin.getAction("retry", "core=" + core);
                 
                 checkResponseStatusOk(response);
                 
@@ -690,15 +706,15 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     {
         Integer txid = 1;
         
-        RestResponse response = restClient.withParams("txid=" + txid).withSolrAdminAPI().getAction("index");
-        
+        RestResponse response = trackerAdmin.getAction("index", "txid=" + txid);
+
         checkResponseStatusOk(response);
         DEFAULT_CORE_NAMES.forEach(core -> {
             String actionStatus = response.getResponse().body().jsonPath().get("action." + core + ".status");
             Assert.assertEquals(actionStatus, "scheduled");
         });
     }
-    
+
     /**
      * INDEX for specific core.
      * @throws Exception
@@ -707,12 +723,12 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     public void testIndexCore() throws Exception
     {
         final Integer txid = 1;
-        
+
         DEFAULT_CORE_NAMES.forEach(core -> {
-            
+
             try
             {
-                RestResponse response = restClient.withParams("core=" + core, "txid=" + txid).withSolrAdminAPI().getAction("index");
+                RestResponse response = trackerAdmin.getAction("index", "core=" + core, "txid=" + txid);
                 
                 checkResponseStatusOk(response);
                 
@@ -734,7 +750,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     @Test(priority = 35)
     public void testLog4J() throws Exception
     {
-        RestResponse response = restClient.withSolrAdminAPI().getAction("log4j");
+        RestResponse response = trackerAdmin.getAction("log4j");
         
         checkResponseStatusOk(response);
         
@@ -749,7 +765,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     @Test(priority = 36)
     public void testLog4JError() throws Exception
     {
-        RestResponse response = restClient.withParams("resource=log4j-unexisting.properties").withSolrAdminAPI().getAction("log4j");
+        RestResponse response = trackerAdmin.getAction("log4j", "resource=log4j-unexisting.properties");
         
         checkResponseStatusOk(response);
         
@@ -765,11 +781,9 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
         String template = "rerank";
 
         // Remove core if it already exists to make the test idempotent.
-        restClient.withParams("coreName=" + core, "storeRef=" + storeRef)
-                .withSolrAdminAPI().getAction("removeCore");
+        trackerAdmin.getAction("removeCore", "coreName=" + core, "storeRef=" + storeRef);
 
-        RestResponse response = restClient.withParams("coreName=" + core, "storeRef=" + storeRef, "template=" + template)
-                .withSolrAdminAPI().getAction("newCore");
+        RestResponse response = trackerAdmin.getAction("newCore", "coreName=" + core, "storeRef=" + storeRef, "template=" + template);
 
         checkResponseStatusOk(response);
 
@@ -790,15 +804,14 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
         String core = "alfresco";
         String template = "rerank";
         
-        RestResponse response = restClient.withParams("coreName=" + core, "template=" + template)
-                .withSolrAdminAPI().getAction("newCore");
-        
+        RestResponse response = trackerAdmin.getAction("newCore", "coreName=" + core, "template=" + template);
+
         checkResponseStatusOk(response);
-        
+
         String actionStatus = response.getResponse().body().jsonPath().get("action.status");
         Assert.assertEquals(actionStatus, "error");
     }
-    
+
     /**
      * Reloads core configuration in memory.
      * @throws Exception
@@ -807,8 +820,8 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     public void testUpdateCore() throws Exception
     {
         String core = "alfresco";
-        
-        RestResponse response = restClient.withParams("coreName=" + core).withSolrAdminAPI().getAction("updateCore");
+
+        RestResponse response = trackerAdmin.getAction("updateCore", "coreName=" + core);
 
         checkResponseStatusOk(response);
         
@@ -825,14 +838,14 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     {
         String core = "nonExistingCore";
         
-        RestResponse response = restClient.withParams("coreName=" + core).withSolrAdminAPI().getAction("updateCore");
-        
+        RestResponse response = trackerAdmin.getAction("updateCore", "coreName=" + core);
+
         checkResponseStatusOk(response);
-        
+
         String actionStatus = response.getResponse().body().jsonPath().get("action.status");
         Assert.assertEquals(actionStatus, "error");
     }
-   
+
     /**
      * This test updates "shared.properties" memory loading for every SOLR core.
      * @throws Exception
@@ -840,7 +853,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     @Test(priority = 41)
     public void testUpdateShared() throws Exception
     {
-        RestResponse response = restClient.withSolrAdminAPI().getAction("updateShared");
+        RestResponse response = trackerAdmin.getAction("updateShared");
         
         checkResponseStatusOk(response);
         
@@ -856,12 +869,9 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
         String template = "rerank";
 
         // Remove core if it already exists to make the test idempotent.
-        restClient.withParams("coreName=" + core, "storeRef=" + storeRef)
-                .withSolrAdminAPI().getAction("removeCore");
+        trackerAdmin.getAction("removeCore", "coreName=" + core, "storeRef=" + storeRef);
 
-        RestResponse response = restClient
-                .withParams("coreName=" + core, "storeRef=" + storeRef, "template=" + template)
-                .withSolrAdminAPI().getAction("newDefaultIndex");
+        RestResponse response = trackerAdmin.getAction("newDefaultIndex", "coreName=" + core, "storeRef=" + storeRef, "template=" + template);
 
         checkResponseStatusOk(response);
 
@@ -882,8 +892,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
         String core = "alfresco";
         String template = "rerank";
         
-        RestResponse response = restClient.withParams("coreName=" + core, "template=" + template)
-                .withSolrAdminAPI().getAction("newDefaultIndex");
+        RestResponse response = trackerAdmin.getAction("newDefaultIndex", "coreName=" + core, "template=" + template);
 
         checkResponseStatusOk(response);
 
@@ -900,9 +909,7 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
         String core = "newCore";
         String storeRef = "workspace://SpacesStore";
         
-        RestResponse response = restClient
-                .withParams("coreName=" + core, "storeRef=" + storeRef)
-                .withSolrAdminAPI().getAction("removeCore");
+        RestResponse response = trackerAdmin.getAction("removeCore", "coreName=" + core, "storeRef=" + storeRef);
                 
         checkResponseStatusOk(response);
         
