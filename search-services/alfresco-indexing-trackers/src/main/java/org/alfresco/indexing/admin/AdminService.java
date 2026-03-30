@@ -583,17 +583,38 @@ public class AdminService
 
         try
         {
-            CoreAdminRequest.Create createRequest = new CoreAdminRequest.Create();
-            createRequest.setCoreName(coreName);
-            if (template != null)
+            // Discover Solr home from an existing core's instanceDir
+            String solrHome = discoverSolrHome();
+            if (solrHome == null)
             {
-                createRequest.setConfigSet(template);
+                result.put("status", "error");
+                result.put("errorMessage", "Cannot discover Solr home — no existing core found");
+                return result;
             }
+
+            String effectiveTemplate = template != null ? template : "rerank";
+            String configSetPath = solrHome + "/templates/" + effectiveTemplate;
+            String instanceDir = solrHome + "/" + coreName;
+
+            org.apache.solr.common.params.ModifiableSolrParams params = new org.apache.solr.common.params.ModifiableSolrParams();
+            params.set(CoreAdminParams.ACTION, CoreAdminParams.CoreAdminAction.CREATE.toString());
+            params.set(CoreAdminParams.NAME, coreName);
+            params.set(CoreAdminParams.INSTANCE_DIR, instanceDir);
+            params.set("configSet", configSetPath);
+            // Required properties for Alfresco Solr config
+            String dataRoot = solrHome.replace("/solrhome", "/data");
+            params.set("property.data.dir.root", dataRoot);
+            params.set("property.data.dir.store", coreName);
             if (storeRef != null)
             {
-                createRequest.setCoreNodeName(storeRef);
+                params.set("property.alfresco.stores", storeRef);
             }
-            createRequest.process(solrClient);
+            params.set("property.alfresco.template", effectiveTemplate);
+
+            org.apache.solr.client.solrj.request.QueryRequest request =
+                    new org.apache.solr.client.solrj.request.QueryRequest(params);
+            request.setPath("/admin/cores");
+            request.process(solrClient);
             result.put("status", "success");
             result.put("core", coreName);
         }
@@ -605,6 +626,38 @@ public class AdminService
         }
 
         return result;
+    }
+
+    /**
+     * Discovers the Solr home directory by querying an existing core's instanceDir.
+     * Returns the parent directory (e.g. /opt/alfresco-search-services/solrhome).
+     */
+    private String discoverSolrHome()
+    {
+        try
+        {
+            org.apache.solr.client.solrj.request.CoreAdminRequest statusRequest =
+                    new org.apache.solr.client.solrj.request.CoreAdminRequest();
+            statusRequest.setAction(CoreAdminParams.CoreAdminAction.STATUS);
+            org.apache.solr.client.solrj.response.CoreAdminResponse statusResponse = statusRequest.process(solrClient);
+            for (int i = 0; i < statusResponse.getCoreStatus().size(); i++)
+            {
+                String name = statusResponse.getCoreStatus().getName(i);
+                String instanceDir = statusResponse.getCoreStatus(name) != null
+                        ? (String) statusResponse.getCoreStatus(name).get("instanceDir") : null;
+                if (instanceDir != null)
+                {
+                    // instanceDir is like /opt/.../solrhome/alfresco — parent is solrhome
+                    java.io.File parent = new java.io.File(instanceDir).getParentFile();
+                    return parent.getAbsolutePath();
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            LOGGER.warn("Failed to discover Solr home", e);
+        }
+        return null;
     }
 
     public Map<String, Object> updateCore(String coreName)
