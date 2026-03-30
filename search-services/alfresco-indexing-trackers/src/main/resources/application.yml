@@ -3,6 +3,7 @@ alfresco:
     solr:
       url: http://localhost:8983/solr
       collection: alfresco
+      collections: alfresco,archive
     repository:
       url: http://localhost:8080/alfresco
       secure-comms: none

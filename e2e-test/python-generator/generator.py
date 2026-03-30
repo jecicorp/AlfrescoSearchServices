@@ -341,7 +341,7 @@ if __name__ == '__main__':
     # Insert the trackers service (Spring Boot process that creates cores and indexes content).
     trackersEnv = {
         'ALFRESCO_TRACKER_SOLR_URL': 'http://{}:8983/solr'.format(solrHost),
-        'ALFRESCO_TRACKER_SOLR_COLLECTION': 'alfresco',
+        'ALFRESCO_TRACKER_SOLR_COLLECTIONS': 'alfresco,archive',
         'ALFRESCO_TRACKER_REPOSITORY_URL': 'http://alfresco:8080/alfresco',
     }
     if args.communication == 'secret':

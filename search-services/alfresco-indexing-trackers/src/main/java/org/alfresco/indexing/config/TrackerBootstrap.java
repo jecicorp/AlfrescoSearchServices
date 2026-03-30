@@ -27,7 +27,9 @@ package org.alfresco.indexing.config;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import org.alfresco.indexing.server.solrj.LocalDictionaryService;
@@ -92,7 +94,7 @@ public class TrackerBootstrap implements ApplicationRunner
     private TrackerScheduler scheduler;
     private TrackerRegistry registry;
     private RepairTracker repairTracker;
-    private SolrJInformationServer informationServer;
+    private final Map<String, SolrJInformationServer> informationServers = new LinkedHashMap<>();
     private final List<Tracker> trackers = new ArrayList<>();
 
     public TrackerBootstrap(SolrClient solrClient,
@@ -113,19 +115,21 @@ public class TrackerBootstrap implements ApplicationRunner
     @Override
     public void run(ApplicationArguments args) throws Exception
     {
-        String coreName = props.getSolr().getCollection();
-
-        // Build the legacy Properties that trackers read from.
-        // Start from repositoryProperties (host, port, baseUrl, secureComms, etc.)
-        // and add cron + tracker-specific properties.
+        List<String> collections = props.getSolr().getCollections();
         Properties trackerProps = buildTrackerProperties();
 
-        LOGGER.info("Initialising tracking subsystem for collection '{}'", coreName);
+        LOGGER.info("Initialising tracking subsystem for collections: {}", collections);
 
-        // 1. Create DataModelCallback (remote/SolrJ mode):
-        //    afterInitModels sends an explicit request to the Solr handler.
-        //    removeModel calls the Solr handler to remove the model from the dictionary.
-        SolrJModelService modelService = new SolrJModelService(solrClient, coreName);
+        // Shared registry and scheduler across all cores
+        registry = new TrackerRegistry();
+        String firstCore = collections.get(0);
+        scheduler = new TrackerScheduler(firstCore);
+
+        // ModelTracker is shared (one per repo, not per core) — init on first core
+        SolrJInformationServer firstInfoSrv = initInformationServer(firstCore, trackerProps);
+        String solrHome = props.getSolrHome();
+
+        SolrJModelService modelService = new SolrJModelService(solrClient, firstCore);
         DataModelCallback dataModelCallback = new DataModelCallback()
         {
             @Override
@@ -141,56 +145,64 @@ public class TrackerBootstrap implements ApplicationRunner
             }
         };
 
-        // 2. Create SolrJInformationServer
-        SolrJInformationServer infoSrv = new SolrJInformationServer(
-                solrClient, coreName, trackerProps, dataModelCallback, repoClient, localDictionaryService);
-        this.informationServer = infoSrv;
-
-        // 3. Set the local NamespaceDAO for QName resolution
-        infoSrv.setNamespaceDAO(localNamespaceDAO);
-
-        // 4. Create TrackerRegistry and attach it to the information server
-        registry = new TrackerRegistry();
-        infoSrv.setTrackerRegistry(registry);
-
-        // 4. Create and start the Quartz scheduler
-        scheduler = new TrackerScheduler(coreName);
-
-        // 5. Create and schedule ModelTracker
-        String solrHome = props.getSolrHome();
         ModelTracker modelTracker = new ModelTracker(
-                solrHome, trackerProps, repoClient, coreName, infoSrv, dataModelCallback);
+                solrHome, trackerProps, repoClient, firstCore, firstInfoSrv, dataModelCallback);
         registry.setModelTracker(modelTracker);
 
         LOGGER.info("ModelTracker: ensuring first model sync.");
         modelTracker.ensureFirstModelSync();
+        loadSolrModelsIntoLocalDictionary(firstInfoSrv);
+        scheduler.schedule(modelTracker, firstCore, trackerProps);
+        LOGGER.info("ModelTracker initialised and scheduled.");
 
-        // The ModelTracker only syncs diffs — models already in Solr are never
-        // pushed via putModel(), so the local dictionary misses them.
-        // Load all models from Solr into the local dictionary, respecting
-        // dependency order (same approach as ModelTracker.loadPersistedModels).
-        loadSolrModelsIntoLocalDictionary(infoSrv);
+        // Init trackers for each core
+        for (String coreName : collections)
+        {
+            SolrJInformationServer infoSrv = coreName.equals(firstCore)
+                    ? firstInfoSrv
+                    : initInformationServer(coreName, trackerProps);
 
-        scheduler.schedule(modelTracker, coreName, trackerProps);
-        LOGGER.info("ModelTracker has been initialised, registered and scheduled.");
+            initCoreTrackers(coreName, trackerProps, infoSrv);
+        }
 
-        // 6. Create and schedule core trackers (ACL, Content, Metadata, Cascade)
+        LOGGER.info("Tracking subsystem fully initialised for {} collections, {} trackers active.",
+                collections.size(), trackers.size() + 1 /* +1 for ModelTracker */);
+    }
+
+    private SolrJInformationServer initInformationServer(String coreName, Properties trackerProps)
+    {
+        SolrJModelService modelService = new SolrJModelService(solrClient, coreName);
+        DataModelCallback callback = new DataModelCallback()
+        {
+            @Override
+            public void afterInitModels() { modelService.afterInitModels(); }
+
+            @Override
+            public void removeModel(QName modelName) { modelService.removeModel(modelName); }
+        };
+
+        SolrJInformationServer infoSrv = new SolrJInformationServer(
+                solrClient, coreName, trackerProps, callback, repoClient, localDictionaryService);
+        infoSrv.setNamespaceDAO(localNamespaceDAO);
+        infoSrv.setTrackerRegistry(registry);
+        informationServers.put(coreName, infoSrv);
+        return infoSrv;
+    }
+
+    private void initCoreTrackers(String coreName, Properties trackerProps, SolrJInformationServer infoSrv)
+    {
         AclTracker aclTracker = new AclTracker(trackerProps, repoClient, coreName, infoSrv);
         registry.register(coreName, aclTracker);
         scheduler.schedule(aclTracker, coreName, trackerProps);
-        LOGGER.info("AclTracker registered and scheduled.");
 
         ContentTracker contentTracker = new ContentTracker(trackerProps, repoClient, coreName, infoSrv);
         registry.register(coreName, contentTracker);
         scheduler.schedule(contentTracker, coreName, trackerProps);
-        LOGGER.info("ContentTracker registered and scheduled.");
 
         MetadataTracker metadataTracker = new MetadataTracker(trackerProps, repoClient, coreName, infoSrv, true);
         registry.register(coreName, metadataTracker);
         scheduler.schedule(metadataTracker, coreName, trackerProps);
-        LOGGER.info("MetadataTracker registered and scheduled.");
 
-        // Order for CommitTracker lock acquisition: content first, then metadata, then acl
         List<Tracker> coreTrackers = new ArrayList<>(Arrays.asList(contentTracker, metadataTracker, aclTracker));
 
         if (props.isCascadeTrackingEnabled())
@@ -198,39 +210,34 @@ public class TrackerBootstrap implements ApplicationRunner
             CascadeTracker cascadeTracker = new CascadeTracker(trackerProps, repoClient, coreName, infoSrv);
             registry.register(coreName, cascadeTracker);
             scheduler.schedule(cascadeTracker, coreName, trackerProps);
-            coreTrackers.add(0, cascadeTracker); // Add before content in the list
-            LOGGER.info("CascadeTracker registered and scheduled.");
-        }
-        else
-        {
-            LOGGER.info("CascadeTracker is disabled.");
+            coreTrackers.add(0, cascadeTracker);
         }
 
-        // 7. Create and schedule CommitTracker (must reference all other trackers)
         CommitTracker commitTracker = new CommitTracker(trackerProps, repoClient, coreName, infoSrv, coreTrackers);
         registry.register(coreName, commitTracker);
         scheduler.schedule(commitTracker, coreName, trackerProps);
-        LOGGER.info("CommitTracker registered and scheduled.");
 
-        // 8. Create and schedule RepairTracker
         List<RepairStrategy> repairStrategies = List.of(
                 new UnresolvedModelStrategy(repoClient, infoSrv, localDictionaryService),
                 new EmptyNodeStrategy(repoClient, infoSrv)
         );
-        repairTracker = new RepairTracker(
+        RepairTracker coreRepairTracker = new RepairTracker(
                 trackerProps, repoClient, coreName, infoSrv,
                 repairStrategies, registry, props.getRepairMaxRetries());
-        registry.register(coreName, repairTracker);
-        scheduler.schedule(repairTracker, coreName, trackerProps);
-        LOGGER.info("RepairTracker registered and scheduled with {} strategies.", repairStrategies.size());
+        registry.register(coreName, coreRepairTracker);
+        scheduler.schedule(coreRepairTracker, coreName, trackerProps);
 
-        // Keep references for shutdown
+        // Keep the first core's repair tracker for the actuator endpoint
+        if (repairTracker == null)
+        {
+            repairTracker = coreRepairTracker;
+        }
+
         trackers.addAll(coreTrackers);
         trackers.add(commitTracker);
-        trackers.add(repairTracker);
+        trackers.add(coreRepairTracker);
 
-        LOGGER.info("Tracking subsystem fully initialised for collection '{}': {} trackers active.",
-                coreName, trackers.size() + 1 /* +1 for ModelTracker */);
+        LOGGER.info("Core '{}': {} trackers registered and scheduled.", coreName, coreTrackers.size() + 2);
     }
 
     /**
@@ -335,9 +342,9 @@ public class TrackerBootstrap implements ApplicationRunner
         // Call afterInitModels on Solr to refresh CMIS dictionary after all models are loaded
         if (!loaded.isEmpty())
         {
-            SolrJModelService modelService = new SolrJModelService(solrClient,
-                    props.getSolr().getCollection());
-            modelService.afterInitModels();
+            SolrJModelService ms = new SolrJModelService(solrClient,
+                    props.getSolr().getCollections().get(0));
+            ms.afterInitModels();
         }
     }
 
@@ -367,9 +374,27 @@ public class TrackerBootstrap implements ApplicationRunner
         return registry;
     }
 
+    /** Returns the InformationServer for the given core, or the first one if core is null. */
+    public SolrJInformationServer getInformationServer(String coreName)
+    {
+        if (coreName != null && informationServers.containsKey(coreName))
+        {
+            return informationServers.get(coreName);
+        }
+        return informationServers.values().iterator().next();
+    }
+
+    /** Returns all InformationServers keyed by core name. */
+    public Map<String, SolrJInformationServer> getInformationServers()
+    {
+        return informationServers;
+    }
+
+    /** @deprecated Use {@link #getInformationServer(String)} instead. */
+    @Deprecated
     public SolrJInformationServer getInformationServer()
     {
-        return informationServer;
+        return informationServers.values().iterator().next();
     }
 
     // Visible for testing

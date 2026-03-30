@@ -149,11 +149,11 @@ public class AdminService
     {
         Map<String, Object> result = new LinkedHashMap<>();
         TrackerRegistry registry = trackerBootstrap.getRegistry();
-        InformationServer infoSrv = trackerBootstrap.getInformationServer();
 
         for (String coreName : coresToProcess(registry, core))
         {
             Map<String, Object> coreResult = new LinkedHashMap<>();
+            InformationServer infoSrv = trackerBootstrap.getInformationServer(coreName);
 
             try
             {
@@ -259,11 +259,11 @@ public class AdminService
     {
         Map<String, Object> result = new LinkedHashMap<>();
         TrackerRegistry registry = trackerBootstrap.getRegistry();
-        InformationServer infoSrv = trackerBootstrap.getInformationServer();
 
         for (String coreName : coresToProcess(registry, core))
         {
             Map<String, Object> coreReport = new LinkedHashMap<>();
+            InformationServer infoSrv = trackerBootstrap.getInformationServer(coreName);
 
             try
             {

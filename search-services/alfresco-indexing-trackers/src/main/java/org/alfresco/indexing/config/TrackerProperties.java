@@ -123,6 +123,7 @@ public class TrackerProperties
     {
         private String url = "http://localhost:8983/solr";
         private String collection = "alfresco";
+        private java.util.List<String> collections;
 
         public String getUrl()
         {
@@ -134,6 +135,7 @@ public class TrackerProperties
             this.url = url;
         }
 
+        /** Returns the first (or only) collection name. */
         public String getCollection()
         {
             return collection;
@@ -142,6 +144,21 @@ public class TrackerProperties
         public void setCollection(String collection)
         {
             this.collection = collection;
+        }
+
+        /** Returns all collections to track. Falls back to single {@code collection} if not set. */
+        public java.util.List<String> getCollections()
+        {
+            if (collections != null && !collections.isEmpty())
+            {
+                return collections;
+            }
+            return java.util.List.of(collection);
+        }
+
+        public void setCollections(java.util.List<String> collections)
+        {
+            this.collections = collections;
         }
     }
 
