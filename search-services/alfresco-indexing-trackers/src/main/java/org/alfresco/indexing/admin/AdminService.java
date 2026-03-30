@@ -25,6 +25,7 @@
  */
 package org.alfresco.indexing.admin;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -166,7 +167,7 @@ public class AdminService
                         metadataTracker.addNodeToReindex(errorDocId);
                     }
                     coreResult.put("status", "scheduled");
-                    coreResult.put("errorDocCount", errorDocIds.size());
+                    coreResult.put("Error Nodes", new ArrayList<>(errorDocIds));
                 }
                 else
                 {
@@ -222,13 +223,10 @@ public class AdminService
 
     public Map<String, Object> check(String core)
     {
-        Map<String, Object> result = new LinkedHashMap<>();
         TrackerRegistry registry = trackerBootstrap.getRegistry();
 
         for (String coreName : coresToProcess(registry, core))
         {
-            Map<String, Object> coreResult = new LinkedHashMap<>();
-
             Collection<Tracker> trackers = registry.getTrackersForCore(coreName);
             for (Tracker tracker : trackers)
             {
@@ -238,19 +236,16 @@ public class AdminService
                     state.setCheck(true);
                 }
             }
-            coreResult.put("status", "scheduled");
-
-            result.put(coreName, coreResult);
         }
 
-        return result;
+        return Map.of("status", "success");
     }
 
     public Map<String, Object> log4j(String resource)
     {
         if (resource != null && !"log4j.properties".equals(resource))
         {
-            return Map.of("error", "Only log4j.properties resource is supported.");
+            return Map.of("status", "error");
         }
         // No-op in standalone mode
         return Map.of("status", "success");
@@ -279,8 +274,10 @@ public class AdminService
                     coreReport.put(entry.getKey(), entry.getValue());
                 }
 
-                // Content outdated/updated counts
-                infoSrv.addContentOutdatedAndUpdatedCounts(coreReport);
+                // Content outdated/updated counts (wrapped in FTS sub-map)
+                Map<String, Object> ftsMap = new LinkedHashMap<>();
+                infoSrv.addContentOutdatedAndUpdatedCounts(ftsMap);
+                coreReport.put("FTS", ftsMap);
 
                 // Model errors
                 Map<String, Set<String>> modelErrors = infoSrv.getModelErrors();
@@ -373,7 +370,7 @@ public class AdminService
                     NodeReport report = metadataTracker.checkNode(nodeId);
                     if (report != null)
                     {
-                        coreResult.put("dbid", report.getDbid());
+                        coreResult.put("Node DBID", report.getDbid());
                         coreResult.put("dbTx", report.getDbTx());
                         coreResult.put("dbNodeStatus", report.getDbNodeStatus());
                         coreResult.put("indexLeafDoc", report.getIndexLeafDoc());
@@ -418,7 +415,7 @@ public class AdminService
                     AclReport report = aclTracker.checkAcl(aclId);
                     if (report != null)
                     {
-                        coreResult.put("aclId", report.getAclId());
+                        coreResult.put("Acl Id", report.getAclId());
                         coreResult.put("existsInDb", report.isExistsInDb());
                         coreResult.put("indexAclDoc", report.getIndexAclDoc());
                         coreResult.put("indexAclTx", report.getIndexAclTx());
@@ -458,7 +455,7 @@ public class AdminService
                 if (metadataTracker != null)
                 {
                     List<Node> nodes = metadataTracker.getFullNodesForDbTransaction(txId);
-                    coreResult.put("txId", txId);
+                    coreResult.put("TXID", txId);
                     coreResult.put("nodeCount", nodes != null ? nodes.size() : 0);
                 }
             }
@@ -495,7 +492,7 @@ public class AdminService
                 {
                     List<Long> acls = aclTracker.getAclsForDbAclTransaction(aclTxId);
                     coreResult.put("aclTxId", aclTxId);
-                    coreResult.put("aclCount", acls != null ? acls.size() : 0);
+                    coreResult.put("aclTxDbAclCount", acls != null ? acls.size() : 0);
                 }
             }
             catch (Exception e)
@@ -531,22 +528,20 @@ public class AdminService
                     IndexHealthReport txReport = metadataTracker.checkIndex(toTx, fromTime, toTime);
                     if (txReport != null)
                     {
-                        Map<String, Object> txHealth = new LinkedHashMap<>();
-                        txHealth.put("DbTransactionCount", txReport.getDbTransactionCount());
-                        txHealth.put("TransactionDocsInIndex", txReport.getTransactionDocsInIndex());
-                        txHealth.put("UniqueTransactionDocsInIndex", txReport.getUniqueTransactionDocsInIndex());
-                        txHealth.put("LeafDocCountInIndex", txReport.getLeafDocCountInIndex());
-                        txHealth.put("AuxDocCountInIndex", txReport.getAuxDocCountInIndex());
-                        txHealth.put("ErrorDocCountInIndex", txReport.getErrorDocCountInIndex());
-                        txHealth.put("UnindexedDocCountInIndex", txReport.getUnindexedDocCountInIndex());
-                        txHealth.put("MissingTxFromIndex", txReport.getMissingTxFromIndex().cardinality());
-                        txHealth.put("DuplicatedTxInIndex", txReport.getDuplicatedTxInIndex().cardinality());
-                        txHealth.put("TxInIndexButNotInDb", txReport.getTxInIndexButNotInDb().cardinality());
-                        txHealth.put("DuplicatedLeafInIndex", txReport.getDuplicatedLeafInIndex().cardinality());
-                        txHealth.put("DuplicatedAuxInIndex", txReport.getDuplicatedAuxInIndex().cardinality());
-                        txHealth.put("LastIndexedCommitTime", txReport.getLastIndexedCommitTime());
-                        txHealth.put("LastIndexedIdBeforeHoles", txReport.getLastIndexedIdBeforeHoles());
-                        coreResult.put("TXReport", txHealth);
+                        coreResult.put("DB transaction count", txReport.getDbTransactionCount());
+                        coreResult.put("Transaction docs in index", txReport.getTransactionDocsInIndex());
+                        coreResult.put("Unique transaction docs in index", txReport.getUniqueTransactionDocsInIndex());
+                        coreResult.put("Leaf doc count in index", txReport.getLeafDocCountInIndex());
+                        coreResult.put("Aux doc count in index", txReport.getAuxDocCountInIndex());
+                        coreResult.put("Error doc count in index", txReport.getErrorDocCountInIndex());
+                        coreResult.put("Unindexed doc count in index", txReport.getUnindexedDocCountInIndex());
+                        coreResult.put("Count of missing transactions from the Index", txReport.getMissingTxFromIndex().cardinality());
+                        coreResult.put("Count of duplicated transactions in the Index", txReport.getDuplicatedTxInIndex().cardinality());
+                        coreResult.put("Count of transactions in the index but not the DB", txReport.getTxInIndexButNotInDb().cardinality());
+                        coreResult.put("Count of duplicated leaf nodes in the Index", txReport.getDuplicatedLeafInIndex().cardinality());
+                        coreResult.put("Count of duplicated aux nodes in the Index", txReport.getDuplicatedAuxInIndex().cardinality());
+                        coreResult.put("Last indexed commit time", txReport.getLastIndexedCommitTime());
+                        coreResult.put("Last indexed id before holes", txReport.getLastIndexedIdBeforeHoles());
                     }
                 }
 
@@ -557,14 +552,12 @@ public class AdminService
                     IndexHealthReport aclReport = aclTracker.checkIndex(toAclTx, fromTime, toTime);
                     if (aclReport != null)
                     {
-                        Map<String, Object> aclHealth = new LinkedHashMap<>();
-                        aclHealth.put("DbAclTransactionCount", aclReport.getDbAclTransactionCount());
-                        aclHealth.put("AclTransactionDocsInIndex", aclReport.getAclTransactionDocsInIndex());
-                        aclHealth.put("UniqueAclTransactionDocsInIndex", aclReport.getUniqueAclTransactionDocsInIndex());
-                        aclHealth.put("MissingAclTxFromIndex", aclReport.getMissingAclTxFromIndex().cardinality());
-                        aclHealth.put("DuplicatedAclTxInIndex", aclReport.getDuplicatedAclTxInIndex().cardinality());
-                        aclHealth.put("AclTxInIndexButNotInDb", aclReport.getAclTxInIndexButNotInDb().cardinality());
-                        coreResult.put("AclTXReport", aclHealth);
+                        coreResult.put("DB acl transaction count", aclReport.getDbAclTransactionCount());
+                        coreResult.put("Acl transaction docs in index", aclReport.getAclTransactionDocsInIndex());
+                        coreResult.put("Unique acl transaction docs in index", aclReport.getUniqueAclTransactionDocsInIndex());
+                        coreResult.put("Count of missing acl transactions from the Index", aclReport.getMissingAclTxFromIndex().cardinality());
+                        coreResult.put("Count of duplicated acl transactions in the Index", aclReport.getDuplicatedAclTxInIndex().cardinality());
+                        coreResult.put("Count of acl transactions in the index but not the DB", aclReport.getAclTxInIndexButNotInDb().cardinality());
                     }
                 }
             }
@@ -607,7 +600,8 @@ public class AdminService
         catch (Exception e)
         {
             LOGGER.error("Error creating core {}", coreName, e);
-            result.put("error", e.getMessage());
+            result.put("status", "error");
+            result.put("errorMessage", e.getMessage());
         }
 
         return result;
@@ -626,7 +620,8 @@ public class AdminService
         catch (Exception e)
         {
             LOGGER.error("Error reloading core {}", coreName, e);
-            result.put("error", e.getMessage());
+            result.put("status", "error");
+            result.put("errorMessage", e.getMessage());
         }
 
         return result;
@@ -670,7 +665,8 @@ public class AdminService
         catch (Exception e)
         {
             LOGGER.error("Error removing core {}", coreName, e);
-            result.put("error", e.getMessage());
+            result.put("status", "error");
+            result.put("errorMessage", e.getMessage());
         }
 
         return result;

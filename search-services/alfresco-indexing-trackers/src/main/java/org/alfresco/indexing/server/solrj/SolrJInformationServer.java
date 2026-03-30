@@ -611,8 +611,30 @@ public class SolrJInformationServer implements InformationServer
     @Override
     public void addContentOutdatedAndUpdatedCounts(Map<String, Object> report)
     {
-        // Content versioning stats are not available via SolrJ in the same way.
-        // This is a no-op for now.
+        try
+        {
+            // Count all content nodes
+            org.apache.solr.client.solrj.SolrQuery allQuery = new org.apache.solr.client.solrj.SolrQuery(
+                    "DOC_TYPE:Node AND TYPE:\"{http://www.alfresco.org/model/content/1.0}content\"");
+            allQuery.setRows(0);
+            long totalContent = solrClient.query(collection, allQuery).getResults().getNumFound();
+
+            // Count nodes with outdated content
+            org.apache.solr.client.solrj.SolrQuery outdatedQuery = new org.apache.solr.client.solrj.SolrQuery(
+                    "DOC_TYPE:Node AND TYPE:\"{http://www.alfresco.org/model/content/1.0}content\""
+                    + " AND LAST_INCOMING_CONTENT_VERSION_ID:\"" + SolrDocumentMapper.CONTENT_OUTDATED_MARKER + "\"");
+            outdatedQuery.setRows(0);
+            long outdated = solrClient.query(collection, outdatedQuery).getResults().getNumFound();
+
+            report.put("Node count whose content is in sync", totalContent - outdated);
+            report.put("Node count whose content needs to be updated", outdated);
+        }
+        catch (Exception e)
+        {
+            LOGGER.warn("Failed to compute content outdated/updated counts", e);
+            report.put("Node count whose content is in sync", 0L);
+            report.put("Node count whose content needs to be updated", 0L);
+        }
     }
 
     @Override

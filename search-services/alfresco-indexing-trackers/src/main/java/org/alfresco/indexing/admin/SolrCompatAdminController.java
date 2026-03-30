@@ -52,21 +52,21 @@ public class SolrCompatAdminController
 
     @GetMapping("/solr/admin/cores")
     public Map<String, Object> dispatch(
-            @RequestParam String action,
-            @RequestParam(required = false) String core,
-            @RequestParam(required = false) String coreName,
-            @RequestParam(required = false) Long txid,
-            @RequestParam(required = false) Long acltxid,
-            @RequestParam(required = false) Long nodeid,
-            @RequestParam(required = false) Long nodeId,
-            @RequestParam(required = false) Long aclid,
-            @RequestParam(required = false) String query,
-            @RequestParam(required = false) String storeRef,
-            @RequestParam(required = false) String template,
-            @RequestParam(required = false) String resource,
-            @RequestParam(required = false) Long fromTime,
-            @RequestParam(required = false) Long toTime,
-            @RequestParam(required = false) String wt)
+            @RequestParam("action") String action,
+            @RequestParam(value = "core", required = false) String core,
+            @RequestParam(value = "coreName", required = false) String coreName,
+            @RequestParam(value = "txid", required = false) Long txid,
+            @RequestParam(value = "acltxid", required = false) Long acltxid,
+            @RequestParam(value = "nodeid", required = false) Long nodeid,
+            @RequestParam(value = "nodeId", required = false) Long nodeId,
+            @RequestParam(value = "aclid", required = false) Long aclid,
+            @RequestParam(value = "query", required = false) String query,
+            @RequestParam(value = "storeRef", required = false) String storeRef,
+            @RequestParam(value = "template", required = false) String template,
+            @RequestParam(value = "resource", required = false) String resource,
+            @RequestParam(value = "fromTime", required = false) Long fromTime,
+            @RequestParam(value = "toTime", required = false) Long toTime,
+            @RequestParam(value = "wt", required = false) String wt)
     {
         long startTime = System.currentTimeMillis();
 

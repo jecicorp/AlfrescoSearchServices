@@ -50,17 +50,17 @@ public class AdminController
 
     @GetMapping("/summary")
     public Map<String, Object> summary(
-            @RequestParam(required = false) String core)
+            @RequestParam(value = "core", required = false) String core)
     {
         return adminService.summary(core);
     }
 
     @GetMapping("/report")
     public Map<String, Object> report(
-            @RequestParam(required = false) String core,
-            @RequestParam(required = false) String coreName,
-            @RequestParam(required = false) Long fromTime,
-            @RequestParam(required = false) Long toTime)
+            @RequestParam(value = "core", required = false) String core,
+            @RequestParam(value = "coreName", required = false) String coreName,
+            @RequestParam(value = "fromTime", required = false) Long fromTime,
+            @RequestParam(value = "toTime", required = false) Long toTime)
     {
         String effectiveCore = core != null ? core : coreName;
         return adminService.report(effectiveCore, fromTime, toTime);
@@ -68,25 +68,25 @@ public class AdminController
 
     @GetMapping("/node-report")
     public Map<String, Object> nodeReport(
-            @RequestParam(required = false) Long nodeid,
-            @RequestParam(required = false) String core)
+            @RequestParam(value = "nodeid", required = false) Long nodeid,
+            @RequestParam(value = "core", required = false) String core)
     {
         return adminService.nodeReport(nodeid, core);
     }
 
     @GetMapping("/acl-report")
     public Map<String, Object> aclReport(
-            @RequestParam(required = false) Long aclid,
-            @RequestParam(required = false) String core)
+            @RequestParam(value = "aclid", required = false) Long aclid,
+            @RequestParam(value = "core", required = false) String core)
     {
         return adminService.aclReport(aclid, core);
     }
 
     @GetMapping("/tx-report")
     public Map<String, Object> txReport(
-            @RequestParam(required = false) Long txid,
-            @RequestParam(required = false) String core,
-            @RequestParam(required = false) String coreName)
+            @RequestParam(value = "txid", required = false) Long txid,
+            @RequestParam(value = "core", required = false) String core,
+            @RequestParam(value = "coreName", required = false) String coreName)
     {
         String effectiveCore = core != null ? core : coreName;
         return adminService.txReport(txid, effectiveCore);
@@ -94,39 +94,39 @@ public class AdminController
 
     @GetMapping("/acltx-report")
     public Map<String, Object> aclTxReport(
-            @RequestParam(required = false) Long acltxid,
-            @RequestParam(required = false) String core)
+            @RequestParam(value = "acltxid", required = false) Long acltxid,
+            @RequestParam(value = "core", required = false) String core)
     {
         return adminService.aclTxReport(acltxid, core);
     }
 
     @GetMapping("/check")
     public Map<String, Object> check(
-            @RequestParam(required = false) String core)
+            @RequestParam(value = "core", required = false) String core)
     {
         return adminService.check(core);
     }
 
     @PostMapping("/purge")
     public Map<String, Object> purge(
-            @RequestParam(required = false) Long txid,
-            @RequestParam(required = false) Long acltxid,
-            @RequestParam(required = false) Long nodeid,
-            @RequestParam(required = false) Long aclid,
-            @RequestParam(required = false) String core)
+            @RequestParam(value = "txid", required = false) Long txid,
+            @RequestParam(value = "acltxid", required = false) Long acltxid,
+            @RequestParam(value = "nodeid", required = false) Long nodeid,
+            @RequestParam(value = "aclid", required = false) Long aclid,
+            @RequestParam(value = "core", required = false) String core)
     {
         return adminService.purge(txid, acltxid, nodeid, aclid, core);
     }
 
     @PostMapping("/reindex")
     public Map<String, Object> reindex(
-            @RequestParam(required = false) Long txid,
-            @RequestParam(required = false) Long acltxid,
-            @RequestParam(required = false) Long nodeid,
-            @RequestParam(required = false) Long nodeId,
-            @RequestParam(required = false) Long aclid,
-            @RequestParam(required = false) String query,
-            @RequestParam(required = false) String core)
+            @RequestParam(value = "txid", required = false) Long txid,
+            @RequestParam(value = "acltxid", required = false) Long acltxid,
+            @RequestParam(value = "nodeid", required = false) Long nodeid,
+            @RequestParam(value = "nodeId", required = false) Long nodeId,
+            @RequestParam(value = "aclid", required = false) Long aclid,
+            @RequestParam(value = "query", required = false) String query,
+            @RequestParam(value = "core", required = false) String core)
     {
         Long effectiveNodeId = nodeid != null ? nodeid : nodeId;
         return adminService.reindex(txid, acltxid, effectiveNodeId, aclid, query, core);
@@ -134,41 +134,41 @@ public class AdminController
 
     @PostMapping("/retry")
     public Map<String, Object> retry(
-            @RequestParam(required = false) String core)
+            @RequestParam(value = "core", required = false) String core)
     {
         return adminService.retry(core);
     }
 
     @PostMapping("/index")
     public Map<String, Object> index(
-            @RequestParam(required = false) Long txid,
-            @RequestParam(required = false) Long acltxid,
-            @RequestParam(required = false) Long nodeid,
-            @RequestParam(required = false) Long aclid,
-            @RequestParam(required = false) String core)
+            @RequestParam(value = "txid", required = false) Long txid,
+            @RequestParam(value = "acltxid", required = false) Long acltxid,
+            @RequestParam(value = "nodeid", required = false) Long nodeid,
+            @RequestParam(value = "aclid", required = false) Long aclid,
+            @RequestParam(value = "core", required = false) String core)
     {
         return adminService.index(txid, acltxid, nodeid, aclid, core);
     }
 
     @PostMapping("/log4j")
     public Map<String, Object> log4j(
-            @RequestParam(required = false) String resource)
+            @RequestParam(value = "resource", required = false) String resource)
     {
         return adminService.log4j(resource);
     }
 
     @PostMapping("/new-core")
     public Map<String, Object> newCore(
-            @RequestParam String coreName,
-            @RequestParam String storeRef,
-            @RequestParam String template)
+            @RequestParam("coreName") String coreName,
+            @RequestParam("storeRef") String storeRef,
+            @RequestParam("template") String template)
     {
         return adminService.newCore(coreName, storeRef, template);
     }
 
     @PostMapping("/update-core")
     public Map<String, Object> updateCore(
-            @RequestParam String coreName)
+            @RequestParam("coreName") String coreName)
     {
         return adminService.updateCore(coreName);
     }
@@ -181,17 +181,17 @@ public class AdminController
 
     @PostMapping("/new-default-index")
     public Map<String, Object> newDefaultIndex(
-            @RequestParam String coreName,
-            @RequestParam String storeRef,
-            @RequestParam String template)
+            @RequestParam("coreName") String coreName,
+            @RequestParam("storeRef") String storeRef,
+            @RequestParam("template") String template)
     {
         return adminService.newDefaultIndex(coreName, storeRef, template);
     }
 
     @PostMapping("/remove-core")
     public Map<String, Object> removeCore(
-            @RequestParam String coreName,
-            @RequestParam String storeRef)
+            @RequestParam("coreName") String coreName,
+            @RequestParam("storeRef") String storeRef)
     {
         return adminService.removeCore(coreName, storeRef);
     }

@@ -39,6 +39,26 @@ echo "Stack générée dans target/e2e-stack/"
 echo "Lancer avec : mise run e2e:up"
 """
 
+[tasks."e2e:rebuild"]
+description = "Build + regénère + redémarre la stack e2e (ordre correct)"
+run = """
+echo "==> Build Maven (sans tests)..."
+mvn $MAVEN_CLI_OPTS package -Dmaven.test.skip=true
+echo "==> Build image Solr..."
+docker build -t alfresco/alfresco-search-services:local search-services/packaging/target/docker-resources/
+echo "==> Génération docker-compose e2e (copie JARs frais)..."
+cd e2e-test/python-generator && python3 generator.py \
+  --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
+  --search=alfresco/alfresco-search-services:local \
+  --postgres=postgres:16 \
+  --transformer=AIOTransformers \
+  --output=../../target/e2e-stack
+cd ../..
+echo "==> Redémarrage stack e2e..."
+docker compose -f target/e2e-stack/docker-compose.yml up --build --force-recreate -d
+echo "==> Stack e2e prête."
+"""
+
 [tasks."e2e:up"]
 description = "Démarre la stack e2e (ACS + Solr + Postgres)"
 run = "docker compose -f target/e2e-stack/docker-compose.yml up --build -d"
@@ -54,6 +74,22 @@ run = "docker compose -f target/e2e-stack/docker-compose.yml logs -f"
 [tasks."e2e:test"]
 description = "Lance les tests e2e (stack doit être up)"
 run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test"
+
+[tasks."e2e:test:admin"]
+description = "Tests e2e admin uniquement"
+run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='SolrE2eAdminTest,SolrE2ESummaryTest,SolrE2eActionTest'"
+
+[tasks."e2e:test:search"]
+description = "Tests e2e recherche (sans admin)"
+run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='SearchTest,SearchSimpleCasesTest,SearchCasesTest,SearchAFTSInFieldTest,SearchExactTermTest,SearchHighLightTest,SearchPermissionsTest,SearchQueryPaginationTest,SearchWithCustomModelTest,SpecialCharacterSearchTest'"
+
+[tasks."e2e:test:facet"]
+description = "Tests e2e facettes"
+run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='FacetedSearchTest,FacetFieldsSearchTest,FacetIntervalSearchTest,FacetRangeSearchTest,PivotFacetedSearchTest,StatsSearchTest'"
+
+[tasks."e2e:test:class"]
+description = "Lance un test e2e par nom de classe — ex: mise run e2e:test:class MyTest"
+run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='{{arg(name=\"class\")}}'"
 
 [tasks."trackers:build"]
 description = "Build trackers Spring Boot JAR"
