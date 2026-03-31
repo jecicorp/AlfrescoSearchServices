@@ -533,10 +533,10 @@ public class SolrJIndexingService
         {
             for (Map.Entry<QName, PropertyValue> entry : properties.entrySet())
             {
-                if (entry.getValue() instanceof ContentPropertyValue)
+                if (entry.getValue() instanceof ContentPropertyValue contentProp)
                 {
                     QName propQName = entry.getKey();
-                    boolean ok = fetchAndAddContent(doc, docRef.dbId, propQName);
+                    boolean ok = fetchAndAddContent(doc, docRef.dbId, propQName, contentProp.getLocale());
                     if (ok)
                     {
                         contentExtracted = true;
@@ -569,7 +569,7 @@ public class SolrJIndexingService
      *
      * @return true if text content was successfully extracted
      */
-    private boolean fetchAndAddContent(SolrInputDocument doc, long dbId, QName propQName) throws IOException
+    private boolean fetchAndAddContent(SolrInputDocument doc, long dbId, QName propQName, java.util.Locale locale) throws IOException
     {
         String qnameSuffix = propQName.toString();
 
@@ -611,12 +611,12 @@ public class SolrJIndexingService
             String textContent = readContentStream(contentStream);
             if (textContent != null && !textContent.isEmpty())
             {
-                // Format: \u0000locale\u0000text for alfrescoFieldType.
-                // Empty locale so MLAnalayser indexes without locale prefix — this
-                // ensures the content is found regardless of the search locale
-                // (the query parser uses EXACT_LANGUAGE_AND_ALL which matches
-                // both locale-prefixed and unprefixed tokens).
-                doc.addField("content@s__lt@" + qnameSuffix, "\u0000\u0000" + textContent);
+                // Format: \u0000language\u0000text for alfrescoFieldType / MLAnalayser.
+                // The language (not the full locale) is used as prefix so the AFTS query
+                // parser can match with {en}term, {fr}term etc.
+                // Mirrors upstream SolrInformationServer.languageFrom(locale).
+                String language = languageFromLocale(locale);
+                doc.addField("content@s__lt@" + qnameSuffix, "\u0000" + language + "\u0000" + textContent);
                 return true;
             }
         }
@@ -628,6 +628,21 @@ public class SolrJIndexingService
         }
 
         return false;
+    }
+
+    /**
+     * Extracts the language part from a Locale (e.g. "en" from Locale("en", "")).
+     * Mirrors upstream {@code SolrInformationServer.languageFrom(String)}.
+     */
+    private static String languageFromLocale(java.util.Locale locale)
+    {
+        if (locale == null)
+        {
+            return "";
+        }
+        String localeStr = locale.toString();
+        int sep = localeStr.indexOf('_');
+        return sep == -1 ? localeStr : localeStr.substring(0, sep);
     }
 
     /**
