@@ -44,9 +44,11 @@ import org.alfresco.service.cmr.dictionary.TypeDefinition;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
+import org.alfresco.model.ContentModel;
 import org.alfresco.solr.client.ContentPropertyValue;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.NodeMetaData;
+import org.alfresco.solr.client.StringPropertyValue;
 import org.alfresco.solr.client.NodeMetaDataParameters;
 import org.alfresco.solr.client.PropertyValue;
 import org.alfresco.solr.client.SOLRAPIClient;
@@ -289,6 +291,14 @@ public class SolrJIndexingService
             return;
         }
 
+        // Check index control — mirrors upstream SolrInformationServer (line 1764-1777).
+        // Nodes with cm:isIndexed=false (e.g. Share dashboard config) are not indexed.
+        if (!isNodeIndexable(metadata))
+        {
+            LOGGER.debug("Node {} has cm:isIndexed=false — skipping indexing", node.getId());
+            return;
+        }
+
         SolrInputDocument doc = documentMapper.toNodeDoc(node, metadata);
         addDocument(doc);
     }
@@ -296,6 +306,27 @@ public class SolrJIndexingService
     /**
      * Batch indexes nodes. Delegates to {@link #indexNode(Node, boolean)} for each node.
      */
+    /**
+     * Checks whether a node should be indexed based on the {@code cm:isIndexed} property.
+     * Mirrors upstream {@code SolrInformationServer} index control check.
+     *
+     * @return true if the node should be indexed (default when property is absent)
+     */
+    private static boolean isNodeIndexable(NodeMetaData metadata)
+    {
+        Map<QName, PropertyValue> properties = metadata.getProperties();
+        if (properties == null)
+        {
+            return true;
+        }
+        PropertyValue pValue = properties.get(ContentModel.PROP_IS_INDEXED);
+        if (pValue instanceof StringPropertyValue stringProp)
+        {
+            return Boolean.parseBoolean(stringProp.getValue());
+        }
+        return true;
+    }
+
     public void indexNodes(List<Node> nodes, boolean overwrite) throws IOException
     {
         for (Node node : nodes)
