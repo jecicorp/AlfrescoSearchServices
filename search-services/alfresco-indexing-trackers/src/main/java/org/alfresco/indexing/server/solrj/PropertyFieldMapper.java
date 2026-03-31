@@ -25,6 +25,7 @@
  */
 package org.alfresco.indexing.server.solrj;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -105,7 +106,41 @@ public class PropertyFieldMapper
             return Collections.singletonList(getFieldForNonText(propDef));
         }
 
-        return Collections.singletonList(getStoredFieldName(propDef));
+        List<String> fields = new ArrayList<>();
+
+        // Primary field: the stored field. The copyField directives in
+        // generated_copy_fields.xml handle populating search/sort fields.
+        fields.add(getStoredFieldName(propDef));
+
+        // DocValues identifier fields (text@sd___@, text@md___@) are NOT covered
+        // by copyField rules — they must be populated directly.
+        // Mirrors upstream SolrInformationServer.stringProperty() which adds these
+        // alongside the stored field.
+        IndexTokenisationMode mode = getEffectiveMode(propDef);
+        if (mode == IndexTokenisationMode.FALSE || mode == IndexTokenisationMode.BOTH)
+        {
+            QName dataTypeName = propDef.getDataType().getName();
+            if (dataTypeName.equals(DataTypeDefinition.TEXT))
+            {
+                String prefix = propDef.isMultiValued() ? "md" : "sd";
+                fields.add("text@" + prefix + "___@" + propDef.getName().toString());
+            }
+        }
+
+        return fields;
+    }
+
+    /**
+     * Returns the effective tokenisation mode, accounting for identifier overrides.
+     */
+    private static IndexTokenisationMode getEffectiveMode(PropertyDefinition propDef)
+    {
+        if (IDENTIFIER_PROPERTIES.contains(propDef.getName()))
+        {
+            return IndexTokenisationMode.BOTH;
+        }
+        IndexTokenisationMode mode = propDef.getIndexTokenisationMode();
+        return mode != null ? mode : IndexTokenisationMode.TRUE;
     }
 
     /**
@@ -127,15 +162,7 @@ public class PropertyFieldMapper
         QName dataTypeName = propDef.getDataType().getName();
         QName propertyName = propDef.getName();
 
-        IndexTokenisationMode mode = propDef.getIndexTokenisationMode();
-        if (mode == null)
-        {
-            mode = IndexTokenisationMode.TRUE;
-        }
-        if (IDENTIFIER_PROPERTIES.contains(propertyName))
-        {
-            mode = IndexTokenisationMode.BOTH;
-        }
+        IndexTokenisationMode mode = getEffectiveMode(propDef);
 
         StringBuilder sb = new StringBuilder();
 
