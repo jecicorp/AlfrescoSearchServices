@@ -29,6 +29,7 @@ import static org.junit.Assert.*;
 
 import java.util.List;
 
+import org.alfresco.model.ContentModel;
 import org.alfresco.repo.dictionary.IndexTokenisationMode;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
@@ -49,69 +50,135 @@ public class PropertyFieldMapperTest
     }
 
     // =========================================================================
-    // Cross-locale: tokenised fields must include non-localised variant
+    // Stored field names for text properties
     // =========================================================================
 
     @Test
-    public void tokenisedTRUE_includesNonLocalisedTokenisedField()
+    public void textBOTH_singleValued_producesStoredFieldWithTokenisedAndUntokenisedFlags()
     {
+        // cm:title — TEXT, BOTH, single-valued, NOT cross-locale
         PropertyDefinition propDef = mockTextProperty("cm:title",
-                IndexTokenisationMode.TRUE, false);
-
-        List<String> fields = mapper.getSolrFieldNames(propDef);
-
-        // Must include both localised+tokenised AND non-localised+tokenised
-        assertTrue("Should contain text@s__lt@ (localised tokenised)",
-                fields.stream().anyMatch(f -> f.contains("__lt@")));
-        assertTrue("Should contain text@s___t@ (non-localised tokenised) for cross-locale search",
-                fields.stream().anyMatch(f -> f.contains("___t@")));
-    }
-
-    @Test
-    public void tokenisedBOTH_includesAllFourFieldVariants()
-    {
-        PropertyDefinition propDef = mockTextProperty("cm:name",
                 IndexTokenisationMode.BOTH, false);
 
         List<String> fields = mapper.getSolrFieldNames(propDef);
 
-        // BOTH mode must generate all 4 field variants that AFTS queries
-        assertTrue("Should contain __lt@ (localised tokenised): " + fields,
-                fields.stream().anyMatch(f -> f.contains("__lt@")));
-        assertTrue("Should contain __l_@ (localised untokenised): " + fields,
-                fields.stream().anyMatch(f -> f.contains("__l_@")));
-        assertTrue("Should contain ___t@ (non-localised tokenised for cross-locale): " + fields,
-                fields.stream().anyMatch(f -> f.contains("___t@")));
-        // Sort/docvalues field: non-localised, non-tokenised (may have 'd' for docvalues)
-        assertTrue("Should contain a non-localised non-tokenised field: " + fields,
-                fields.stream().anyMatch(f -> !f.contains("l") || f.contains("__l_@") ? false :
-                        // simply check we have at least one field that is not lt, l_, or _t
-                        true)
-                || fields.size() >= 4);
-
-        assertTrue("BOTH mode should produce at least 4 fields", fields.size() >= 4);
+        assertEquals("Should produce exactly 1 stored field", 1, fields.size());
+        // t=tokenised, s=untokenised, _=no crossLocale, s=sort, _=no suggest
+        assertEquals("text@s_stored_ts_s_@{http://www.alfresco.org/model/content/1.0}cm:title",
+                fields.get(0));
     }
 
     @Test
-    public void tokenisedFALSE_doesNotIncludeTokenisedFields()
+    public void textBOTH_crossLocale_producesCrossLocaleFlag()
     {
+        // cm:name — TEXT, BOTH, single-valued, cross-locale=true
+        PropertyDefinition propDef = mockProperty(ContentModel.PROP_NAME,
+                DataTypeDefinition.TEXT, IndexTokenisationMode.BOTH, false);
+
+        List<String> fields = mapper.getSolrFieldNames(propDef);
+
+        assertEquals(1, fields.size());
+        // t=tokenised, s=untokenised, c=crossLocale, s=sort, _=no suggest
+        assertEquals("text@s_stored_tscs_@{http://www.alfresco.org/model/content/1.0}name",
+                fields.get(0));
+    }
+
+    @Test
+    public void textTRUE_producesTokenisedOnlyFlags()
+    {
+        // TEXT, TRUE, single-valued
         PropertyDefinition propDef = mockTextProperty("cm:description",
+                IndexTokenisationMode.TRUE, false);
+
+        List<String> fields = mapper.getSolrFieldNames(propDef);
+
+        assertEquals(1, fields.size());
+        // t=tokenised, _=no untokenised, _=no crossLocale, _=no sort, _=no suggest
+        assertEquals("text@s_stored_t____@{http://www.alfresco.org/model/content/1.0}cm:description",
+                fields.get(0));
+    }
+
+    @Test
+    public void textFALSE_singleValued_producesUntokenisedAndSortFlags()
+    {
+        // TEXT, FALSE, single-valued
+        PropertyDefinition propDef = mockTextProperty("cm:sitePreset",
                 IndexTokenisationMode.FALSE, false);
 
         List<String> fields = mapper.getSolrFieldNames(propDef);
 
-        // FALSE mode: localised untokenised + docvalues + sort field
-        assertTrue("Should contain __l_@ (localised untokenised): " + fields,
-                fields.stream().anyMatch(f -> f.contains("__l_@")));
-        assertTrue("Should contain __sort@ (sort field): " + fields,
-                fields.stream().anyMatch(f -> f.contains("__sort@")));
-        assertEquals("FALSE mode should produce exactly 3 fields: " + fields,
-                3, fields.size());
-        // Neither field should have 't' in the locale/tokenisation position
-        assertFalse("Should NOT contain localised tokenised field (__lt@): " + fields,
-                fields.stream().anyMatch(f -> f.contains("__lt@")));
-        assertFalse("Should NOT contain non-localised tokenised field (___t@): " + fields,
-                fields.stream().anyMatch(f -> f.contains("___t@")));
+        assertEquals(1, fields.size());
+        // _=no tokenised, s=untokenised, _=no crossLocale, s=sort, _=no suggest
+        assertEquals("text@s_stored__s_s_@{http://www.alfresco.org/model/content/1.0}cm:sitePreset",
+                fields.get(0));
+    }
+
+    @Test
+    public void textFALSE_multiValued_noSortFlag()
+    {
+        // TEXT, FALSE, multi-valued — sort only for single-valued
+        PropertyDefinition propDef = mockTextProperty("cm:tags",
+                IndexTokenisationMode.FALSE, true);
+
+        List<String> fields = mapper.getSolrFieldNames(propDef);
+
+        assertEquals(1, fields.size());
+        // m=multiValued, _=no tokenised, s=untokenised, _=no crossLocale, _=no sort (multiValued), _=no suggest
+        assertEquals("text@m_stored__s___@{http://www.alfresco.org/model/content/1.0}cm:tags",
+                fields.get(0));
+    }
+
+    @Test
+    public void identifierProperty_treatedAsBOTH()
+    {
+        // cm:creator — identifier property, forced to BOTH regardless of model definition
+        PropertyDefinition propDef = mockProperty(ContentModel.PROP_CREATOR,
+                DataTypeDefinition.TEXT, IndexTokenisationMode.TRUE, false);
+
+        List<String> fields = mapper.getSolrFieldNames(propDef);
+
+        assertEquals(1, fields.size());
+        // Forced to BOTH: t=tokenised, s=untokenised, _=no crossLocale, s=sort, _=no suggest
+        assertTrue("Identifier should have both t and s flags: " + fields.get(0),
+                fields.get(0).contains("_stored_ts_s_@"));
+    }
+
+    @Test
+    public void mltext_producesMultiValuedStoredField()
+    {
+        // MLTEXT, BOTH
+        PropertyDefinition propDef = mockProperty(
+                QName.createQName("{http://www.alfresco.org/model/content/1.0}title"),
+                DataTypeDefinition.MLTEXT, IndexTokenisationMode.BOTH, false);
+
+        List<String> fields = mapper.getSolrFieldNames(propDef);
+
+        assertEquals(1, fields.size());
+        // mltext is always 'm', and no sort flag (mltext)
+        assertTrue("Should start with mltext@m_stored_", fields.get(0).startsWith("mltext@m_stored_"));
+        // t=tokenised, s=untokenised, _=no crossLocale, _=no sort (mltext), _=no suggest
+        assertTrue("Should have ts flags: " + fields.get(0), fields.get(0).contains("_stored_ts___@"));
+    }
+
+    @Test
+    public void nonTextProperty_returnsDirectIndexingField()
+    {
+        // int property — NOT a text type, returns direct field
+        PropertyDefinition propDef = mock(PropertyDefinition.class);
+        QName propName = QName.createQName("{http://www.alfresco.org/model/content/1.0}size");
+        when(propDef.getName()).thenReturn(propName);
+        when(propDef.isMultiValued()).thenReturn(false);
+        when(propDef.getIndexTokenisationMode()).thenReturn(IndexTokenisationMode.FALSE);
+        when(propDef.getFacetable()).thenReturn(org.alfresco.repo.dictionary.Facetable.TRUE);
+
+        DataTypeDefinition dataType = mock(DataTypeDefinition.class);
+        when(dataType.getName()).thenReturn(DataTypeDefinition.INT);
+        when(propDef.getDataType()).thenReturn(dataType);
+
+        List<String> fields = mapper.getSolrFieldNames(propDef);
+
+        assertEquals(1, fields.size());
+        assertEquals("int@sd@{http://www.alfresco.org/model/content/1.0}size", fields.get(0));
     }
 
     // =========================================================================
@@ -122,15 +189,22 @@ public class PropertyFieldMapperTest
                                                  IndexTokenisationMode mode,
                                                  boolean multiValued)
     {
-        PropertyDefinition propDef = mock(PropertyDefinition.class);
         QName propName = QName.createQName("{http://www.alfresco.org/model/content/1.0}" + localName);
+        return mockProperty(propName, DataTypeDefinition.TEXT, mode, multiValued);
+    }
+
+    private PropertyDefinition mockProperty(QName propName, QName dataTypeName,
+                                             IndexTokenisationMode mode,
+                                             boolean multiValued)
+    {
+        PropertyDefinition propDef = mock(PropertyDefinition.class);
         when(propDef.getName()).thenReturn(propName);
         when(propDef.isMultiValued()).thenReturn(multiValued);
         when(propDef.isIndexed()).thenReturn(true);
         when(propDef.getIndexTokenisationMode()).thenReturn(mode);
 
         DataTypeDefinition dataType = mock(DataTypeDefinition.class);
-        when(dataType.getName()).thenReturn(DataTypeDefinition.TEXT);
+        when(dataType.getName()).thenReturn(dataTypeName);
         when(propDef.getDataType()).thenReturn(dataType);
 
         return propDef;

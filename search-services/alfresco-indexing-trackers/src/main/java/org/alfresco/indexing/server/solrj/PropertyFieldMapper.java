@@ -25,7 +25,6 @@
  */
 package org.alfresco.indexing.server.solrj;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -39,16 +38,24 @@ import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.namespace.QName;
 
 /**
- * Maps Alfresco property definitions to Solr dynamic field names.
+ * Maps Alfresco property definitions to Solr field names.
  *
- * <p>Replicates the field naming logic from {@code AlfrescoSolrDataModel}:
+ * <p>For text properties (text, mltext, content), returns a single <b>stored</b> field
+ * name following the pattern {@code {type}@{s|m}_stored_{flags}@{qname}}. Solr's
+ * {@code generated_copy_fields.xml} defines copyField directives that automatically
+ * populate the indexing fields (tokenised, untokenised, sort, cross-locale, etc.)
+ * from the stored field. This matches the upstream {@code SolrInformationServer}
+ * approach and enables highlighting via {@code AlfrescoSolrHighlighter}.</p>
+ *
+ * <p>For non-text properties (int, long, date, etc.), returns the direct indexing
+ * field name as before.</p>
+ *
+ * <p>Mirrors the stored field naming from:
  * <ul>
- *   <li>{@code getFieldForText()} — for text/mltext/content types</li>
- *   <li>{@code getFieldForNonText()} — for int/long/date/boolean/etc.</li>
- * </ul>
- *
- * <p>The generated field names must match exactly what the AFTS query parser
- * expects when resolving property names like {@code cm:userName}.</p>
+ *   <li>{@code AlfrescoSolrDataModel.getStoredTextField()}</li>
+ *   <li>{@code AlfrescoSolrDataModel.getStoredMLTextField()}</li>
+ *   <li>{@code AlfrescoSolrDataModel.getStoredContentField()}</li>
+ * </ul></p>
  */
 public class PropertyFieldMapper
 {
@@ -69,17 +76,27 @@ public class PropertyFieldMapper
     }
 
     /**
-     * Returns the Solr field names for the given property definition.
-     * Text properties may need multiple fields depending on the tokenisation mode
-     * (BOTH requires tokenised + untokenised fields). AFTS searches different
-     * fields based on the mode, so we must index into all of them.
+     * Properties configured for cross-locale search. Must match the
+     * {@code alfresco.cross.locale.property.*} entries in shared.properties.
+     */
+    private static final Set<QName> CROSS_LOCALE_PROPERTIES = new HashSet<>();
+    static
+    {
+        CROSS_LOCALE_PROPERTIES.add(ContentModel.PROP_NAME);
+        CROSS_LOCALE_PROPERTIES.add(ContentModel.PROP_LOCK_OWNER);
+    }
+
+    /**
+     * Returns the Solr field name(s) for the given property definition.
      *
-     * <p>Identifier properties (cm:userName, cm:creator, etc.) are always indexed
-     * into both tokenised and untokenised fields because AFTS forces untokenised
-     * search for these properties.</p>
+     * <p>For text properties, returns a single stored field name. The Solr
+     * copyField directives in {@code generated_copy_fields.xml} handle
+     * populating all indexing fields (tokenised, untokenised, sort, etc.).</p>
+     *
+     * <p>For non-text properties, returns the direct indexing field name.</p>
      *
      * @param propDef the property definition
-     * @return list of Solr dynamic field names to index into
+     * @return list of Solr field names to index into (typically one element)
      */
     public List<String> getSolrFieldNames(PropertyDefinition propDef)
     {
@@ -88,49 +105,87 @@ public class PropertyFieldMapper
             return Collections.singletonList(getFieldForNonText(propDef));
         }
 
+        return Collections.singletonList(getStoredFieldName(propDef));
+    }
+
+    /**
+     * Builds the stored field name for a text property.
+     * Format: {@code {type}@{s|m}_stored_{t}{s}{c}{sort}{suggest}@{qname}}
+     *
+     * <p>Mirrors the upstream methods:
+     * <ul>
+     *   <li>{@code AlfrescoSolrDataModel.getStoredTextField()}</li>
+     *   <li>{@code AlfrescoSolrDataModel.getStoredMLTextField()}</li>
+     *   <li>{@code AlfrescoSolrDataModel.getStoredContentField()}</li>
+     * </ul></p>
+     *
+     * <p>The flags determine which copyField directives fire in
+     * {@code generated_copy_fields.xml}, populating the correct indexing fields.</p>
+     */
+    String getStoredFieldName(PropertyDefinition propDef)
+    {
+        QName dataTypeName = propDef.getDataType().getName();
+        QName propertyName = propDef.getName();
+
         IndexTokenisationMode mode = propDef.getIndexTokenisationMode();
         if (mode == null)
         {
             mode = IndexTokenisationMode.TRUE;
         }
-
-        // Identifier properties are searched as untokenised by AFTS regardless
-        // of their model definition — treat them as BOTH so data is in all fields.
-        if (IDENTIFIER_PROPERTIES.contains(propDef.getName()))
+        if (IDENTIFIER_PROPERTIES.contains(propertyName))
         {
             mode = IndexTokenisationMode.BOTH;
         }
 
-        List<String> fields = new ArrayList<>();
-        switch (mode)
+        StringBuilder sb = new StringBuilder();
+
+        // Data type prefix
+        sb.append(dataTypeName.getLocalName());
+        sb.append('@');
+
+        // Multi-valued flag
+        if (dataTypeName.equals(DataTypeDefinition.MLTEXT))
         {
-            case TRUE:
-                // Tokenised: localised + non-localised (for cross-locale match)
-                fields.add(getFieldForText(true, true, propDef));
-                fields.add(getFieldForText(false, true, propDef));
-                break;
-            case FALSE:
-                // Untokenised: localised exact match + sort/docvalues field
-                fields.add(getFieldForText(true, false, propDef));
-                fields.add(getFieldForText(false, false, propDef));
-                if (!propDef.isMultiValued())
-                {
-                    fields.add(getFieldForSort(propDef));
-                }
-                break;
-            case BOTH:
-                // All four combinations: the AFTS query parser searches all of them
-                fields.add(getFieldForText(true, true, propDef));   // {locale}tokenised
-                fields.add(getFieldForText(true, false, propDef));  // {locale}untokenised
-                fields.add(getFieldForText(false, true, propDef));  // tokenised (no locale — cross-locale match)
-                fields.add(getFieldForText(false, false, propDef)); // sort/docvalues
-                if (!propDef.isMultiValued())
-                {
-                    fields.add(getFieldForSort(propDef));
-                }
-                break;
+            sb.append('m');
         }
-        return fields;
+        else if (dataTypeName.equals(DataTypeDefinition.CONTENT))
+        {
+            sb.append('s');
+        }
+        else
+        {
+            sb.append(propDef.isMultiValued() ? 'm' : 's');
+        }
+
+        sb.append("_stored_");
+
+        // Flag: tokenised (t)
+        boolean tokenised = (mode == IndexTokenisationMode.TRUE || mode == IndexTokenisationMode.BOTH);
+        sb.append(tokenised ? 't' : '_');
+
+        // Flag: untokenised (s)
+        boolean untokenised = (mode == IndexTokenisationMode.FALSE || mode == IndexTokenisationMode.BOTH
+                || IDENTIFIER_PROPERTIES.contains(propertyName));
+        sb.append(untokenised ? 's' : '_');
+
+        // Flag: cross-locale (c)
+        boolean crossLocale = CROSS_LOCALE_PROPERTIES.contains(propertyName);
+        sb.append(crossLocale ? 'c' : '_');
+
+        // Flag: sort (s) — only for TEXT single-valued with untokenised mode
+        // MLTEXT and CONTENT never have a sort flag
+        boolean sort = untokenised && !propDef.isMultiValued()
+                && !dataTypeName.equals(DataTypeDefinition.MLTEXT)
+                && !dataTypeName.equals(DataTypeDefinition.CONTENT);
+        sb.append(sort ? 's' : '_');
+
+        // Flag: suggestable (s) — not configured in our deployment
+        sb.append('_');
+
+        sb.append('@');
+        sb.append(propertyName.toString());
+
+        return sb.toString();
     }
 
     /**
@@ -148,74 +203,6 @@ public class PropertyFieldMapper
         builder.append(propDef.isMultiValued() ? "m" : "s");
         builder.append(hasDocValues(propDef) ? "d" : "_");
         builder.append("@");
-        builder.append(propDef.getName().toString());
-        return builder.toString();
-    }
-
-    /**
-     * Builds the Solr field name for text properties.
-     * Format: {@code {datatype}@{s|m}{_}{_}{l|_}{t|_}@{qname}}
-     *
-     * <p>Mirrors {@code AlfrescoSolrDataModel.getFieldForText(localised, tokenised, sort=false)}.</p>
-     */
-    String getFieldForText(boolean localised, boolean tokenised, PropertyDefinition propDef)
-    {
-        StringBuilder builder = new StringBuilder();
-        QName dataTypeName = propDef.getDataType().getName();
-        builder.append(dataTypeName.getLocalName());
-        builder.append("@");
-
-        // Multi-valued flag: MLTEXT is always 'm', CONTENT is always 's'
-        if (dataTypeName.equals(DataTypeDefinition.MLTEXT))
-        {
-            builder.append('m');
-        }
-        else if (dataTypeName.equals(DataTypeDefinition.CONTENT))
-        {
-            builder.append('s');
-        }
-        else
-        {
-            builder.append(propDef.isMultiValued() ? "m" : "s");
-        }
-
-        // DocValues flag: for text with localised/tokenised, always '_'
-        if (localised || tokenised
-                || dataTypeName.equals(DataTypeDefinition.CONTENT)
-                || dataTypeName.equals(DataTypeDefinition.MLTEXT))
-        {
-            builder.append('_');
-        }
-        else
-        {
-            builder.append(hasDocValues(propDef) ? "d" : "_");
-        }
-        builder.append('_');
-
-        // Locale and tokenization flags
-        builder.append(localised ? "l" : "_");
-        builder.append(tokenised ? "t" : "_");
-
-        builder.append("@");
-        builder.append(propDef.getName().toString());
-        return builder.toString();
-    }
-
-    /**
-     * Builds the Solr sort field name for a text property.
-     * Format: {@code {datatype}@{s|m}__sort@{qname}}
-     *
-     * <p>Mirrors {@code AlfrescoSolrDataModel.getFieldForText(false, false, true, propDef)}.
-     * Only applicable to single-valued TEXT properties with FALSE or BOTH tokenisation.</p>
-     */
-    String getFieldForSort(PropertyDefinition propDef)
-    {
-        StringBuilder builder = new StringBuilder();
-        QName dataTypeName = propDef.getDataType().getName();
-        builder.append(dataTypeName.getLocalName());
-        builder.append("@");
-        builder.append(propDef.isMultiValued() ? "m" : "s");
-        builder.append("__sort@");
         builder.append(propDef.getName().toString());
         return builder.toString();
     }
