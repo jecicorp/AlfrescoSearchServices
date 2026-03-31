@@ -526,4 +526,194 @@ public class SolrDocumentMapperTest
         assertEquals(CONTENT_OUTDATED_MARKER, doc.getFieldValue(FIELD_LAST_INCOMING_CONTENT_VERSION_ID));
         assertEquals("Dirty", doc.getFieldValue(FIELD_FTSSTATUS));
     }
+
+    // =========================================================================
+    // SITE and TAG field extraction
+    // =========================================================================
+
+    @Test
+    public void testSiteFieldExtractedFromPath()
+    {
+        Node node = new Node();
+        node.setId(800L);
+        node.setTxnId(70L);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(800L);
+        metadata.setTxnId(70L);
+        metadata.setAclId(600L);
+        metadata.setTenantDomain("");
+        metadata.setPaths(Collections.singletonList(
+                new Pair<>("/{http://www.alfresco.org/model/application/1.0}company_home"
+                        + "/{http://www.alfresco.org/model/site/1.0}sites"
+                        + "/{http://www.alfresco.org/model/content/1.0}mysite"
+                        + "/{http://www.alfresco.org/model/content/1.0}documentLibrary"
+                        + "/{http://www.alfresco.org/model/content/1.0}file.txt", null)));
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        Collection<Object> siteValues = doc.getFieldValues(FIELD_SITE);
+        assertNotNull("SITE field must be set", siteValues);
+        assertEquals(1, siteValues.size());
+        assertTrue(siteValues.contains("mysite"));
+    }
+
+    @Test
+    public void testSharedFilesPath()
+    {
+        Node node = new Node();
+        node.setId(801L);
+        node.setTxnId(71L);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(801L);
+        metadata.setTxnId(71L);
+        metadata.setAclId(601L);
+        metadata.setTenantDomain("");
+        metadata.setPaths(Collections.singletonList(
+                new Pair<>("/{http://www.alfresco.org/model/application/1.0}company_home"
+                        + "/{http://www.alfresco.org/model/application/1.0}shared"
+                        + "/{http://www.alfresco.org/model/content/1.0}doc.txt", null)));
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        Collection<Object> siteValues = doc.getFieldValues(FIELD_SITE);
+        assertNotNull("SITE field must be set for shared files", siteValues);
+        assertTrue(siteValues.contains("_SHARED_FILES_"));
+    }
+
+    @Test
+    public void testRepositoryNodeNoSite()
+    {
+        Node node = new Node();
+        node.setId(802L);
+        node.setTxnId(72L);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(802L);
+        metadata.setTxnId(72L);
+        metadata.setAclId(602L);
+        metadata.setTenantDomain("");
+        metadata.setPaths(Collections.singletonList(
+                new Pair<>("/{http://www.alfresco.org/model/application/1.0}company_home"
+                        + "/{http://www.alfresco.org/model/content/1.0}myFolder", null)));
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        Collection<Object> siteValues = doc.getFieldValues(FIELD_SITE);
+        assertNotNull("SITE field must be set to _REPOSITORY_", siteValues);
+        assertTrue(siteValues.contains("_REPOSITORY_"));
+    }
+
+    @Test
+    public void testNullOrEmptyPaths()
+    {
+        Node node = new Node();
+        node.setId(803L);
+        node.setTxnId(73L);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(803L);
+        metadata.setTxnId(73L);
+        metadata.setAclId(603L);
+        metadata.setTenantDomain("");
+        metadata.setPaths(null);
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        Collection<Object> siteValues = doc.getFieldValues(FIELD_SITE);
+        assertNotNull("SITE field must be _REPOSITORY_ when paths is null", siteValues);
+        assertTrue(siteValues.contains("_REPOSITORY_"));
+    }
+
+    @Test
+    public void testTagFieldExtractedFromPath()
+    {
+        Node node = new Node();
+        node.setId(804L);
+        node.setTxnId(74L);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(804L);
+        metadata.setTxnId(74L);
+        metadata.setAclId(604L);
+        metadata.setTenantDomain("");
+        metadata.setPaths(Arrays.asList(
+                new Pair<>("/{http://www.alfresco.org/model/application/1.0}company_home"
+                        + "/{http://www.alfresco.org/model/site/1.0}sites"
+                        + "/{http://www.alfresco.org/model/content/1.0}mysite"
+                        + "/{http://www.alfresco.org/model/content/1.0}documentLibrary"
+                        + "/{http://www.alfresco.org/model/content/1.0}file.txt", null),
+                new Pair<>("/{http://www.alfresco.org/model/content/1.0}taggable"
+                        + "/{http://www.alfresco.org/model/content/1.0}mytag"
+                        + "/{}member", null)));
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        Collection<Object> tagValues = doc.getFieldValues(FIELD_TAG);
+        assertNotNull("TAG field must be set", tagValues);
+        assertTrue(tagValues.contains("mytag"));
+
+        Collection<Object> siteValues = doc.getFieldValues(FIELD_SITE);
+        assertNotNull(siteValues);
+        assertTrue(siteValues.contains("mysite"));
+    }
+
+    @Test
+    public void testMultiplePathsMultipleSites()
+    {
+        Node node = new Node();
+        node.setId(805L);
+        node.setTxnId(75L);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(805L);
+        metadata.setTxnId(75L);
+        metadata.setAclId(605L);
+        metadata.setTenantDomain("");
+        metadata.setPaths(Arrays.asList(
+                new Pair<>("/{http://www.alfresco.org/model/application/1.0}company_home"
+                        + "/{http://www.alfresco.org/model/site/1.0}sites"
+                        + "/{http://www.alfresco.org/model/content/1.0}siteA"
+                        + "/{http://www.alfresco.org/model/content/1.0}documentLibrary"
+                        + "/{http://www.alfresco.org/model/content/1.0}file.txt", null),
+                new Pair<>("/{http://www.alfresco.org/model/application/1.0}company_home"
+                        + "/{http://www.alfresco.org/model/site/1.0}sites"
+                        + "/{http://www.alfresco.org/model/content/1.0}siteB"
+                        + "/{http://www.alfresco.org/model/content/1.0}documentLibrary"
+                        + "/{http://www.alfresco.org/model/content/1.0}file.txt", null)));
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        Collection<Object> siteValues = doc.getFieldValues(FIELD_SITE);
+        assertNotNull(siteValues);
+        assertEquals(2, siteValues.size());
+        assertTrue(siteValues.contains("siteA"));
+        assertTrue(siteValues.contains("siteB"));
+    }
+
+    @Test
+    public void testISO9075DecodedSiteName()
+    {
+        Node node = new Node();
+        node.setId(806L);
+        node.setTxnId(76L);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(806L);
+        metadata.setTxnId(76L);
+        metadata.setAclId(606L);
+        metadata.setTenantDomain("");
+        metadata.setPaths(Collections.singletonList(
+                new Pair<>("/{http://www.alfresco.org/model/application/1.0}company_home"
+                        + "/{http://www.alfresco.org/model/site/1.0}sites"
+                        + "/{http://www.alfresco.org/model/content/1.0}my_x0020_site"
+                        + "/{http://www.alfresco.org/model/content/1.0}documentLibrary", null)));
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        Collection<Object> siteValues = doc.getFieldValues(FIELD_SITE);
+        assertNotNull(siteValues);
+        assertTrue("Site name should be ISO9075-decoded", siteValues.contains("my site"));
+    }
 }
