@@ -113,6 +113,10 @@ public class PropertyFieldMapper
                 // Untokenised: localised exact match + sort/docvalues field
                 fields.add(getFieldForText(true, false, propDef));
                 fields.add(getFieldForText(false, false, propDef));
+                if (!propDef.isMultiValued())
+                {
+                    fields.add(getFieldForSort(propDef));
+                }
                 break;
             case BOTH:
                 // All four combinations: the AFTS query parser searches all of them
@@ -120,6 +124,10 @@ public class PropertyFieldMapper
                 fields.add(getFieldForText(true, false, propDef));  // {locale}untokenised
                 fields.add(getFieldForText(false, true, propDef));  // tokenised (no locale — cross-locale match)
                 fields.add(getFieldForText(false, false, propDef)); // sort/docvalues
+                if (!propDef.isMultiValued())
+                {
+                    fields.add(getFieldForSort(propDef));
+                }
                 break;
         }
         return fields;
@@ -189,6 +197,25 @@ public class PropertyFieldMapper
         builder.append(tokenised ? "t" : "_");
 
         builder.append("@");
+        builder.append(propDef.getName().toString());
+        return builder.toString();
+    }
+
+    /**
+     * Builds the Solr sort field name for a text property.
+     * Format: {@code {datatype}@{s|m}__sort@{qname}}
+     *
+     * <p>Mirrors {@code AlfrescoSolrDataModel.getFieldForText(false, false, true, propDef)}.
+     * Only applicable to single-valued TEXT properties with FALSE or BOTH tokenisation.</p>
+     */
+    String getFieldForSort(PropertyDefinition propDef)
+    {
+        StringBuilder builder = new StringBuilder();
+        QName dataTypeName = propDef.getDataType().getName();
+        builder.append(dataTypeName.getLocalName());
+        builder.append("@");
+        builder.append(propDef.isMultiValued() ? "m" : "s");
+        builder.append("__sort@");
         builder.append(propDef.getName().toString());
         return builder.toString();
     }

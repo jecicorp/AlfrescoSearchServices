@@ -100,11 +100,13 @@ public class PropertyFieldMapperTest
 
         List<String> fields = mapper.getSolrFieldNames(propDef);
 
-        // FALSE mode: localised untokenised + sort field
+        // FALSE mode: localised untokenised + docvalues + sort field
         assertTrue("Should contain __l_@ (localised untokenised): " + fields,
                 fields.stream().anyMatch(f -> f.contains("__l_@")));
-        assertEquals("FALSE mode should produce exactly 2 fields: " + fields,
-                2, fields.size());
+        assertTrue("Should contain __sort@ (sort field): " + fields,
+                fields.stream().anyMatch(f -> f.contains("__sort@")));
+        assertEquals("FALSE mode should produce exactly 3 fields: " + fields,
+                3, fields.size());
         // Neither field should have 't' in the locale/tokenisation position
         assertFalse("Should NOT contain localised tokenised field (__lt@): " + fields,
                 fields.stream().anyMatch(f -> f.contains("__lt@")));
