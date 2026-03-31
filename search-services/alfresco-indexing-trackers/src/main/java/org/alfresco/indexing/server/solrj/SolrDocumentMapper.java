@@ -30,6 +30,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.alfresco.util.ISO9075;
 
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
@@ -116,6 +120,25 @@ public class SolrDocumentMapper
     public static final String FIELD_PROPERTIES = "PROPERTIES";
     public static final String FIELD_NULLPROPERTIES = "NULLPROPERTIES";
     public static final String FIELD_PARENT_ASSOC_CRC = "PARENTASSOCCRC";
+
+    // Path-derived fields — from SolrInformationServer.updatePathRelatedFields()
+    public static final String FIELD_SITE = "SITE";
+    public static final String FIELD_TAG = "TAG";
+
+    private static final String NO_SITE = "_REPOSITORY_";
+    private static final String SHARED_FILES = "_SHARED_FILES_";
+
+    // Regex patterns copied from upstream SolrInformationServer (lines 375-377)
+    private static final Pattern CAPTURE_SITE = Pattern.compile(
+            "^/\\{http\\://www\\.alfresco\\.org/model/application/1\\.0\\}company\\_home"
+            + "/\\{http\\://www\\.alfresco\\.org/model/site/1\\.0\\}sites"
+            + "/\\{http\\://www\\.alfresco\\.org/model/content/1\\.0}([^/]*)/.*");
+    private static final Pattern CAPTURE_TAG = Pattern.compile(
+            "^/\\{http\\://www\\.alfresco\\.org/model/content/1\\.0\\}taggable"
+            + "/\\{http\\://www\\.alfresco\\.org/model/content/1\\.0\\}([^/]*)/\\{\\}member");
+    private static final Pattern CAPTURE_SHARED_FILES = Pattern.compile(
+            "^/\\{http\\://www\\.alfresco\\.org/model/application/1\\.0\\}company\\_home"
+            + "/\\{http\\://www\\.alfresco\\.org/model/application/1\\.0\\}shared/.*");
 
     // ---------------------------------------------------------------------------
     // Document type constants — values from SolrInformationServer
@@ -356,6 +379,9 @@ public class SolrDocumentMapper
             }
         }
 
+        // Site and Tag — derived from paths
+        addSiteAndTagFields(doc, paths);
+
         // Ancestors
         Set<NodeRef> ancestors = metadata.getAncestors();
         if (ancestors != null)
@@ -457,6 +483,63 @@ public class SolrDocumentMapper
         }
 
         return doc;
+    }
+
+    /**
+     * Extracts SITE and TAG fields from node paths.
+     * Mirrors upstream {@code SolrInformationServer.updatePathRelatedFields()}.
+     *
+     * <p>For each path, checks three patterns:
+     * <ul>
+     *   <li>CAPTURE_SITE — node is inside a Share site → SITE = site short name</li>
+     *   <li>CAPTURE_SHARED_FILES — node is inside the Shared folder → SITE = "_SHARED_FILES_"</li>
+     *   <li>CAPTURE_TAG — node is a tag member → TAG = tag name</li>
+     * </ul>
+     * If no path matches a site or shared folder, SITE defaults to "_REPOSITORY_".</p>
+     *
+     * @param doc   the Solr document being built
+     * @param paths the node paths from {@link NodeMetaData#getPaths()}
+     */
+    private static void addSiteAndTagFields(SolrInputDocument doc, List<Pair<String, QName>> paths)
+    {
+        boolean repoOnly = true;
+
+        if (paths != null)
+        {
+            for (Pair<String, QName> path : paths)
+            {
+                if (path == null || path.getFirst() == null)
+                {
+                    continue;
+                }
+                String pathString = path.getFirst();
+
+                Matcher siteMatcher = CAPTURE_SITE.matcher(pathString);
+                if (siteMatcher.find())
+                {
+                    repoOnly = false;
+                    doc.addField(FIELD_SITE, ISO9075.decode(siteMatcher.group(1)));
+                }
+
+                Matcher sharedMatcher = CAPTURE_SHARED_FILES.matcher(pathString);
+                if (sharedMatcher.find())
+                {
+                    repoOnly = false;
+                    doc.addField(FIELD_SITE, SHARED_FILES);
+                }
+
+                Matcher tagMatcher = CAPTURE_TAG.matcher(pathString);
+                if (tagMatcher.find())
+                {
+                    doc.addField(FIELD_TAG, ISO9075.decode(tagMatcher.group(1)));
+                }
+            }
+        }
+
+        if (repoOnly)
+        {
+            doc.addField(FIELD_SITE, NO_SITE);
+        }
     }
 
     /**
