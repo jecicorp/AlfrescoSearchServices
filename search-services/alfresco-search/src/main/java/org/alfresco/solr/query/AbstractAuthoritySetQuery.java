@@ -162,7 +162,7 @@ public abstract class AbstractAuthoritySetQuery extends Query
         return hybridBitSet;
     }
 
-    protected BitsFilter getACLFilter(String[] auths, String field, SolrIndexSearcher searcher) throws IOException
+    protected BitSetQuery getACLFilter(String[] auths, String field, SolrIndexSearcher searcher) throws IOException
     {
         HybridBitSet aclBits = getACLSet(auths, field, searcher);
         List<LeafReaderContext> leaves = searcher.getTopReaderContext().leaves();
@@ -186,7 +186,7 @@ public abstract class AbstractAuthoritySetQuery extends Query
             }
         }
 
-        return new BitsFilter(bitSets);
+        return new BitSetQuery(bitSets);
     }
 
 }

@@ -31,7 +31,6 @@ import java.io.IOException;
 import org.alfresco.repo.search.adaptor.QueryConstants;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.NumericDocValues;
-import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Weight;
 import org.apache.solr.search.DelegatingCollector;
@@ -87,8 +86,8 @@ public class SolrDenySetQuery extends AbstractAuthoritySetQuery implements PostF
         }
 
         String[] auths = authorities.substring(1).split(authorities.substring(0, 1));
-        BitsFilter denyFilter  = getACLFilter(auths, QueryConstants.FIELD_DENIED, (SolrIndexSearcher) searcher);
-        return new ConstantScoreQuery(denyFilter).createWeight(searcher, false);
+        BitSetQuery denyFilter  = getACLFilter(auths, QueryConstants.FIELD_DENIED, (SolrIndexSearcher) searcher);
+        return denyFilter.createWeight(searcher, false);
     }
 
     public DelegatingCollector getFilterCollector(IndexSearcher searcher)

@@ -886,7 +886,7 @@
       <str>setProcessedDenies</str>
     </arr>
 
-      <shardHandlerFactory class="org.apache.solr.handler.component.AlfrescoHttpShardHandlerFactory" />
+      <shardHandlerFactory class="org.apache.solr.handler.component.HttpShardHandlerFactory" />
     </requestHandler>
 
   <!-- A request handler that returns indented JSON by default -->
@@ -897,7 +897,7 @@
        <str name="indent">true</str>
        <str name="df">suggest</str>
      </lst>
-      <shardHandlerFactory class="org.apache.solr.handler.component.AlfrescoHttpShardHandlerFactory" />
+      <shardHandlerFactory class="org.apache.solr.handler.component.HttpShardHandlerFactory" />
   </requestHandler>
 
 
@@ -1730,7 +1730,7 @@
       <!-- <str>addTxId</str> -->
       <str>setProcessedDenies</str>
     </arr>
-      <shardHandlerFactory class="org.apache.solr.handler.component.AlfrescoHttpShardHandlerFactory" />
+      <shardHandlerFactory class="org.apache.solr.handler.component.HttpShardHandlerFactory" />
   </requestHandler>
 
 
@@ -1781,7 +1781,7 @@
       <str>setProcessedDenies</str>
       <str>clustering</str>
     </arr>
-      <shardHandlerFactory class="org.apache.solr.handler.component.AlfrescoHttpShardHandlerFactory" />
+      <shardHandlerFactory class="org.apache.solr.handler.component.HttpShardHandlerFactory" />
   </requestHandler>
 
  <requestHandler name="/cmis" class="org.apache.solr.handler.component.AlfrescoSearchHandler" lazy="true" >
@@ -1804,7 +1804,7 @@
       <!--<str>addTxId</str>-->
       <str>setProcessedDenies</str>
     </arr>
-      <shardHandlerFactory class="org.apache.solr.handler.component.AlfrescoHttpShardHandlerFactory" />
+      <shardHandlerFactory class="org.apache.solr.handler.component.HttpShardHandlerFactory" />
   </requestHandler>
 
 

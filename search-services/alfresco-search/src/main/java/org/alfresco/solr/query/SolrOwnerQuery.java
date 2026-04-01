@@ -34,7 +34,6 @@ import org.alfresco.repo.search.adaptor.QueryConstants;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Collector;
-import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.LeafCollector;
 import org.apache.lucene.search.Query;
@@ -63,8 +62,8 @@ public class SolrOwnerQuery extends AbstractAuthorityQuery
             throw new IllegalStateException("Must have a SolrIndexSearcher");
         }
 
-        BitsFilter ownerFilter = getOwnerFilter(authority, (SolrIndexSearcher)searcher);
-        return new ConstantScoreQuery(ownerFilter).createWeight(searcher, false);
+        BitSetQuery ownerFilter = getOwnerFilter(authority, (SolrIndexSearcher)searcher);
+        return ownerFilter.createWeight(searcher, false);
     }
 
     @Override
@@ -76,26 +75,26 @@ public class SolrOwnerQuery extends AbstractAuthorityQuery
         return stringBuilder.toString();
     }
 
-    private BitsFilter getOwnerFilter(String owner, SolrIndexSearcher searcher) throws IOException
+    private BitSetQuery getOwnerFilter(String owner, SolrIndexSearcher searcher) throws IOException
     {
         Query query =  new TermQuery(new Term(QueryConstants.FIELD_OWNER, owner));
-        BitsFilterCollector collector = new BitsFilterCollector(searcher.getTopReaderContext().leaves().size());
+        BitSetCollector collector = new BitSetCollector(searcher.getTopReaderContext().leaves().size());
         searcher.search(query, collector);
-        return collector.getBitsFilter();
+        return collector.getBitSetQuery();
     }
 
-    class BitsFilterCollector implements Collector, LeafCollector
+    class BitSetCollector implements Collector, LeafCollector
     {
         private List<FixedBitSet> sets;
         private FixedBitSet set;
 
-        public BitsFilterCollector(int leafCount)
+        public BitSetCollector(int leafCount)
         {
             this.sets = new ArrayList<FixedBitSet>(leafCount);
         }
 
-        public BitsFilter getBitsFilter() {
-            return new BitsFilter(sets);
+        public BitSetQuery getBitSetQuery() {
+            return new BitSetQuery(sets);
         }
 
         public boolean acceptsDocsOutOfOrder() {
@@ -120,7 +119,6 @@ public class SolrOwnerQuery extends AbstractAuthorityQuery
 
         @Override
         public boolean needsScores() {
-            // TODO Auto-generated method stub
             return false;
         }
     }

@@ -43,7 +43,6 @@ import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.BooleanQuery.Builder;
 import org.apache.lucene.search.Collector;
-import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.LeafCollector;
 import org.apache.lucene.search.MatchAllDocsQuery;
@@ -98,21 +97,21 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
             return new MatchAllDocsQuery().createWeight(searcher, needsScores);
         }
 
-        BitsFilter readFilter  = getACLFilter(auths, QueryConstants.FIELD_READER, solrIndexSearcher);
-        BitsFilter ownerFilter = getOwnerFilter(auths, solrIndexSearcher);
+        BitSetQuery readFilter  = getACLFilter(auths, QueryConstants.FIELD_READER, solrIndexSearcher);
+        BitSetQuery ownerFilter = getOwnerFilter(auths, solrIndexSearcher);
 
         if (globalReaders.contains(PermissionService.OWNER_AUTHORITY))
         {
             readFilter.or(ownerFilter);
-            return new ConstantScoreQuery(readFilter).createWeight(searcher, needsScores);
+            return readFilter.createWeight(searcher, needsScores);
         }
         else
         {
             String[] ownerAuth = {PermissionService.OWNER_AUTHORITY};
-            BitsFilter ownerReadFilter  = getACLFilter(ownerAuth, QueryConstants.FIELD_READER, solrIndexSearcher);
+            BitSetQuery ownerReadFilter  = getACLFilter(ownerAuth, QueryConstants.FIELD_READER, solrIndexSearcher);
             ownerReadFilter.and(ownerFilter);
             readFilter.or(ownerReadFilter);
-            return new ConstantScoreQuery(readFilter).createWeight(searcher, needsScores);
+            return readFilter.createWeight(searcher, needsScores);
         }
     }
 
@@ -172,7 +171,7 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
             * Collect the documents that the user owns.
             */
 
-            BitsFilter ownerFilter = getOwnerFilter(auths, solrIndexSearcher);
+            BitSetQuery ownerFilter = getOwnerFilter(auths, solrIndexSearcher);
 
             if (globalReaders.contains(PermissionService.OWNER_AUTHORITY))
             {
@@ -229,7 +228,7 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
         return stringBuilder.toString();
     }
 
-    private BitsFilter getOwnerFilter(String[] auths, SolrIndexSearcher searcher) throws IOException
+    private BitSetQuery getOwnerFilter(String[] auths, SolrIndexSearcher searcher) throws IOException
     {
         Builder builder = new BooleanQuery.Builder();
         for(String current : auths)
@@ -240,23 +239,23 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
             }
         }
 
-        BitsFilterCollector collector = new BitsFilterCollector(searcher.getTopReaderContext().leaves().size());
+        BitSetCollector collector = new BitSetCollector(searcher.getTopReaderContext().leaves().size());
         searcher.search(builder.build(), collector);
-        return collector.getBitsFilter();
+        return collector.getBitSetQuery();
     }
 
-    class BitsFilterCollector implements Collector, LeafCollector
+    class BitSetCollector implements Collector, LeafCollector
     {
         private List<FixedBitSet> sets;
         private FixedBitSet set;
 
-        public BitsFilterCollector(int leafCount)
+        public BitSetCollector(int leafCount)
         {
             this.sets = new ArrayList<FixedBitSet>(leafCount);
         }
 
-        public BitsFilter getBitsFilter() {
-            return new BitsFilter(sets);
+        public BitSetQuery getBitSetQuery() {
+            return new BitSetQuery(sets);
         }
 
         public boolean acceptsDocsOutOfOrder() {
@@ -281,7 +280,6 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
 
 		@Override
 		public boolean needsScores() {
-			// TODO Auto-generated method stub
 			return false;
 		}
     }
@@ -295,10 +293,10 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
     {
         private HybridBitSet aclIds;
         private NumericDocValues fieldValues;
-        private BitsFilter ownerFilter;
+        private BitSetQuery ownerFilter;
         private FixedBitSet ownerDocs;
 
-        public AccessControlCollector(HybridBitSet aclIds, BitsFilter ownerFilter)
+        public AccessControlCollector(HybridBitSet aclIds, BitSetQuery ownerFilter)
         {
             this.aclIds=aclIds;
             this.ownerFilter = ownerFilter;
@@ -338,9 +336,9 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
         private HybridBitSet aclIds;
         private HybridBitSet ownerAclIds;
         private NumericDocValues fieldValues;
-        private BitsFilter ownerFilter;
+        private BitSetQuery ownerFilter;
         private FixedBitSet ownerDocs;
-        public AccessControlCollectorWithoutOwnerRead(HybridBitSet aclIds, HybridBitSet ownerAclIds, BitsFilter ownerFilter)
+        public AccessControlCollectorWithoutOwnerRead(HybridBitSet aclIds, HybridBitSet ownerAclIds, BitSetQuery ownerFilter)
         {
             this.aclIds=aclIds;
             this.ownerAclIds = ownerAclIds;

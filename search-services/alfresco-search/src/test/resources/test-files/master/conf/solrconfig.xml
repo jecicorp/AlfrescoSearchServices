@@ -303,7 +303,7 @@
             <str>spellcheckbackcompat</str>
             <str>setProcessedDenies</str>
         </arr>
-        <shardHandlerFactory class="org.apache.solr.handler.component.AlfrescoHttpShardHandlerFactory" />
+        <shardHandlerFactory class="org.apache.solr.handler.component.HttpShardHandlerFactory" />
     </requestHandler>
 
     <requestHandler name="/native" class="org.apache.solr.handler.component.AlfrescoSearchHandler" lazy="true" >
@@ -328,7 +328,7 @@
             <str>clearLocale</str>
         </arr>
 
-        <shardHandlerFactory class="org.apache.solr.handler.component.AlfrescoHttpShardHandlerFactory" />
+        <shardHandlerFactory class="org.apache.solr.handler.component.HttpShardHandlerFactory" />
     </requestHandler>
 
     <requestHandler name="/cmis" class="org.apache.solr.handler.component.AlfrescoSearchHandler" lazy="true" >
@@ -343,7 +343,7 @@
             <str>stats</str>
             <str>debug</str>
         </arr>
-        <shardHandlerFactory class="org.apache.solr.handler.component.AlfrescoHttpShardHandlerFactory" />
+        <shardHandlerFactory class="org.apache.solr.handler.component.HttpShardHandlerFactory" />
     </requestHandler>
 
     <searchComponent name="termsComp" class="org.apache.solr.handler.component.TermsComponent"/>
