@@ -98,6 +98,16 @@
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
+                <!-- Exclude Jetty HTTP client (used by Http2SolrClient, not needed).
+                     Conflicts with Spring Boot 3.4 which expects Jetty 12+ APIs. -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty.http2</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <!-- Override Gson version: Spring Boot 3.4 requires Gson 2.11+ (Strictness class) -->

@@ -26,7 +26,7 @@ RUN set -x \
         -o \
         "${USERNAME}" \
    && yum install -y unzip \
-   && yum install -y lsof ca-certificates \
+   && yum install -y lsof ca-certificates procps-ng \
    && yum install -y wget \
    && yum clean all \
    && unzip "$SOLR_ZIP" -d /opt/ && rm "$SOLR_ZIP" \

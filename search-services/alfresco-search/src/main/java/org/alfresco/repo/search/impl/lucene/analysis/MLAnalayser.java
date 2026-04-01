@@ -75,32 +75,10 @@ public class MLAnalayser extends Analyzer
   
     
     @Override
-    protected TokenStreamComponents createComponents(String fieldName) 
+    protected TokenStreamComponents createComponents(String fieldName)
     {
         MLTokenizer mltokenizer = new MLTokenizer(fieldName, schema, mlAnalaysisMode, mode);
-//        try
-//        {
-//            mltokenizer.setLocaleAndPositionReaderAfterLocaleEncoding(reader);
-//        }
-//        catch (IOException e)
-//        {
-//            try{mltokenizer.close();} catch(IOException ioe) {};
-//            throw new AnalysisException("Failed to init MLTokenizer", e);
-//        }
         return new TokenStreamComponents(mltokenizer);
-    }
-
-    /**
-     * In Lucene 8, {@code Analyzer.TokenStreamComponents} is final and cannot be subclassed.
-     * We override {@link Analyzer#initReader(String, Reader)} to process locale encoding
-     * before the tokenizer sees the reader.
-     */
-    @Override
-    protected Reader initReader(String fieldName, Reader reader)
-    {
-        // Delegate to the MLTokenizer to parse locale prefix and reposition the reader
-        MLTokenizer mltokenizer = new MLTokenizer(fieldName, schema, mlAnalaysisMode, mode);
-        return mltokenizer.setLocaleAndPositionReaderAfterLocaleEncoding(reader);
     }
     
     private static class MLTokenizer extends Tokenizer
@@ -138,54 +116,47 @@ public class MLAnalayser extends Analyzer
         
 
         /**
-         * @param reader
-         * @throws IOException 
+         * Initialize the delegate TokenStream by parsing the locale prefix from the reader.
+         * Called from reset() since in Lucene 8, the reader is set via Tokenizer.setReader()
+         * before reset() is called, and is accessible as this.input.
          */
-        public Reader setLocaleAndPositionReaderAfterLocaleEncoding(Reader reader) 
+        private void initDelegateStream()
         {
-            Pair<Locale, Reader> pair = getLocaleAndPositioReaderAfterLocaleEncoding(fieldName, reader);
+            Pair<Locale, Reader> pair = getLocaleAndPositioReaderAfterLocaleEncoding(fieldName, input);
 
             if(s_logger.isDebugEnabled())
             {
                 s_logger.debug("Created ML analyser token stream for "+fieldName+ " with locale "+pair.getFirst());
             }
             TokenStream source = getAnalyser(fieldName, pair.getFirst()).tokenStream(fieldName, pair.getSecond());
-            ts =  new MLTokenDuplicator(source, pair.getFirst(), pair.getSecond(), mlAnalaysisMode);
-            return pair.getSecond();
+            ts = new MLTokenDuplicator(source, pair.getFirst(), pair.getSecond(), mlAnalaysisMode);
         }
 
-
-
-        /* (non-Javadoc)
-         * @see org.apache.lucene.analysis.Tokenizer#close()
-         */
         @Override
         public void close() throws IOException
         {
-            ts.close();
+            if (ts != null)
+            {
+                ts.close();
+            }
             super.close();
         }
 
-
-
-        /* (non-Javadoc)
-         * @see org.apache.lucene.analysis.Tokenizer#reset()
-         */
         @Override
         public void reset() throws IOException
         {
-            ts.reset();
             super.reset();
+            initDelegateStream();
+            ts.reset();
         }
 
-
-        /* (non-Javadoc)
-         * @see org.apache.lucene.analysis.Tokenizer#reset()
-         */
         @Override
         public void end() throws IOException
         {
-            ts.end();
+            if (ts != null)
+            {
+                ts.end();
+            }
             super.end();
         }
 
