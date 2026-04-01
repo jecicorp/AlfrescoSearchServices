@@ -1154,6 +1154,9 @@
     <dynamicField name="text@s__sort@*" type="alfrescoCollatableTextFieldType" stored="false"/>
     <dynamicField name="text@sd___@*" type="identifier" docValues="true" stored="false"/>
 
+    <!-- Stored fields for highlighting (text, single-valued) -->
+    <dynamicField name="text@s_stored_*" type="alfrescoFieldType" stored="true" indexed="false"/>
+
     <dynamicField name="text@m____@*" type="stripLocaleStrField" multiValued="true" />
     <dynamicField name="text@m__l_@*" type="alfrescoFieldType" omitNorms="true" multiValued="true" />
     <dynamicField name="text@m__lt@*" type="alfrescoFieldType" omitNorms="true" multiValued="true" />
@@ -1161,12 +1164,18 @@
 
     <dynamicField name="text@md___@*" type="identifiers" stored="false" docValues="true" />
 
+    <!-- Stored fields for highlighting (text, multi-valued) -->
+    <dynamicField name="text@m_stored_*" type="alfrescoFieldType" stored="true" indexed="false" multiValued="true"/>
+
     <dynamicField name="mltext@m____@*" type="stripLocaleStrField" multiValued="true"/>
     <dynamicField name="mltext@m__l_@*" type="alfrescoFieldType" omitNorms="true" multiValued="true"/>
     <dynamicField name="mltext@m__lt@*" type="alfrescoFieldType" omitNorms="true" multiValued="true"/>
     <dynamicField name="mltext@m___t@*" type="text___" multiValued="true" />
 
     <dynamicField name="mltext@m__sort@*" type="alfrescoCollatableMLTextFieldType" />
+
+    <!-- Stored fields for highlighting (mltext) -->
+    <dynamicField name="mltext@m_stored_*" type="alfrescoFieldType" stored="true" indexed="false" multiValued="true"/>
 
     <dynamicField name="content@s__size@*" type="long" stored="true" docValues="true" />
     <dynamicField name="content@s__locale@*" type="identifier" stored="true" docValues="true"/>
@@ -1176,6 +1185,9 @@
     <dynamicField name="content@s__tr_ex@*" type="identifier" />
     <dynamicField name="content@s__tr_time@*" type="long" />
     <dynamicField name="content@s__tr_status@*" type="lowercase_id" />
+
+    <!-- Stored fields for highlighting (content) -->
+    <dynamicField name="content@s_stored_*" type="alfrescoFieldType" stored="true" indexed="false"/>
 
     <dynamicField name="content@s____@*" type="stripLocaleStrField"/>
     <dynamicField name="content@s__l_@*" type="alfrescoFieldType" omitNorms="true"/>

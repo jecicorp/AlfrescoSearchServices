@@ -739,6 +739,9 @@
 
       <dynamicField name="text@sd___@*"          type="identifier"        indexed="true" omitNorms="true"   stored="false"  multiValued="false" docValues="true" sortMissingLast="true" />
 
+      <!-- Stored fields for highlighting (text, single-valued) -->
+      <dynamicField name="text@s_stored_*" type="alfrescoFieldType" stored="true" indexed="false"/>
+
       <dynamicField name="text@m____@*"          type="identifier"        indexed="true" omitNorms="true"   stored="false"  multiValued="true" />
       <dynamicField name="text@m__l_@*"          type="alfrescoFieldType" indexed="true" omitNorms="true"   stored="false"  multiValued="true" />
       <dynamicField name="text@m__lt@*"          type="alfrescoFieldType" indexed="true" omitNorms="false"  stored="false"  multiValued="true" />
@@ -746,11 +749,17 @@
 
       <dynamicField name="text@md___@*"          type="identifier"        indexed="true" omitNorms="true"   stored="false"  multiValued="true" docValues="true" />
 
+      <!-- Stored fields for highlighting (text, multi-valued) -->
+      <dynamicField name="text@m_stored_*" type="alfrescoFieldType" stored="true" indexed="false" multiValued="true"/>
+
       <dynamicField name="mltext@m____@*"          type="identifier"        indexed="true" omitNorms="true"   stored="false"  multiValued="true" />
       <dynamicField name="mltext@m__l_@*"          type="alfrescoFieldType" indexed="true" omitNorms="true"   stored="false"  multiValued="true" />
       <dynamicField name="mltext@m__lt@*"          type="alfrescoFieldType" indexed="true" omitNorms="false"  stored="false"  multiValued="true" />
       <dynamicField name="mltext@m___t@*"          type="text___"           indexed="true" omitNorms="false"  stored="false"  multiValued="true" />
       <dynamicField name="mltext@m__sort@*"        type="alfrescoCollatableMLTextFieldType" indexed="true" omitNorms="true"   stored="false"  multiValued="false" sortMissingLast="true" />
+
+      <!-- Stored fields for highlighting (mltext) -->
+      <dynamicField name="mltext@m_stored_*" type="alfrescoFieldType" stored="true" indexed="false" multiValued="true"/>
 
       <dynamicField name="content@s__size@*"             type="long"         indexed="true"  omitNorms="true"  stored="false"  multiValued="false"  docValues="true" sortMissingLast="false" sortMissingFirst="false" />
       <dynamicField name="content@s__locale@*"           type="identifier"   indexed="true"  omitNorms="true"  stored="false"  multiValued="false"  docValues="true" sortMissingLast="true" />
@@ -761,6 +770,9 @@
       <dynamicField name="content@s__tr_time@*"          type="long"         indexed="true"  omitNorms="true"  stored="false"  multiValued="false" sortMissingLast="true" />
       <dynamicField name="content@s__tr_status@*"        type="lowercase_id" indexed="true"  omitNorms="true"  stored="false"  multiValued="false" sortMissingLast="true" />
 
+
+      <!-- Stored fields for highlighting (content) -->
+      <dynamicField name="content@s_stored_*" type="alfrescoFieldType" stored="true" indexed="false"/>
 
       <dynamicField name="content@s____@*"          type="identifier"        indexed="true" omitNorms="true"   stored="false"  multiValued="false" termPositions="false" />
       <dynamicField name="content@s__l_@*"          type="alfrescoFieldType"        indexed="true" omitNorms="true"   stored="false"  multiValued="false" termPositions="false" />

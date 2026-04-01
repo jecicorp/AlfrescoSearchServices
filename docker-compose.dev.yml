@@ -65,6 +65,8 @@ services:
         -Dcsrf.filter.enabled=false
         -Dencryption.keystore.type=JCEKS
         -Dencryption.keystore.location=classpath:alfresco/keystore/keystore
+    volumes:
+      - alfresco-data-volume:/usr/local/tomcat/alf_data
     depends_on:
       postgres:
         condition: service_healthy
@@ -150,5 +152,6 @@ networks:
 
 volumes:
   postgres-volume:
+  alfresco-data-volume:
   solr-data-volume:
   solr-solrhome-volume:

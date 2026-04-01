@@ -358,19 +358,27 @@ public class PathTokenFilter extends Tokenizer
 
     }
 
+    private int lastStartOffset = 0;
+
     @Override
     public final boolean incrementToken() throws IOException
     {
         clearAttributes();
-        
+
         PackedTokenAttributeImpl next = next();
         if (next == null)
         {
             return false;
         }
-        
+
         termAtt.copyBuffer(next.buffer(), 0, next.length());
-        offsetAtt.setOffset(correctOffset(next.startOffset()), correctOffset(next.endOffset()));
+        // Lucene 8 requires offsets to be non-decreasing.
+        // PATH tokens (separators, counts) can have offset 0,0 even after tokens
+        // with higher offsets. Clamp to ensure monotonic progression.
+        int startOff = Math.max(correctOffset(next.startOffset()), lastStartOffset);
+        int endOff = Math.max(correctOffset(next.endOffset()), startOff);
+        offsetAtt.setOffset(startOff, endOff);
+        lastStartOffset = startOff;
         typeAtt.setType(next.type());
         posIncAtt.setPositionIncrement(next.getPositionIncrement());
         return true;
@@ -384,6 +392,7 @@ public class PathTokenFilter extends Tokenizer
         it = null;
         readerPosition = 0;
         endOfStream = false;
+        lastStartOffset = 0;
     }
 
     @Override
