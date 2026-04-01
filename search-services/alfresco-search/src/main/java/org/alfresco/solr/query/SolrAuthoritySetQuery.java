@@ -30,7 +30,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Properties;
 
 import org.alfresco.repo.search.adaptor.QueryConstants;
 import org.alfresco.service.cmr.security.AuthorityType;
@@ -77,8 +76,8 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
         String[] auths = authorities.substring(1).split(authorities.substring(0, 1));
 
         SolrIndexSearcher solrIndexSearcher = (SolrIndexSearcher)searcher;
-        Properties p = solrIndexSearcher.getSchema().getResourceLoader().getCoreProperties();
-        boolean doPermissionChecks = Boolean.parseBoolean(p.getProperty("alfresco.doPermissionChecks", "true"));
+        boolean doPermissionChecks = Boolean.parseBoolean(
+                solrIndexSearcher.getCore().getCoreDescriptor().getCoreProperty("alfresco.doPermissionChecks", "true"));
 
         boolean hasGlobalRead = false;
 
@@ -137,8 +136,8 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
         String[] auths = authorities.substring(1).split(authorities.substring(0, 1));
 
         SolrIndexSearcher solrIndexSearcher = (SolrIndexSearcher)searcher;
-        Properties p = solrIndexSearcher.getSchema().getResourceLoader().getCoreProperties();
-        boolean doPermissionChecks = Boolean.parseBoolean(p.getProperty("alfresco.doPermissionChecks", "true"));
+        boolean doPermissionChecks = Boolean.parseBoolean(
+                solrIndexSearcher.getCore().getCoreDescriptor().getCoreProperty("alfresco.doPermissionChecks", "true"));
         boolean hasGlobalRead = false;
 
         final HashSet<String> globalReaders = GlobalReaders.getReaders();

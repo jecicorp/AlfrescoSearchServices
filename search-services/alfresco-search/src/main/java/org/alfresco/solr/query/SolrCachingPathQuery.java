@@ -56,7 +56,8 @@ public class SolrCachingPathQuery extends Query
     /*
      * @see org.apache.lucene.search.Query#createWeight(org.apache.lucene.search.Searcher)
      */
-    public Weight createWeight(IndexSearcher indexSearcher, boolean requiresScore) throws IOException
+    @Override
+    public Weight createWeight(IndexSearcher indexSearcher, ScoreMode scoreMode, float boost) throws IOException
     {
         SolrIndexSearcher searcher = null;
         if(!(indexSearcher instanceof SolrIndexSearcher))

@@ -28,7 +28,6 @@ package org.alfresco.solr.query;
 
 import java.io.IOException;
 import java.util.HashSet;
-import java.util.Properties;
 
 import org.alfresco.service.cmr.security.PermissionService;
 import org.alfresco.solr.cache.CacheConstants;
@@ -58,8 +57,8 @@ public class SolrAuthoritySetScorer extends AbstractSolrCachingScorer
     
     public static SolrAuthoritySetScorer createAuthoritySetScorer(Weight weight, LeafReaderContext context, SolrIndexSearcher searcher, String authorities) throws IOException
     {
-        Properties p = searcher.getSchema().getResourceLoader().getCoreProperties();
-        boolean doPermissionChecks = Boolean.parseBoolean(p.getProperty("alfresco.doPermissionChecks", "true"));
+        boolean doPermissionChecks = Boolean.parseBoolean(
+                searcher.getCore().getCoreDescriptor().getCoreProperty("alfresco.doPermissionChecks", "true"));
         
         Query key = new SolrAuthoritySetQuery(authorities);
         
