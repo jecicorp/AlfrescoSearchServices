@@ -526,11 +526,10 @@ public abstract class SolrITInitializer extends SolrTestCaseJ4
     {
         try
         {
-            HttpSolrClient client = new HttpSolrClient(url);
-            client.setConnectionTimeout(DEFAULT_CONNECTION_TIMEOUT1);
-            client.setSoTimeout(CLIENT_SO_TIMEOUT);
-            client.setDefaultMaxConnectionsPerHost(100);
-            client.setMaxTotalConnections(100);
+            HttpSolrClient client = new HttpSolrClient.Builder(url)
+                .withConnectionTimeout(DEFAULT_CONNECTION_TIMEOUT1)
+                .withSocketTimeout(CLIENT_SO_TIMEOUT)
+                .build();
             return client;
         } catch (Exception ex)
         {

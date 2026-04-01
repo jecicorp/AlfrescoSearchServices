@@ -82,7 +82,7 @@ public class SolrDenySetScorer2 extends AbstractSolrCachingScorer
             {
                 int docID = it.nextDoc();
                 // Obtain the ACL ID for this ACL doc.
-                long aclID = aclDocValues.get(docID);
+                long aclID = aclDocValues.advanceExact(docID) ? aclDocValues.longValue() : 0;
                 aclsFound.add(getLong(aclID));
             }
          
@@ -96,7 +96,8 @@ public class SolrDenySetScorer2 extends AbstractSolrCachingScorer
                     {
                         for(int i = 0; i < maxDoc; i++)
                         {
-                            long aclID = fieldValues.get(i);
+                            if (!fieldValues.advanceExact(i)) continue;
+                            long aclID = fieldValues.longValue();
                             Long key = getLong(aclID);
                             if(aclsFound.contains(key))
                             {
@@ -122,4 +123,10 @@ public class SolrDenySetScorer2 extends AbstractSolrCachingScorer
         
     }
 
+
+    @Override
+    public float getMaxScore(int upTo) throws IOException
+    {
+        return Float.MAX_VALUE;
+    }
 }

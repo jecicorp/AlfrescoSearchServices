@@ -81,13 +81,6 @@ public abstract class AbstractSolrCachingScorer extends Scorer
     {
         return 1.0f;
     }
-
-    // TODO: implement
-    @Override
-    public int freq() throws IOException
-    {
-        return 1;
-    }
     
     @Override
 	public int docID() 
@@ -99,6 +92,12 @@ public abstract class AbstractSolrCachingScorer extends Scorer
 	public DocIdSetIterator iterator() 
 	{
 		return iterator;
+	}
+
+	@Override
+	public float getMaxScore(int upTo) throws IOException
+	{
+		return Float.MAX_VALUE;
 	}
 
 

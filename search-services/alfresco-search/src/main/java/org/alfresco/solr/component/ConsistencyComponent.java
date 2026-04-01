@@ -124,13 +124,13 @@ public class ConsistencyComponent extends SearchComponent
                         LeafReader reader = ctx.reader();
                         NumericDocValues txIdDv = reader.getNumericDocValues("TXID");
                         NumericDocValues txTimeDv = reader.getNumericDocValues("TXCOMMITTIME");
-                        if (txIdDv != null)
+                        if (txIdDv != null && txIdDv.advanceExact(localDocId))
                         {
-                            result[0] = txIdDv.get(localDocId);
+                            result[0] = txIdDv.longValue();
                         }
-                        if (txTimeDv != null)
+                        if (txTimeDv != null && txTimeDv.advanceExact(localDocId))
                         {
-                            result[1] = txTimeDv.get(localDocId);
+                            result[1] = txTimeDv.longValue();
                         }
                         break;
                     }
@@ -168,9 +168,9 @@ public class ConsistencyComponent extends SearchComponent
                     if (localDocId >= 0 && localDocId < ctx.reader().maxDoc())
                     {
                         NumericDocValues sTxIdDv = ctx.reader().getNumericDocValues("S_TXID");
-                        if (sTxIdDv != null)
+                        if (sTxIdDv != null && sTxIdDv.advanceExact(localDocId))
                         {
-                            long value = sTxIdDv.get(localDocId);
+                            long value = sTxIdDv.longValue();
                             if (value > 0)
                             {
                                 return value;

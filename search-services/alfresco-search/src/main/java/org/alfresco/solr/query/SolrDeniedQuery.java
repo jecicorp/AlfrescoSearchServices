@@ -33,6 +33,7 @@ import org.alfresco.repo.search.adaptor.QueryConstants;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
@@ -59,7 +60,7 @@ public class SolrDeniedQuery extends AbstractAuthorityQuery
     }
 
     @Override
-    public Weight createWeight(IndexSearcher searcher, boolean requiresScore) throws IOException
+    public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException
     {
         if(!(searcher instanceof SolrIndexSearcher))
         {
@@ -82,9 +83,8 @@ public class SolrDeniedQuery extends AbstractAuthorityQuery
         }
 
         @Override
-		public void extractTerms(Set<Term> terms) 
-		{
-			terms.add(new Term(QueryConstants.FIELD_DENIED, authority));
-		}  
+        public void extractTerms(java.util.Set<org.apache.lucene.index.Term> terms)
+        {
+        }
     }
 }

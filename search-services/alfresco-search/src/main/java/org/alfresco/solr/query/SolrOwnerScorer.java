@@ -72,4 +72,10 @@ public class SolrOwnerScorer extends AbstractSolrCachingScorer
         return new SolrOwnerScorer(weight, new BitDocSet(new FixedBitSet(0)), context, searcher);
     }
 
+
+    @Override
+    public float getMaxScore(int upTo) throws IOException
+    {
+        return Float.MAX_VALUE;
+    }
 }

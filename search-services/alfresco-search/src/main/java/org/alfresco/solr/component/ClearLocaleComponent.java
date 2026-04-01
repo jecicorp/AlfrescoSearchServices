@@ -66,13 +66,5 @@ public class ClearLocaleComponent extends SearchComponent
         return "clearLocale";
     }
 
-    /* (non-Javadoc)
-     * @see org.apache.solr.handler.component.SearchComponent#getSource()
-     */
-    @Override
-    public String getSource()
-    {
-        return "";
-    }
 
 }

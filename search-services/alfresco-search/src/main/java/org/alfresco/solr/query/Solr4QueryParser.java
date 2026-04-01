@@ -87,7 +87,7 @@ import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.BooleanQuery.Builder;
 import org.apache.lucene.search.ConstantScoreQuery;
-import org.apache.lucene.search.LegacyNumericRangeQuery;
+import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.MultiTermQuery;
 import org.apache.lucene.search.Query;
@@ -167,7 +167,6 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
     {
         super(f, a);
         setAllowLeadingWildcard(true);
-        setAnalyzeRangeTerms(true);
         this.rerankPhase = rerankPhase;
         this.schema = req.getSchema();
         this.solrParams = req.getParams();
@@ -770,7 +769,7 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
         if(isNumber(id))
         {
             long dbid = Long.parseLong(id);
-            q = LegacyNumericRangeQuery.newLongRange("DBID", dbid, dbid + 1, true, false);
+            q = LongPoint.newRangeQuery("DBID", dbid, dbid);
         }
         else
         {
@@ -782,7 +781,7 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
         Set<String> fields = new HashSet();
         fields.add(FIELD_FINGERPRINT);
 
-        if(docs.totalHits == 1) {
+        if(docs.totalHits.value == 1) {
             ScoreDoc scoreDoc = docs.scoreDocs[0];
             Document doc = searcher.doc(scoreDoc.doc, fields);
 
@@ -873,8 +872,8 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
 
         protected ModifiableSolrParams getClientParams() {
             ModifiableSolrParams clientParams = new ModifiableSolrParams();
-            clientParams.set(HttpClientUtil.PROP_SO_TIMEOUT, UpdateShardHandlerConfig.DEFAULT_DISTRIBUPDATESOTIMEOUT);
-            clientParams.set(HttpClientUtil.PROP_CONNECTION_TIMEOUT, UpdateShardHandlerConfig.DEFAULT_DISTRIBUPDATECONNTIMEOUT);
+            clientParams.set(HttpClientUtil.PROP_SO_TIMEOUT, UpdateShardHandlerConfig.DEFAULT.getDistributedSocketTimeout());
+            clientParams.set(HttpClientUtil.PROP_CONNECTION_TIMEOUT, UpdateShardHandlerConfig.DEFAULT.getDistributedConnectionTimeout());
             return clientParams;
         }
     }
@@ -935,7 +934,7 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
                     rowInBand++;
                     if (rowInBand == bandSize)
                     {
-                        builder.add(new ConstantScoreQuery(childBuilder.setDisableCoord(true).build()),
+                        builder.add(new ConstantScoreQuery(childBuilder.build()),
                                 Occur.SHOULD);
                         childBuilder = new BooleanQuery.Builder();
                         rowInBand = 0;
@@ -953,13 +952,12 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
                     rowInBand++;
                     if (rowInBand == bandSize)
                     {
-                        builder.add(new ConstantScoreQuery(childBuilder.setDisableCoord(true).build()),
+                        builder.add(new ConstantScoreQuery(childBuilder.build()),
                                 Occur.SHOULD);
                         break;
                     }
                 }
             }
-            builder.setDisableCoord(true);
             if (parts.length == 2)
             {
                 builder.setMinimumNumberShouldMatch((int) (Math.ceil(values.size() * fraction)));
@@ -2355,7 +2353,7 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
             } 
             else
             {
-                return newTermQuery(new Term(field, termText));
+                return newTermQuery(new Term(field, termText), 1.0f);
             }
         } 
         else
@@ -2376,7 +2374,7 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
                             currentQuery = newWildcardQuery(new Term(field, termText));
                         } else
                         {
-                            currentQuery = newTermQuery(new Term(field, termText));
+                            currentQuery = newTermQuery(new Term(field, termText), 1.0f);
                         }
                         q.add(currentQuery, BooleanClause.Occur.SHOULD);
                     }
@@ -3375,29 +3373,13 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
 
         } else if (field.equals(FIELD_ID))
         {
-            boolean lowercaseExpandedTerms = getLowercaseExpandedTerms();
-            try
-            {
-                setLowercaseExpandedTerms(false);
-                return super.getPrefixQuery(FIELD_LID, termStr);
-            } finally
-            {
-                setLowercaseExpandedTerms(lowercaseExpandedTerms);
-            }
+            return super.getPrefixQuery(FIELD_LID, termStr);
         } else if (field.equals(FIELD_DBID) || field.equals(FIELD_ISROOT) || field.equals(FIELD_ISCONTAINER)
                 || field.equals(FIELD_ISNODE) || field.equals(FIELD_TX) || field.equals(FIELD_PARENT)
                 || field.equals(FIELD_PRIMARYPARENT) || field.equals(FIELD_QNAME)
                 || field.equals(FIELD_PRIMARYASSOCTYPEQNAME) || field.equals(FIELD_ASSOCTYPEQNAME))
         {
-            boolean lowercaseExpandedTerms = getLowercaseExpandedTerms();
-            try
-            {
-                setLowercaseExpandedTerms(false);
-                return super.getPrefixQuery(field, termStr);
-            } finally
-            {
-                setLowercaseExpandedTerms(lowercaseExpandedTerms);
-            }
+            return super.getPrefixQuery(field, termStr);
         } else if (field.equals(FIELD_CLASS))
         {
             return super.getPrefixQuery(field, termStr);
@@ -3539,29 +3521,13 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
 
         } else if (field.equals(FIELD_ID))
         {
-            boolean lowercaseExpandedTerms = getLowercaseExpandedTerms();
-            try
-            {
-                setLowercaseExpandedTerms(false);
-                return super.getWildcardQuery(FIELD_LID, termStr);
-            } finally
-            {
-                setLowercaseExpandedTerms(lowercaseExpandedTerms);
-            }
+            return super.getWildcardQuery(FIELD_LID, termStr);
         } else if (field.equals(FIELD_DBID) || field.equals(FIELD_ISROOT) || field.equals(FIELD_ISCONTAINER)
                 || field.equals(FIELD_ISNODE) || field.equals(FIELD_TX) || field.equals(FIELD_PARENT)
                 || field.equals(FIELD_PRIMARYPARENT) || field.equals(FIELD_QNAME)
                 || field.equals(FIELD_PRIMARYASSOCTYPEQNAME) || field.equals(FIELD_ASSOCTYPEQNAME))
         {
-            boolean lowercaseExpandedTerms = getLowercaseExpandedTerms();
-            try
-            {
-                setLowercaseExpandedTerms(false);
-                return super.getWildcardQuery(field, termStr);
-            } finally
-            {
-                setLowercaseExpandedTerms(lowercaseExpandedTerms);
-            }
+            return super.getWildcardQuery(field, termStr);
         } else if (field.equals(FIELD_CLASS))
         {
             return super.getWildcardQuery(field, termStr);
@@ -3701,15 +3667,7 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
                 || field.equals(FIELD_PARENT) || field.equals(FIELD_PRIMARYPARENT) || field.equals(FIELD_QNAME)
                 || field.equals(FIELD_PRIMARYASSOCTYPEQNAME) || field.equals(FIELD_ASSOCTYPEQNAME))
         {
-            boolean lowercaseExpandedTerms = getLowercaseExpandedTerms();
-            try
-            {
-                setLowercaseExpandedTerms(false);
-                return super.getFuzzyQuery(field, termStr, minSimilarity);
-            } finally
-            {
-                setLowercaseExpandedTerms(lowercaseExpandedTerms);
-            }
+            return super.getFuzzyQuery(field, termStr, minSimilarity);
         } else if (field.equals(FIELD_CLASS))
         {
             throw new UnsupportedOperationException("Fuzzy Queries are not support for " + FIELD_CLASS);
@@ -5038,68 +4996,57 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
             throws ParseException
     {
 
-        boolean lowercaseExpandedTerms = getLowercaseExpandedTerms();
-        try
+        switch (tokenisationMode)
         {
-            switch (tokenisationMode)
-            {
-                case BOTH:
-                    switch (analysisMode)
-                    {
-                        default:
-                        case DEFAULT:
-                            addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
-                                    booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.TRUE);
+            case BOTH:
+                switch (analysisMode)
+                {
+                    default:
+                    case DEFAULT:
+                        addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
+                                booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.TRUE);
 
-                            if (ContentModel.PROP_NAME.equals(pDef.getName()))
-                            {
-                                setLowercaseExpandedTerms(false);
-                                addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
-                                        booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.FALSE);
-                            }
-
-                            break;
-                        case TOKENISE:
-                            addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
-                                    booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.TRUE);
-                            break;
-                        case IDENTIFIER:
-                            setLowercaseExpandedTerms(false);
-                            if (isExactTermSearch(analysisMode))
-                            {//with exact search we favour tokenization, specifically cross locale tokenization
-                                addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
-                                        booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.TRUE);
-                            } else
-                            {
-                                addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
-                                        booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.FALSE);
-                            }
-                            break;
-                        case FUZZY:
-                        case PREFIX:
-                        case WILD:
-                        case LIKE:
-                            setLowercaseExpandedTerms(false);
+                        if (ContentModel.PROP_NAME.equals(pDef.getName()))
+                        {
                             addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
                                     booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.FALSE);
+                        }
 
-                            break;
-                    }
-                    break;
-                case FALSE:
-                    setLowercaseExpandedTerms(false);
-                    addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
-                            booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.FALSE);
-                    break;
-                case TRUE:
-                default:
-                    addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
-                            booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.TRUE);
-                    break;
-            }
-        } finally
-        {
-            setLowercaseExpandedTerms(lowercaseExpandedTerms);
+                        break;
+                    case TOKENISE:
+                        addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
+                                booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.TRUE);
+                        break;
+                    case IDENTIFIER:
+                        if (isExactTermSearch(analysisMode))
+                        {//with exact search we favour tokenization, specifically cross locale tokenization
+                            addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
+                                    booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.TRUE);
+                        } else
+                        {
+                            addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
+                                    booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.FALSE);
+                        }
+                        break;
+                    case FUZZY:
+                    case PREFIX:
+                    case WILD:
+                    case LIKE:
+                        addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
+                                booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.FALSE);
+
+                        break;
+                }
+                break;
+            case FALSE:
+                addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
+                        booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.FALSE);
+                break;
+            case TRUE:
+            default:
+                addLocaleSpecificMLOrTextAttribute(pDef, queryText, subQueryBuilder, analysisMode, luceneFunction,
+                        booleanQuery, locale, expandedFieldName, tokenisationMode, IndexTokenisationMode.TRUE);
+                break;
         }
 
     }
@@ -5556,13 +5503,13 @@ public class Solr4QueryParser extends QueryParser implements QueryConstants
         if (part1 == null) {
             start = null;
         } else {
-            start = getAnalyzeRangeTerms() ? analyzeMultitermTerm(field, part1) : new BytesRef(part1);
+            start = analyzeMultitermTerm(field, part1);
         }
 
         if (part2 == null) {
             end = null;
         } else {
-            end = getAnalyzeRangeTerms() ? analyzeMultitermTerm(field, part2) : new BytesRef(part2);
+            end = analyzeMultitermTerm(field, part2);
         }
 
         final TermRangeQuery query = new TermRangeQuery(field, start, end, startInclusive, endInclusive);

@@ -29,7 +29,6 @@ package org.alfresco.solr.query;
 import java.io.IOException;
 
 import org.apache.lucene.index.PostingsEnum;
-import org.apache.lucene.util.AttributeSource;
 import org.apache.lucene.util.BytesRef;
 
 
@@ -143,15 +142,6 @@ public class CachingTermPositions extends PostingsEnum
     public BytesRef getPayload() throws IOException
     {
         return delegate.getPayload();
-    }
-
-    /**
-     * @return AttributeSource
-     * @see org.apache.lucene.index.DocsEnum#attributes()
-     */
-    public AttributeSource attributes()
-    {
-        return delegate.attributes();
     }
 
     /**

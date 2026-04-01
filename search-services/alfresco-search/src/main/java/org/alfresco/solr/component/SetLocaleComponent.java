@@ -77,13 +77,5 @@ public class SetLocaleComponent extends SearchComponent
         return "setLocale";
     }
 
-    /* (non-Javadoc)
-     * @see org.apache.solr.handler.component.SearchComponent#getSource()
-     */
-    @Override
-    public String getSource()
-    {
-        return "";
-    }
 
 }

@@ -35,6 +35,7 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.LeafCollector;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
@@ -55,7 +56,7 @@ public class SolrOwnerQuery extends AbstractAuthorityQuery
     }
     
     @Override
-    public Weight createWeight(IndexSearcher searcher, boolean needsScore) throws IOException
+    public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException
     {
         if(!(searcher instanceof SolrIndexSearcher))
         {
@@ -63,7 +64,7 @@ public class SolrOwnerQuery extends AbstractAuthorityQuery
         }
 
         BitSetQuery ownerFilter = getOwnerFilter(authority, (SolrIndexSearcher)searcher);
-        return ownerFilter.createWeight(searcher, false);
+        return ownerFilter.createWeight(searcher, ScoreMode.COMPLETE_NO_SCORES, 1f);
     }
 
     @Override
@@ -97,11 +98,7 @@ public class SolrOwnerQuery extends AbstractAuthorityQuery
             return new BitSetQuery(sets);
         }
 
-        public boolean acceptsDocsOutOfOrder() {
-            return false;
-        }
-
-        public void setScorer(Scorer scorer) {
+        public void setScorer(org.apache.lucene.search.Scorable scorer) {
 
         }
 
@@ -118,8 +115,8 @@ public class SolrOwnerQuery extends AbstractAuthorityQuery
         }
 
         @Override
-        public boolean needsScores() {
-            return false;
+        public org.apache.lucene.search.ScoreMode scoreMode() {
+            return org.apache.lucene.search.ScoreMode.COMPLETE_NO_SCORES;
         }
     }
 }

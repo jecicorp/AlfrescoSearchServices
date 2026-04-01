@@ -4,21 +4,21 @@
  * %%
  * Copyright (C) 2005 - 2020 Alfresco Software Limited
  * %%
- * This file is part of the Alfresco software. 
- * If the software was purchased under a paid Alfresco license, the terms of 
- * the paid license agreement will prevail.  Otherwise, the software is 
+ * This file is part of the Alfresco software.
+ * If the software was purchased under a paid Alfresco license, the terms of
+ * the paid license agreement will prevail.  Otherwise, the software is
  * provided under the following open source license terms:
- * 
+ *
  * Alfresco is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Alfresco is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
  * #L%
@@ -32,12 +32,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
 
+import java.io.IOException;
 import java.text.Collator;
 import java.util.Locale;
 
 import org.alfresco.solr.AlfrescoCollatableMLTextFieldType.MLTextSortFieldComparator;
 import org.apache.lucene.index.BinaryDocValues;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.junit.Before;
 import org.junit.Test;
@@ -60,25 +60,22 @@ public class AlfrescoCollatableMLTextFieldTypeTest
     @Mock
     BinaryDocValues mockDocTerms;
     @Mock
-    Bits mockDocsWithField;
-    @Mock
     Collator mockCollator;
 
     @Before
     public void setUp()
     {
         initMocks(this);
-        reset(mockDocTerms, mockDocsWithField);
+        reset(mockDocTerms);
         textSortFieldComparator.bottom = BOTTOM_STRING;
     }
 
     /** Check that a zero length term is sorted before a populated field. */
     @Test
-    public void testCompareBottom_termLengthZeroAndDocDoesntHaveField()
+    public void testCompareBottom_termLengthZeroAndDocDoesntHaveField() throws IOException
     {
-        // Set up the document to have an empty term.
-        when(mockDocTerms.get(DOC)).thenReturn(new BytesRef());
-        when(mockDocsWithField.get(DOC)).thenReturn(false);
+        // Set up the document to have no value.
+        when(mockDocTerms.advanceExact(DOC)).thenReturn(false);
 
         // Call the method under test.
         int result = textSortFieldComparator.compareBottom(DOC);
@@ -87,36 +84,29 @@ public class AlfrescoCollatableMLTextFieldTypeTest
     }
 
     /**
-     * Check the behaviour of compareBottom when docsWithField is null (this happens when all documents contain the
-     * field).
+     * Check the behaviour of compareBottom when the document has an empty term.
      */
     @Test
-    public void testCompareBottom_nullDocsWithField()
+    public void testCompareBottom_emptyTerm() throws IOException
     {
-        // Set docsWithField to null to simulate all documents containing the field.
-        Bits oldValue = textSortFieldComparator.docsWithField;
-        textSortFieldComparator.docsWithField = null;
-
         // Set up the document to have an empty term.
-        when(mockDocTerms.get(DOC)).thenReturn(new BytesRef());
+        when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
+        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef());
 
         // Call the method under test.
         textSortFieldComparator.compareBottom(DOC);
 
         // Expect the EMPTY_TERM to be compared
         verify(mockCollator).compare(BOTTOM_STRING, "");
-
-        // Reset docsWithField with the mock after the test.
-        textSortFieldComparator.docsWithField = oldValue;
     }
 
     /** Check that if the doc has a value then it is compared with the existing value. */
     @Test
-    public void testCompareBottom_populatedTerm()
+    public void testCompareBottom_populatedTerm() throws IOException
     {
         // Set up the document to have "Some value" for the field.
-        when(mockDocTerms.get(DOC)).thenReturn(new BytesRef("Some value"));
-        when(mockDocsWithField.get(DOC)).thenReturn(false);
+        when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
+        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef("Some value"));
 
         // Call the method under test.
         textSortFieldComparator.compareBottom(DOC);
@@ -126,15 +116,15 @@ public class AlfrescoCollatableMLTextFieldTypeTest
 
     /** Check the behaviour if the multilanguage term is encoded. */
     @Test
-    public void testCompareBottom_encodedTerm_localeFound()
+    public void testCompareBottom_encodedTerm_localeFound() throws IOException
     {
         // Create an encoded multilanguage string with Russian, US English and Thai with Thai digits.
         String mlText = "\u0000ru\u0000First\u0000Ignored" +
                 "\u0000en_US\u0000Second\u0000IgnoredToo" +
                 "\u0000th_TH_TH\u0000Third\u0000AlsoIgnored";
         // Set up the document to have an encoded value for the field.
-        when(mockDocTerms.get(DOC)).thenReturn(new BytesRef(mlText));
-        when(mockDocsWithField.get(DOC)).thenReturn(false);
+        when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
+        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef(mlText));
 
         // Check that the Russian text can be extracted.
         textSortFieldComparator.collatorLocale = Locale.forLanguageTag("ru");
@@ -157,11 +147,12 @@ public class AlfrescoCollatableMLTextFieldTypeTest
 
     /** Check the behaviour if the term has a locale but no text. */
     @Test
-    public void testCompareBottom_badlyEncodedTerm()
+    public void testCompareBottom_badlyEncodedTerm() throws IOException
     {
         // Set the value to have a locale but no text.
         String mlText = "\u0000ru";
-        when(mockDocTerms.get(DOC)).thenReturn(new BytesRef(mlText));
+        when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
+        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef(mlText));
 
         // Call the method under test.
         textSortFieldComparator.compareBottom(DOC);

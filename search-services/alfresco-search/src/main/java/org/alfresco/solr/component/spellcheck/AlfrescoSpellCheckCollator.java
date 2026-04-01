@@ -34,7 +34,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.alfresco.solr.query.AbstractQParser;
-import org.apache.lucene.analysis.Token;
+import org.apache.solr.spelling.Token;
 import org.apache.lucene.index.IndexReader;
 import org.apache.solr.common.params.CommonParams;
 import org.apache.solr.common.params.DisMaxParams;

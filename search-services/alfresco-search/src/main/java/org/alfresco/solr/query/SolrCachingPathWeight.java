@@ -32,6 +32,7 @@ import java.util.Set;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Explanation;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
 import org.apache.solr.search.SolrIndexSearcher;
@@ -50,7 +51,7 @@ public class SolrCachingPathWeight extends Weight
     {
     	super(cachingPathQuery);
         this.searcher = searcher;
-        queryWeight = cachingPathQuery.pathQuery.createWeight(searcher, false);
+        queryWeight = cachingPathQuery.pathQuery.createWeight(searcher, ScoreMode.COMPLETE_NO_SCORES, 1f);
     }
 
     @Override
@@ -58,27 +59,20 @@ public class SolrCachingPathWeight extends Weight
     {
         throw new UnsupportedOperationException();
     }
-
-    @Override
-    public float getValueForNormalization() throws IOException
-    {
-        return 1.0f;
-    }
-
-    @Override
-    public void normalize(float norm, float topLevelBoost)
-    {
-    }
-
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException
     {
         return SolrCachingPathScorer.create(this, context, searcher, ((SolrCachingPathQuery)getQuery()).pathQuery);
     }
 
-	@Override
-	public void extractTerms(Set<Term> terms) 
-	{	
-		queryWeight.extractTerms(terms);
-	}
+    @Override
+    public void extractTerms(Set<Term> terms)
+    {
+    }
+
+    @Override
+    public boolean isCacheable(LeafReaderContext ctx)
+    {
+        return false;
+    }
 }

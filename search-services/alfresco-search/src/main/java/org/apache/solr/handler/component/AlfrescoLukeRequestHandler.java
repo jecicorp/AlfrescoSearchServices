@@ -335,7 +335,7 @@ public class AlfrescoLukeRequestHandler extends RequestHandlerBase {
 				f.add("binary", Base64.byteArrayToBase64(bytes.bytes,
 						bytes.offset, bytes.length));
 			}
-			f.add("boost", field.boost());
+			f.add("boost", 1.0f);
 			f.add("docFreq", t.text() == null ? 0 : reader.docFreq(t)); // this
 																		// can
 																		// be 0
@@ -413,7 +413,7 @@ public class AlfrescoLukeRequestHandler extends RequestHandlerBase {
 				fieldMap.add("dynamicBase",
 						schema.getDynamicPattern(sfield.getName()));
 			}
-			Terms terms = reader.fields().terms(fieldName);
+			Terms terms = reader.terms(fieldName);
 			if (terms == null) { // Not indexed, so we need to report what we
 									// can (it made it through the fl param if
 									// specified)
@@ -529,7 +529,7 @@ public class AlfrescoLukeRequestHandler extends RequestHandlerBase {
 
 		finfo.add("uniqueKeyField",
 				null == uniqueField ? null : uniqueField.getName());
-		finfo.add("defaultSearchField", schema.getDefaultSearchFieldName());
+		// defaultSearchField removed in Solr 8
 		finfo.add("types", types);
 		return finfo;
 	}
@@ -697,7 +697,7 @@ public class AlfrescoLukeRequestHandler extends RequestHandlerBase {
 
 		final CharsRefBuilder spare = new CharsRefBuilder();
 
-		Terms terms = MultiFields.getTerms(req.getSearcher().getIndexReader(),
+		Terms terms = org.apache.lucene.index.MultiTerms.getTerms(req.getSearcher().getIndexReader(),
 				field);
 		if (terms == null) { // field does not exist
 			return;
@@ -755,16 +755,6 @@ public class AlfrescoLukeRequestHandler extends RequestHandlerBase {
 	@Override
 	public String getDescription() {
 		return "Lucene Index Browser.  Inspired and modeled after Luke: http://www.getopt.org/luke/";
-	}
-
-	@Override
-	public URL[] getDocs() {
-		try {
-			return new URL[] { new URL(
-					"http://wiki.apache.org/solr/LukeRequestHandler") };
-		} catch (MalformedURLException ex) {
-			return null;
-		}
 	}
 
 	// /////////////////////////////////////////////////////////////////////////////////////

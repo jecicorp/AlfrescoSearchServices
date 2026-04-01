@@ -38,6 +38,7 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.LeafCollector;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
@@ -118,7 +119,7 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
         private int length;
         private double reRankWeight;
         private boolean scale;
-        private Map<BytesRef, Integer> boostedPriority;
+        private Set<BytesRef> boostedPriority;
 
         public int hashCode() {
             return mainQuery.hashCode()+reRankQuery.hashCode()+(int)reRankWeight+reRankDocs+(scale ? 1 : 0);
@@ -161,7 +162,7 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
                 SolrRequestInfo info = SolrRequestInfo.getRequestInfo();
                 if(info != null) {
                     Map context = info.getReq().getContext();
-                    this.boostedPriority = (Map<BytesRef, Integer>)context.get(QueryElevationComponent.BOOSTED_PRIORITY);
+                    this.boostedPriority = (Set<BytesRef>)context.get(QueryElevationComponent.BOOSTED);
                 }
             }
 
@@ -191,7 +192,7 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
         }
 
 
-        public Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException{
+        public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException{
             return new ReRankWeight(mainQuery, reRankQuery, reRankWeight, searcher);
         }
     }
@@ -207,25 +208,20 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
             this.reRankQuery = reRankQuery;
             this.searcher = searcher;
             this.reRankWeight = reRankWeight;
-            this.mainWeight = mainQuery.createWeight(searcher, true);
+            this.mainWeight = mainQuery.createWeight(searcher, ScoreMode.COMPLETE, 1f);
+        }
+public Scorer scorer(LeafReaderContext context) throws IOException {
+            return mainWeight.scorer(context);
         }
 
         @Override
         public void extractTerms(Set<Term> terms) {
-          this.mainWeight.extractTerms(terms);
-
-        }
-        
-        public float getValueForNormalization() throws IOException {
-            return mainWeight.getValueForNormalization();
+            this.mainWeight.extractTerms(terms);
         }
 
-        public Scorer scorer(LeafReaderContext context) throws IOException {
-            return mainWeight.scorer(context);
-        }
-
-        public void normalize(float norm, float topLevelBoost) {
-            mainWeight.normalize(norm, topLevelBoost);
+        @Override
+        public boolean isCacheable(LeafReaderContext ctx) {
+            return false;
         }
 
         public Explanation explain(LeafReaderContext context, int doc) throws IOException {
@@ -252,7 +248,7 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
         private int reRankDocs;
         private int length;
         private double reRankWeight;
-        private Map<BytesRef, Integer> boostedPriority;
+        private Set<BytesRef> boostedPriority;
         private float minScore = Float.MAX_VALUE;
         private float maxScore = -Float.MAX_VALUE;
         private Scorer localScorer;
@@ -264,7 +260,7 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
                                double reRankWeight,
                                QueryCommand cmd,
                                IndexSearcher searcher,
-                               Map<BytesRef, Integer> boostedPriority,
+                               Set<BytesRef> boostedPriority,
                                boolean scale) throws IOException {
             super(null);
             this.reRankQuery = reRankQuery;
@@ -274,17 +270,17 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
             this.scale = scale;
             Sort sort = cmd.getSort();
             if(sort == null) {
-                this.mainCollector = TopScoreDocCollector.create(Math.max(this.reRankDocs, length), null);
+                this.mainCollector = TopScoreDocCollector.create(Math.max(this.reRankDocs, length), Integer.MAX_VALUE);
             } else {
                 sort = sort.rewrite(searcher);
-                this.mainCollector = TopFieldCollector.create(sort, Math.max(this.reRankDocs, length), null, false, true, true);
+                this.mainCollector = TopFieldCollector.create(sort, Math.max(this.reRankDocs, length), Integer.MAX_VALUE);
             }
             this.searcher = searcher;
             this.reRankWeight = reRankWeight;
         }
 
         public int getTotalHits() {
-            return mainCollector.getTotalHits();
+            return (int) mainCollector.getTotalHits();
         }
 
         public TopDocs topDocs(int start, int howMany) {
@@ -293,7 +289,7 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
 
                 TopDocs mainDocs = mainCollector.topDocs(0,  Math.max(reRankDocs, length));
 
-                if(mainDocs.totalHits == 0 || mainDocs.scoreDocs.length == 0) {
+                if(mainDocs.totalHits.value == 0 || mainDocs.scoreDocs.length == 0) {
                     return mainDocs;
                 }
 
@@ -330,7 +326,7 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
                         }
                     }.rescore(searcher, mainDocs, mainDocs.scoreDocs.length);
 
-                    Arrays.sort(rescoredDocs.scoreDocs, new BoostedComp(boostedDocs, mainDocs.scoreDocs, rescoredDocs.getMaxScore()));
+                    Arrays.sort(rescoredDocs.scoreDocs, new BoostedComp(boostedDocs, mainDocs.scoreDocs, getMaxScoreFromDocs(rescoredDocs.scoreDocs)));
 
                     //Lower howMany if we've collected fewer documents.
                     howMany = Math.min(howMany, mainScoreDocs.length);
@@ -435,14 +431,15 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
 		}
 
 		@Override
-		public boolean needsScores() {
-		return true;
+		public org.apache.lucene.search.ScoreMode scoreMode() {
+		return org.apache.lucene.search.ScoreMode.COMPLETE;
 		}
     }
 
     private void scaleScores(TopDocs topDocs, Map<Integer, Float> scoreMap)
     {
-        float maxScore = topDocs.getMaxScore();
+        float maxScore = Float.NaN;
+        for (ScoreDoc sd : topDocs.scoreDocs) { if (Float.isNaN(maxScore) || sd.score > maxScore) maxScore = sd.score; }
         float newMax = -Float.MAX_VALUE;
 
         for(ScoreDoc scoreDoc : topDocs.scoreDocs) {
@@ -470,7 +467,13 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
         }
 
         assert(newMax <= 2);
-        topDocs.setMaxScore(newMax);
+        // maxScore is computed from scoreDocs in Lucene 8
+    }
+
+    private float getMaxScoreFromDocs(ScoreDoc[] docs) {
+        float max = Float.NEGATIVE_INFINITY;
+        for (ScoreDoc d : docs) { if (d.score > max) max = d.score; }
+        return max;
     }
 
     private Map<Integer, Float> getScoreMap(ScoreDoc[] scoreDocs, int num) {

@@ -69,4 +69,10 @@ public class SolrCachingPathScorer extends AbstractSolrCachingScorer
         
         return new SolrCachingPathScorer(weight, results, context, searcher);
     }
+
+    @Override
+    public float getMaxScore(int upTo) throws IOException
+    {
+        return Float.MAX_VALUE;
+    }
 }

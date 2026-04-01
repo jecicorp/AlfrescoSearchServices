@@ -31,7 +31,7 @@ import static org.alfresco.repo.search.adaptor.QueryConstants.FIELD_LID;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.LegacyNumericRangeQuery;
+import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermQuery;
@@ -85,7 +85,7 @@ public class FingerPrintComponent extends SearchComponent
         if(isNumber(id))
         {
             long dbid = Long.parseLong(id);
-            q = LegacyNumericRangeQuery.newLongRange("DBID", dbid, dbid + 1, true, false);
+            q = LongPoint.newRangeQuery("DBID", dbid, dbid);
         }
         else
         {
@@ -99,7 +99,7 @@ public class FingerPrintComponent extends SearchComponent
 
         NamedList<Object> fingerPrint = new NamedList<>();
         List<Object> values = new ArrayList<>();
-        if(docs.totalHits == 1)
+        if(docs.totalHits.value == 1)
         {
             ScoreDoc scoreDoc = docs.scoreDocs[0];
             Document doc = searcher.doc(scoreDoc.doc, fields);

@@ -106,4 +106,10 @@ public class SolrAuthorityScorer extends AbstractSolrCachingScorer
             return new SolrAuthorityScorer(weight, toCache, context, searcher);
         }
     }
+
+    @Override
+    public float getMaxScore(int upTo) throws IOException
+    {
+        return Float.MAX_VALUE;
+    }
 }

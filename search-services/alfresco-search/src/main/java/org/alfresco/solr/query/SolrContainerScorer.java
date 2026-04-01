@@ -75,16 +75,6 @@ public class SolrContainerScorer extends Scorer
     {
         return 1.0f;
     }
-
-    /* (non-Javadoc)
-     * @see org.apache.lucene.index.DocsEnum#freq()
-     */
-    @Override
-    public int freq() throws IOException
-    {
-        // Could loop through positions and return min freq??
-        return 1;
-    }
     
     @Override
 	public int docID()
@@ -578,4 +568,10 @@ public class SolrContainerScorer extends Scorer
         }
     }
 
+
+    @Override
+    public float getMaxScore(int upTo) throws IOException
+    {
+        return Float.MAX_VALUE;
+    }
 }

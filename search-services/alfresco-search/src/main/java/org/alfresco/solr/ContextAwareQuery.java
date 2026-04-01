@@ -31,6 +31,7 @@ import java.io.IOException;
 import org.alfresco.service.cmr.search.SearchParameters;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Weight;
 import org.slf4j.Logger;
@@ -73,9 +74,9 @@ public class ContextAwareQuery extends Query
      * @throws IOException
      * @see org.apache.lucene.search.Query#createWeight(IndexSearcher, boolean)
      */
-    public Weight createWeight(IndexSearcher searcher, boolean needsScore) throws IOException
+    public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException
     {
-        return luceneQuery.createWeight(searcher, needsScore);
+        return luceneQuery.createWeight(searcher, scoreMode, boost);
     }
 
 

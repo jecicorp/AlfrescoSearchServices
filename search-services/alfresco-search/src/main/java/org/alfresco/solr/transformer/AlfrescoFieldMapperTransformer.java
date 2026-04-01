@@ -56,7 +56,7 @@ public class AlfrescoFieldMapperTransformer extends DocTransformer
 
     @SuppressWarnings("unchecked")
     @Override
-    public void transform(SolrDocument doc, int docid, float score)
+    public void transform(SolrDocument doc, int docid)
     {
         Collection<String> fieldNames = new ArrayList<>(doc.getFieldNames());
         solrReturnFields = new SolrReturnFields(context.getRequest().getParams().get("originalFl"), context.getRequest());

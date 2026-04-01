@@ -104,12 +104,6 @@ public class SolrPathScorer extends Scorer
     }
 
     @Override
-    public int freq() throws IOException
-    {
-      return scorer.freq();
-    }
-
-    @Override
     public int docID()
     {
        return scorer.docID();
@@ -125,4 +119,10 @@ public class SolrPathScorer extends Scorer
  
 
 
+
+    @Override
+    public float getMaxScore(int upTo) throws IOException
+    {
+        return Float.MAX_VALUE;
+    }
 }

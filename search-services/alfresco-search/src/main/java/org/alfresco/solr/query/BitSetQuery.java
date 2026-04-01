@@ -32,8 +32,10 @@ import java.util.List;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.ConstantScoreScorer;
 import org.apache.lucene.search.ConstantScoreWeight;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
@@ -82,10 +84,16 @@ public class BitSetQuery extends Query
     }
 
     @Override
-    public Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException
+    public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException
     {
-        return new ConstantScoreWeight(this)
+        return new ConstantScoreWeight(this, boost)
         {
+            @Override
+            public boolean isCacheable(LeafReaderContext ctx)
+            {
+                return false;
+            }
+
             @Override
             public Scorer scorer(LeafReaderContext context) throws IOException
             {
@@ -96,7 +104,7 @@ public class BitSetQuery extends Query
                     return null;
                 }
                 DocIdSetIterator iterator = new BitSetIterator(bits, cardinality);
-                return new ConstantScoreScorer(this, score(), iterator);
+                return new ConstantScoreScorer(this, score(), scoreMode, iterator);
             }
         };
     }

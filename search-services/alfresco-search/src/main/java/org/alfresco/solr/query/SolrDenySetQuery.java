@@ -32,6 +32,7 @@ import org.alfresco.repo.search.adaptor.QueryConstants;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.solr.search.DelegatingCollector;
 import org.apache.solr.search.PostFilter;
@@ -78,7 +79,7 @@ public class SolrDenySetQuery extends AbstractAuthoritySetQuery implements PostF
     }
     
     @Override
-    public Weight createWeight(IndexSearcher searcher, boolean requiresScore) throws IOException
+    public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException
     {
         if(!(searcher instanceof SolrIndexSearcher))
         {
@@ -87,7 +88,7 @@ public class SolrDenySetQuery extends AbstractAuthoritySetQuery implements PostF
 
         String[] auths = authorities.substring(1).split(authorities.substring(0, 1));
         BitSetQuery denyFilter  = getACLFilter(auths, QueryConstants.FIELD_DENIED, (SolrIndexSearcher) searcher);
-        return denyFilter.createWeight(searcher, false);
+        return denyFilter.createWeight(searcher, ScoreMode.COMPLETE_NO_SCORES, 1f);
     }
 
     public DelegatingCollector getFilterCollector(IndexSearcher searcher)
@@ -143,7 +144,8 @@ public class SolrDenySetQuery extends AbstractAuthoritySetQuery implements PostF
 
         public void collect(int doc) throws IOException{
         	
-        		long aclId = this.fieldValues.get(doc);
+        		if(!this.fieldValues.advanceExact(doc)) return;
+        		long aclId = this.fieldValues.longValue();
 
         		if(!aclIds.get(aclId))
         		{

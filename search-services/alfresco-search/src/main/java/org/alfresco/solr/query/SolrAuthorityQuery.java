@@ -33,6 +33,7 @@ import org.alfresco.repo.search.adaptor.QueryConstants;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
@@ -60,13 +61,13 @@ public class SolrAuthorityQuery extends AbstractAuthorityQuery
     }
 
     @Override
-    public Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException
+    public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException
     {
         if(!(searcher instanceof SolrIndexSearcher))
         {
             throw new IllegalStateException("Must have a SolrIndexSearcher");
         }
-        return new SolrAuthorityQueryWeight((SolrIndexSearcher)searcher, needsScores, this, authority);
+        return new SolrAuthorityQueryWeight((SolrIndexSearcher)searcher, scoreMode.needsScores(), this, authority);
     }
     
     private class SolrAuthorityQueryWeight extends AbstractAuthorityQueryWeight
@@ -82,10 +83,9 @@ public class SolrAuthorityQuery extends AbstractAuthorityQuery
             return SolrAuthorityScorer.createAuthorityScorer(this, context, searcher, authority);
         }
 
-		@Override
-		public void extractTerms(Set<Term> terms) 
-		{
-			terms.add(new Term(QueryConstants.FIELD_AUTHORITY, authority));
-		}   
+        @Override
+        public void extractTerms(java.util.Set<org.apache.lucene.index.Term> terms)
+        {
+        }
     }
 }

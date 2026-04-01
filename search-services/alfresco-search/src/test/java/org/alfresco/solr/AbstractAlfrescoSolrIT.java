@@ -325,7 +325,7 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
                                                         "solrconfig.xml",
                                                         schema);
         
-        NodeConfig nodeConfig = new NodeConfig.NodeConfigBuilder("name", resourceLoader)
+        NodeConfig nodeConfig = new NodeConfig.NodeConfigBuilder("name", resourceLoader.getInstancePath())
                 .setUseSchemaCache(false)
                 .setCoreAdminHandlerClass(CoreAdminHandler.class.getName())
                 .build();
@@ -554,7 +554,7 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
         long timeout = date.getTime() + waitMillis;
 
         RefCounted<SolrIndexSearcher> ref = null;
-        int totalHits = 0;
+        long totalHits = 0;
         while(new Date().getTime() < timeout)
         {
             try
@@ -562,8 +562,8 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
                 ref = getCore().getSearcher();
                 SolrIndexSearcher searcher = ref.get();
                 TopDocs topDocs = searcher.search(query, 10);
-                totalHits = topDocs.totalHits;
-                if (topDocs.totalHits == expectedNumFound)
+                totalHits = topDocs.totalHits.value;
+                if (topDocs.totalHits.value == expectedNumFound)
                 {
                     LOG.warn("Query \"" + query + "\" returned " + totalHits + " as expected");
                     return;

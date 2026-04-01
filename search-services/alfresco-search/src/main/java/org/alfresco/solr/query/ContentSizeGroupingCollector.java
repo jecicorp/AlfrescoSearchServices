@@ -75,7 +75,7 @@ public class ContentSizeGroupingCollector extends DelegatingCollector
         super.doSetNextReader(context);
         if(schemaField != null)
         {
-            if(schemaField.getType().getNumericType() != null)
+            if(true)
             {
                 try
                 {
@@ -97,7 +97,8 @@ public class ContentSizeGroupingCollector extends DelegatingCollector
 
         if(numericDocValues != null)
         {
-            long value = numericDocValues.get(doc);
+            if(!numericDocValues.advanceExact(doc)) { leafDelegate.collect(doc); return; }
+            long value = numericDocValues.longValue();
             stats.add(value);
         }
         leafDelegate.collect(doc);

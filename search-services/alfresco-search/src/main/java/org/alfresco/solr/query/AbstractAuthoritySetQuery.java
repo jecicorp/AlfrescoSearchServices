@@ -38,6 +38,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.Weight;
@@ -66,7 +67,7 @@ public abstract class AbstractAuthoritySetQuery extends Query
     }
 
     @Override
-    public abstract Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException;
+    public abstract Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException;
     
     @Override
     public String toString(String field)
@@ -153,8 +154,8 @@ public abstract class AbstractAuthoritySetQuery extends Query
                 while(doc >= ceil);
             }
 
-            if(aclValues != null) {
-                long aclId = aclValues.get(doc - base);
+            if(aclValues != null && aclValues.advanceExact(doc - base)) {
+                long aclId = aclValues.longValue();
                 hybridBitSet.set(aclId);
             }
         }
@@ -178,7 +179,8 @@ public abstract class AbstractAuthoritySetQuery extends Query
             NumericDocValues fieldValues = DocValuesCache.getNumericDocValues(QueryConstants.FIELD_ACLID, reader);
             if (fieldValues != null) {
                 for (int i = 0; i < maxDoc; i++) {
-                    long aclID = fieldValues.get(i);
+                    if (!fieldValues.advanceExact(i)) continue;
+                    long aclID = fieldValues.longValue();
                     if (aclBits.get(aclID)) {
                         bits.set(i);
                     }

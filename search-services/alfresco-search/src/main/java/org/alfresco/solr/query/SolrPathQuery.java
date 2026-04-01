@@ -37,6 +37,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
 
@@ -141,7 +142,7 @@ public class SolrPathQuery extends Query
     /*
      * @see org.apache.lucene.search.Query#createWeight(org.apache.lucene.search.Searcher)
      */
-    public Weight createWeight(IndexSearcher searcher, boolean needsScore)
+    public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost)
     {
         return new StructuredFieldWeight();
     }
@@ -215,40 +216,22 @@ public class SolrPathQuery extends Query
             throw new UnsupportedOperationException();
         }
 
-        /* (non-Javadoc)
-         * @see org.apache.lucene.search.Weight#getValueForNormalization()
-         */
-        @Override
-        public float getValueForNormalization() throws IOException
-        {
-           return 1.0f;
-        }
-
-        /* (non-Javadoc)
-         * @see org.apache.lucene.search.Weight#normalize(float, float)
-         */
-        @Override
-        public void normalize(float norm, float topLevelBoost)
-        {
-          
-            
-        }
-
-        /* (non-Javadoc)
-         * @see org.apache.lucene.search.Weight#scorer(org.apache.lucene.index.AtomicReaderContext, org.apache.lucene.util.Bits)
-         */
         @Override
         public Scorer scorer(LeafReaderContext context) throws IOException
         {
             return SolrPathScorer.createPathScorer(SolrPathQuery.this, context, this, dictionaryService, repeats);
         }
 
+        @Override
+        public void extractTerms(Set<Term> terms)
+        {
+        }
 
-		@Override
-		public void extractTerms(Set<Term> terms) {
-			throw new UnsupportedOperationException();
-			
-		}
+        @Override
+        public boolean isCacheable(LeafReaderContext ctx)
+        {
+            return false;
+        }
     }
 
     public void removeDescendantAndSelf()

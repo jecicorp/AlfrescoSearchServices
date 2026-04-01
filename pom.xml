@@ -27,12 +27,10 @@
       <maven.build.sourceVersion>17</maven.build.sourceVersion>
       <maven.compiler.source>17</maven.compiler.source>
       <maven.compiler.target>17</maven.compiler.target>
-      <solr.base.version>6.6.5</solr.base.version>
-      <solr.version>${solr.base.version}-patched.22</solr.version>
+      <solr.base.version>8.11.4</solr.base.version>
+      <solr.version>${solr.base.version}</solr.version>
       <!-- The location to download the solr zip file from. -->
-      <!-- <solr.zip>https://archive.apache.org/dist/lucene/solr/${solr.version}/solr-${solr.version}.zip</solr.zip> -->
-      <!-- Solr startup scripts do not work with any Java version higher than 9 so the scripts have been patched -->
-      <solr.zip>https://artifacts.alfresco.com/nexus/content/repositories/public/org/apache/solr/solr/solr-${solr.version}/solr-solr-${solr.version}.zip</solr.zip>
+      <solr.zip>https://archive.apache.org/dist/lucene/solr/${solr.version}/solr-${solr.version}.zip</solr.zip>
       <solr.directory>${project.build.directory}/solr-${solr.version}</solr.directory>
       <license-maven-plugin.version>2.0.1</license-maven-plugin.version>
       <licenseName>enterprise</licenseName>
@@ -75,7 +73,7 @@
       <dependency.commons-codec.version>1.16.1</dependency.commons-codec.version>
       <dependency.spring.version>6.2.12</dependency.spring.version>
       <dependency.spring-e2e-test.version>5.3.39</dependency.spring-e2e-test.version>
-      <dependency.zookeeper.version>3.4.14</dependency.zookeeper.version>
+      <dependency.zookeeper.version>3.6.3</dependency.zookeeper.version>
       <dependency.mime4j.version>0.8.11</dependency.mime4j.version>
    </properties>
    <dependencyManagement>

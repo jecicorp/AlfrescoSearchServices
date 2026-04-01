@@ -73,17 +73,6 @@ public class SetProcessedDeniesComponent extends SearchComponent
         return "Adds the processedDenies boolean flag to the search results.";
     }
 
-    @Override
-    public String getSource()
-    {
-        return "http://www.alfresco.com";
-    }
-
-    @Override
-    public String getVersion()
-    {
-        return "1.0";
-    }
     
     @Override
     public void finishStage(ResponseBuilder rb) {

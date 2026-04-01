@@ -56,7 +56,7 @@ public class DocValuesCache
             cache.put(field, fieldCache);
         }
 
-        Object cacheKey = reader.getCoreCacheKey();
+        Object cacheKey = reader.getReaderCacheHelper().getKey();
         NumericDocValues cachedValues = fieldCache.get(cacheKey);
 
         if(cachedValues == null)
@@ -75,7 +75,8 @@ public class DocValuesCache
 
                 for(int i=0; i<maxDoc; i++)
                 {
-                    long value = fieldValues.get(i);
+                    if (!fieldValues.advanceExact(i)) continue;
+                    long value = fieldValues.longValue();
                     if(value > Integer.MAX_VALUE && !longs)
                     {
                         longs = true;
@@ -102,6 +103,7 @@ public class DocValuesCache
     private static class IntValues extends SettableDocValues
     {
         private int[] values;
+        private int doc = -1;
 
         public IntValues(int[] values)
         {
@@ -116,11 +118,30 @@ public class DocValuesCache
         public long get(int index) {
             return values[index];
         }
+
+        @Override
+        public long longValue() { return values[doc]; }
+
+        @Override
+        public boolean advanceExact(int target) { doc = target; return true; }
+
+        @Override
+        public int docID() { return doc; }
+
+        @Override
+        public int nextDoc() { return ++doc < values.length ? doc : NO_MORE_DOCS; }
+
+        @Override
+        public int advance(int target) { doc = target; return doc < values.length ? doc : NO_MORE_DOCS; }
+
+        @Override
+        public long cost() { return values.length; }
     }
 
     private static class LongValues extends SettableDocValues
     {
         private long[] values;
+        private int doc = -1;
 
         public LongValues(int[] ivalues)
         {
@@ -139,5 +160,23 @@ public class DocValuesCache
         {
             return values[index];
         }
+
+        @Override
+        public long longValue() { return values[doc]; }
+
+        @Override
+        public boolean advanceExact(int target) { doc = target; return true; }
+
+        @Override
+        public int docID() { return doc; }
+
+        @Override
+        public int nextDoc() { return ++doc < values.length ? doc : NO_MORE_DOCS; }
+
+        @Override
+        public int advance(int target) { doc = target; return doc < values.length ? doc : NO_MORE_DOCS; }
+
+        @Override
+        public long cost() { return values.length; }
     }
 }

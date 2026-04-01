@@ -71,7 +71,8 @@ public class SolrDeniedScorer extends AbstractSolrCachingScorer
             {
                 int docID = it.nextDoc();
                 // Obtain the ACL ID for this ACL doc.
-                long aclID = searcher.getSlowAtomicReader().getNumericDocValues(QueryConstants.FIELD_ACLID).get(docID);
+                org.apache.lucene.index.NumericDocValues _ndv = searcher.getSlowAtomicReader().getNumericDocValues(QueryConstants.FIELD_ACLID);
+                long aclID = (_ndv != null && _ndv.advanceExact(docID)) ? _ndv.longValue() : 0;
                 SchemaField schemaField = searcher.getSchema().getField(QueryConstants.FIELD_ACLID);
                 Query query = schemaField.getType().getFieldQuery(null, schemaField, Long.toString(aclID));
                 // Find real docs that match the ACL ID
@@ -85,5 +86,11 @@ public class SolrDeniedScorer extends AbstractSolrCachingScorer
             searcher.cacheInsert(CacheConstants.ALFRESCO_DENIED_CACHE, authority, deniedDocs);
         }
         return new SolrDeniedScorer(weight, deniedDocs, context, searcher);
+    }
+
+    @Override
+    public float getMaxScore(int upTo) throws IOException
+    {
+        return Float.MAX_VALUE;
     }
 }

@@ -87,30 +87,20 @@ public class MLAnalayser extends Analyzer
 //            try{mltokenizer.close();} catch(IOException ioe) {};
 //            throw new AnalysisException("Failed to init MLTokenizer", e);
 //        }
-        return new LocaleAwareTokenStreamComponents(mltokenizer);
+        return new TokenStreamComponents(mltokenizer);
     }
-    
-    private static class LocaleAwareTokenStreamComponents extends Analyzer.TokenStreamComponents 
-    {
-        MLTokenizer mltokenizer;
-        
-        /**
-         * @param source
-         */
-        public LocaleAwareTokenStreamComponents(final MLTokenizer source)
-        {
-            super(source);
-            this.mltokenizer = source;
-        }
 
-        /* (non-Javadoc)
-         * @see org.apache.lucene.analysis.Analyzer.TokenStreamComponents#setReader(java.io.Reader)
-         */
-        @Override
-        protected void setReader(Reader reader)
-        {
-            super.setReader(mltokenizer.setLocaleAndPositionReaderAfterLocaleEncoding(reader));
-        }
+    /**
+     * In Lucene 8, {@code Analyzer.TokenStreamComponents} is final and cannot be subclassed.
+     * We override {@link Analyzer#initReader(String, Reader)} to process locale encoding
+     * before the tokenizer sees the reader.
+     */
+    @Override
+    protected Reader initReader(String fieldName, Reader reader)
+    {
+        // Delegate to the MLTokenizer to parse locale prefix and reposition the reader
+        MLTokenizer mltokenizer = new MLTokenizer(fieldName, schema, mlAnalaysisMode, mode);
+        return mltokenizer.setLocaleAndPositionReaderAfterLocaleEncoding(reader);
     }
     
     private static class MLTokenizer extends Tokenizer

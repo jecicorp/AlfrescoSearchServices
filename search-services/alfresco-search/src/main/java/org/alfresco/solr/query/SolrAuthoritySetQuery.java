@@ -44,6 +44,7 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.BooleanQuery.Builder;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.LeafCollector;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Scorer;
@@ -66,7 +67,7 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
     }
 
     @Override
-    public Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException
+    public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException
     {
         if(!(searcher instanceof SolrIndexSearcher))
         {
@@ -94,7 +95,7 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
 
         if (hasGlobalRead || (doPermissionChecks == false))
         {
-            return new MatchAllDocsQuery().createWeight(searcher, needsScores);
+            return new MatchAllDocsQuery().createWeight(searcher, scoreMode, boost);
         }
 
         BitSetQuery readFilter  = getACLFilter(auths, QueryConstants.FIELD_READER, solrIndexSearcher);
@@ -103,7 +104,7 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
         if (globalReaders.contains(PermissionService.OWNER_AUTHORITY))
         {
             readFilter.or(ownerFilter);
-            return readFilter.createWeight(searcher, needsScores);
+            return readFilter.createWeight(searcher, scoreMode, boost);
         }
         else
         {
@@ -111,7 +112,7 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
             BitSetQuery ownerReadFilter  = getACLFilter(ownerAuth, QueryConstants.FIELD_READER, solrIndexSearcher);
             ownerReadFilter.and(ownerFilter);
             readFilter.or(ownerReadFilter);
-            return readFilter.createWeight(searcher, needsScores);
+            return readFilter.createWeight(searcher, scoreMode, boost);
         }
     }
 
@@ -262,7 +263,7 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
             return false;
         }
 
-        public void setScorer(Scorer scorer) {
+        public void setScorer(org.apache.lucene.search.Scorable scorer) {
 
         }
 
@@ -279,8 +280,8 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
 		}
 
 		@Override
-		public boolean needsScores() {
-			return false;
+		public org.apache.lucene.search.ScoreMode scoreMode() {
+			return org.apache.lucene.search.ScoreMode.COMPLETE_NO_SCORES;
 		}
     }
 
@@ -322,7 +323,8 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
 
         public void collect(int doc) throws IOException
         {
-            long aclId = this.fieldValues.get(doc);
+            if(!this.fieldValues.advanceExact(doc)) return;
+            long aclId = this.fieldValues.longValue();
 
             if(aclIds.get(aclId) || ownerDocs.get(doc))
             {
@@ -359,7 +361,8 @@ public class SolrAuthoritySetQuery extends AbstractAuthoritySetQuery implements 
 
         public void collect(int doc) throws IOException
         {
-            long aclId = this.fieldValues.get(doc);
+            if(!this.fieldValues.advanceExact(doc)) return;
+            long aclId = this.fieldValues.longValue();
             if(aclIds.get(aclId) || (ownerDocs.get(doc) && ownerAclIds.get(aclId)))
             {
                 super.collect(doc);

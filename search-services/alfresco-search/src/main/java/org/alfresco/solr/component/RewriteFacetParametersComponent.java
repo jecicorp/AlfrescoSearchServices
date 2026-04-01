@@ -556,13 +556,5 @@ public class RewriteFacetParametersComponent extends SearchComponent
         return "RewriteFacetParameters";
     }
 
-    /* (non-Javadoc)
-     * @see org.apache.solr.handler.component.SearchComponent#getSource()
-     */
-    @Override
-    public String getSource()
-    {
-        return "";
-    }
 
 }

@@ -90,7 +90,8 @@ public class MimetypeGroupingCollector extends DelegatingCollector
     {
         if(sortedDocValues != null)
         {
-            int ordinal = sortedDocValues.getOrd(doc);
+            if(!sortedDocValues.advanceExact(doc)) { leafDelegate.collect(doc); return; }
+            int ordinal = sortedDocValues.ordValue();
             if(ordinal > -1)
             {
                 String value = (String)schemaField.getType().toObject(schemaField, sortedDocValues.lookupOrd(ordinal));

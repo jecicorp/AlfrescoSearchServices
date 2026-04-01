@@ -40,7 +40,7 @@ import org.alfresco.solr.client.Transaction;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.LegacyNumericRangeQuery;
+import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.search.TermQuery;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.junit.After;
@@ -87,7 +87,7 @@ public class AlfrescoSolrFingerprintIT extends AbstractAlfrescoSolrIT
         // Check for the ACL state stamp.
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
         builder.add(new BooleanClause(new TermQuery(new Term(QueryConstants.FIELD_SOLR4_ID, "TRACKER!STATE!ACLTX")), BooleanClause.Occur.MUST));
-        builder.add(new BooleanClause(LegacyNumericRangeQuery.newLongRange(QueryConstants.FIELD_S_ACLTXID, aclChangeSet.getId(), aclChangeSet.getId() + 1, true, false), BooleanClause.Occur.MUST));
+        builder.add(new BooleanClause(LongPoint.newRangeQuery(QueryConstants.FIELD_S_ACLTXID, aclChangeSet.getId(), aclChangeSet.getId()), BooleanClause.Occur.MUST));
         BooleanQuery waitForQuery = builder.build();
         waitForDocCount(waitForQuery, 1, MAX_WAIT_TIME);
     }
@@ -112,7 +112,7 @@ public class AlfrescoSolrFingerprintIT extends AbstractAlfrescoSolrIT
         //Check for the TXN state stamp.
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
         builder.add(new BooleanClause(new TermQuery(new Term(QueryConstants.FIELD_SOLR4_ID, "TRACKER!STATE!TX")), BooleanClause.Occur.MUST));
-        builder.add(new BooleanClause(LegacyNumericRangeQuery.newLongRange(QueryConstants.FIELD_S_TXID, transactionId, transactionId + 1, true, false), BooleanClause.Occur.MUST));
+        builder.add(new BooleanClause(LongPoint.newRangeQuery(QueryConstants.FIELD_S_TXID, transactionId, transactionId), BooleanClause.Occur.MUST));
         BooleanQuery waitForQuery = builder.build();
         waitForDocCount(waitForQuery, 1, MAX_WAIT_TIME);
     }

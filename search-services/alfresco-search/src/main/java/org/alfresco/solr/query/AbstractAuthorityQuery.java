@@ -29,6 +29,7 @@ package org.alfresco.solr.query;
 import java.io.IOException;
 
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Weight;
 
@@ -51,7 +52,7 @@ public abstract class AbstractAuthorityQuery extends Query
     }
 
     @Override
-    public abstract Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException;
+    public abstract Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException;
     
     public String toString(String field)
     {

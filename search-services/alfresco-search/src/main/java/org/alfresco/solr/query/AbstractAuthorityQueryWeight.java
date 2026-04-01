@@ -31,7 +31,7 @@ import java.io.IOException;
 import org.apache.lucene.index.IndexReaderContext;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.index.TermContext;
+import org.apache.lucene.index.TermStates;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Weight;
@@ -56,7 +56,7 @@ public abstract class AbstractAuthorityQueryWeight extends Weight
         searcher.collectionStatistics(authTermName);
         final IndexReaderContext context = searcher.getTopReaderContext();
         final Term term = new Term(authTermName, authTermText);
-        final TermContext termContext = TermContext.build(context, term);
+        final TermStates termContext = TermStates.build(context, term, true);
         searcher.termStatistics(term, termContext);
         this.needsScores = needsScores;
     }
@@ -68,18 +68,13 @@ public abstract class AbstractAuthorityQueryWeight extends Weight
     }
 
     @Override
-    public float getValueForNormalization()
+    public void extractTerms(java.util.Set<Term> terms)
     {
-        return sumOfSquaredWeights();
     }
 
     @Override
-    public void normalize(float queryNorm, float topLevelBoost)
+    public boolean isCacheable(LeafReaderContext ctx)
     {
-    }
-    
-    protected float sumOfSquaredWeights()
-    {
-        return 0;
+        return false;
     }
 }

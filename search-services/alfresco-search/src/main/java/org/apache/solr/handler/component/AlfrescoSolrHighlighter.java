@@ -257,7 +257,7 @@ public class AlfrescoSolrHighlighter extends DefaultSolrHighlighter implements P
 			// It'd be nice to know if payloads are on the tokenStream but the
 			// presence of the attribute isn't a good
 			// indicator.
-			final Terms terms = request.getSearcher().getSlowAtomicReader().fields().terms(schemaFieldName);
+			final Terms terms = request.getSearcher().getSlowAtomicReader().terms(schemaFieldName);
 			if (terms != null)
 			{
 				defaultPayloads = terms.hasPayloads();

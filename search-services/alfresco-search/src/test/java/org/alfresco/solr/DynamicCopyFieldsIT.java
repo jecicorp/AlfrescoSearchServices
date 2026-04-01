@@ -66,7 +66,7 @@ import static org.alfresco.solr.AlfrescoSolrUtils.getNode;
 import static org.alfresco.solr.AlfrescoSolrUtils.getNodeMetaData;
 import static org.alfresco.solr.AlfrescoSolrUtils.getTransaction;
 import static org.alfresco.solr.AlfrescoSolrUtils.indexAclChangeSet;
-import static org.carrot2.shaded.guava.common.collect.ImmutableList.of;
+import static com.google.common.collect.ImmutableList.of;
 
 @SolrTestCaseJ4.SuppressSSL
 public class DynamicCopyFieldsIT extends AbstractAlfrescoDistributedIT {

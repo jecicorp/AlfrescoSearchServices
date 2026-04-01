@@ -31,6 +31,7 @@ import java.io.IOException;
 import org.alfresco.solr.cache.CacheConstants;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Weight;
 import org.apache.solr.search.DocSet;
@@ -77,7 +78,7 @@ public class SolrCachingPathQuery extends Query
             searcher.cacheInsert(CacheConstants.ALFRESCO_PATH_CACHE, pathQuery, results);
         }
 
-        return new ConstantScoreQuery(results.getTopFilter()).createWeight(searcher, false);
+        return new ConstantScoreQuery(results.getTopFilter()).createWeight(searcher, ScoreMode.COMPLETE_NO_SCORES, 1f);
     }
 
     /*

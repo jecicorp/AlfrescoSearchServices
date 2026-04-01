@@ -37,9 +37,8 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.FieldComparator;
 import org.apache.lucene.search.FieldComparatorSource;
 import org.apache.lucene.search.LeafFieldComparator;
-import org.apache.lucene.search.Scorer;
+import org.apache.lucene.search.Scorable;
 import org.apache.lucene.search.SortField;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.solr.schema.SchemaField;
 import org.apache.solr.schema.StrField;
@@ -106,12 +105,6 @@ public class AlfrescoCollatableMLTextFieldType extends StrField
 
         private BinaryDocValues docTerms;
 
-        /**
-         * An array of flags - one for each document in the segment. Each bit is set to true if the document has the
-         * field or false otherwise. If this is set to null then all docs in the segment have the field.
-         */
-        Bits docsWithField;
-
         private final String field;
 
         Collator collator;
@@ -142,16 +135,16 @@ public class AlfrescoCollatableMLTextFieldType extends StrField
             this.bottom = values[bottom];
         }
 
-        public int compareBottom(int doc)
+        public int compareBottom(int doc) throws IOException
         {
-            final String comparableString = findBestValue(doc, docTerms.get(doc));
+            final String comparableString = findBestValue(doc);
             return compareValues(bottom, comparableString);
 
         }
 
-        public void copy(int slot, int doc)
+        public void copy(int slot, int doc) throws IOException
         {
-            values[slot] = findBestValue(doc, docTerms.get(doc));
+            values[slot] = findBestValue(doc);
         }
 
         public String value(int slot)
@@ -159,12 +152,13 @@ public class AlfrescoCollatableMLTextFieldType extends StrField
             return values[slot];
         }
 
-        private String findBestValue(int doc, BytesRef term)
+        private String findBestValue(int doc) throws IOException
         {
-            if (term.length == 0 && docsWithField != null && docsWithField.get(doc) == false)
+            if (!docTerms.advanceExact(doc))
             {
                 return null;
             }
+            BytesRef term = docTerms.binaryValue();
 
             String withLocale = term.utf8ToString();
 
@@ -228,7 +222,7 @@ public class AlfrescoCollatableMLTextFieldType extends StrField
         @Override
         public int compareTop(int doc) throws IOException
         {
-            final String comparableString = findBestValue(doc, docTerms.get(doc));
+            final String comparableString = findBestValue(doc);
             return compareValues(top, comparableString);
         }
 
@@ -239,11 +233,6 @@ public class AlfrescoCollatableMLTextFieldType extends StrField
         public LeafFieldComparator getLeafComparator(LeafReaderContext context) throws IOException
         {
             docTerms = DocValues.getBinary(context.reader(), field);
-            docsWithField = DocValues.getDocsWithField(context.reader(), field);
-            if (docsWithField instanceof Bits.MatchAllBits)
-            {
-                docsWithField = null;
-            }
             return this;
         }
 
@@ -266,7 +255,7 @@ public class AlfrescoCollatableMLTextFieldType extends StrField
         }
 
         @Override
-        public void setScorer(Scorer scorer)
+        public void setScorer(Scorable scorer)
         {
         }
     }
