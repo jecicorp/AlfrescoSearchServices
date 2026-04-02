@@ -37,7 +37,6 @@
       <license.update.dryrun>true</license.update.dryrun>
       <license.update.copyright>false</license.update.copyright>
 
-      <dependency.alfresco.xml-factory.version>1.3</dependency.alfresco.xml-factory.version>
       <dependency.alfresco-data-model.version>18.20</dependency.alfresco-data-model.version>
 
       <dependency.jackson.version>2.17.2</dependency.jackson.version>
@@ -195,11 +194,7 @@
             <artifactId>xercesImpl</artifactId>
             <version>2.12.2</version>
          </dependency>
-         <dependency>
-            <groupId>org.alfresco</groupId>
-            <artifactId>alfresco-xmlfactory</artifactId>
-            <version>${dependency.alfresco.xml-factory.version}</version>
-         </dependency>
+         <!-- alfresco-xmlfactory removed: disables XInclude needed for generated_copy_fields.xml -->
          <dependency>
             <groupId>org.apache.cxf</groupId>
             <artifactId>cxf-core</artifactId>

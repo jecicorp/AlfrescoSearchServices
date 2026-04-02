@@ -284,10 +284,8 @@
             <groupId>xpp3</groupId>
             <artifactId>xpp3</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.alfresco</groupId>
-            <artifactId>alfresco-xmlfactory</artifactId>
-        </dependency>
+        <!-- alfresco-xmlfactory removed: it disables XInclude which is needed
+             for generated_copy_fields.xml. Solr 8 has built-in XXE protection. -->
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>

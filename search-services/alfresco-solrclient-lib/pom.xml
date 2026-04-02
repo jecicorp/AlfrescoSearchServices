@@ -36,6 +36,10 @@
                     <groupId>com.zaxxer</groupId>
                     <artifactId>SparseBitSet</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.alfresco</groupId>
+                    <artifactId>alfresco-xmlfactory</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
