@@ -104,8 +104,9 @@ public class MLAnalayser extends Analyzer
         private final PositionIncrementAttribute posIncAtt = addAttribute(PositionIncrementAttribute.class);
 
 		private Mode mode;
-     
-        MLTokenizer(String fieldName, IndexSchema schema, MLAnalysisMode mlAnalaysisMode, Mode mode) 
+        private int lastStartOffset = 0;
+
+        MLTokenizer(String fieldName, IndexSchema schema, MLAnalysisMode mlAnalaysisMode, Mode mode)
         {
             this.fieldName = fieldName;
             this.schema = schema;
@@ -146,6 +147,7 @@ public class MLAnalayser extends Analyzer
         public void reset() throws IOException
         {
             super.reset();
+            lastStartOffset = 0;
             initDelegateStream();
             ts.reset();
         }
@@ -173,8 +175,13 @@ public class MLAnalayser extends Analyzer
             if(ts.incrementToken())
             {
                 ts.copyTo(this);
+                // Lucene 8 requires offsets to be non-decreasing.
+                // After copyTo, clamp offsets to ensure monotonic progression.
+                int startOff = Math.max(offsetAtt.startOffset(), lastStartOffset);
+                int endOff = Math.max(offsetAtt.endOffset(), startOff);
+                offsetAtt.setOffset(startOff, endOff);
+                lastStartOffset = startOff;
                 return true;
-                
             }
             else
             {

@@ -72,6 +72,7 @@ public class MLTokenDuplicator extends TokenStream
     private final PositionIncrementAttribute posIncAtt = addAttribute(PositionIncrementAttribute.class);
 
     private boolean done = false;
+    private int lastStartOffset = 0;
 
     public MLTokenDuplicator(TokenStream source, Locale locale, Reader reader, MLAnalysisMode mlAnalysisMode)
     {
@@ -150,6 +151,7 @@ public class MLTokenDuplicator extends TokenStream
     {
         source.reset();
         super.reset();
+        lastStartOffset = 0;
     }
 
     /* (non-Javadoc)
@@ -268,7 +270,13 @@ public class MLTokenDuplicator extends TokenStream
         }
         
         termAtt.copyBuffer(next.buffer(), 0, next.length());
-        offsetAtt.setOffset(next.startOffset(), next.endOffset());
+        // Lucene 8 requires offsets to be non-decreasing.
+        // MLTokenDuplicator emits multiple locale-prefixed tokens per source token
+        // with positionIncrement=0, which can cause offsets to go backwards.
+        int startOff = Math.max(next.startOffset(), lastStartOffset);
+        int endOff = Math.max(next.endOffset(), startOff);
+        offsetAtt.setOffset(startOff, endOff);
+        lastStartOffset = startOff;
         typeAtt.setType(next.type());
         posIncAtt.setPositionIncrement(next.getPositionIncrement());
         return true;
