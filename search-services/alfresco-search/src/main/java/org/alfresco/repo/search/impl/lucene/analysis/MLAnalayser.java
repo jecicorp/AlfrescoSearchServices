@@ -37,6 +37,7 @@ import org.alfresco.util.Pair;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.AnalyzerWrapper;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
@@ -78,7 +79,10 @@ public class MLAnalayser extends Analyzer
     protected TokenStreamComponents createComponents(String fieldName)
     {
         MLTokenizer mltokenizer = new MLTokenizer(fieldName, schema, mlAnalaysisMode, mode);
-        return new TokenStreamComponents(mltokenizer);
+        // Wrap with MonotonicOffsetFilter to ensure Lucene 8 offset invariant.
+        // The MLTokenizer produces tokens for multiple locales whose offsets can go backwards.
+        MonotonicOffsetFilter filter = new MonotonicOffsetFilter(mltokenizer);
+        return new TokenStreamComponents(mltokenizer, filter);
     }
     
     private static class MLTokenizer extends Tokenizer
@@ -129,7 +133,19 @@ public class MLAnalayser extends Analyzer
             {
                 s_logger.debug("Created ML analyser token stream for "+fieldName+ " with locale "+pair.getFirst());
             }
-            TokenStream source = getAnalyser(fieldName, pair.getFirst()).tokenStream(fieldName, pair.getSecond());
+            // Close previous delegate stream if any (important for Lucene 8 resource management)
+            if (ts != null)
+            {
+                try { ts.close(); } catch (IOException ignored) {}
+            }
+            // IMPORTANT: We must get a FRESH TokenStream each time, not a reused one.
+            // Calling analyzer.tokenStream() uses the analyzer's reuse strategy which
+            // returns cached TokenStreamComponents. Embedding a cached stream inside
+            // our own Tokenizer causes offset state corruption in Lucene 8.
+            // Solution: wrap the locale analyzer to disable reuse.
+            Analyzer localeAnalyzer = getAnalyser(fieldName, pair.getFirst());
+            Analyzer noReuseAnalyzer = new AnalyzerDelegate(localeAnalyzer);
+            TokenStream source = noReuseAnalyzer.tokenStream(fieldName, pair.getSecond());
             ts = new MLTokenDuplicator(source, pair.getFirst(), pair.getSecond(), mlAnalaysisMode);
         }
 
@@ -355,5 +371,49 @@ public class MLAnalayser extends Analyzer
 		}
      
 
+    }
+
+    /**
+     * Wraps an existing Analyzer but uses {@link Analyzer#NO_REUSE_STRATEGY}
+     * so that each call to {@code tokenStream()} creates fresh components.
+     * <p>
+     * This is needed because the MLTokenizer calls {@code analyzer.tokenStream()}
+     * from inside its own {@code reset()} to obtain a sub-stream. If the wrapped
+     * analyzer reuses components, the sub-stream's offset state leaks between
+     * invocations, causing "offsets must not go backwards" errors in Lucene 8.
+     */
+    /**
+     * A ReuseStrategy that never reuses — each call creates fresh components.
+     */
+    private static final Analyzer.ReuseStrategy NO_REUSE_STRATEGY = new Analyzer.ReuseStrategy()
+    {
+        @Override
+        public TokenStreamComponents getReusableComponents(Analyzer analyzer, String fieldName)
+        {
+            return null; // never reuse
+        }
+
+        @Override
+        public void setReusableComponents(Analyzer analyzer, String fieldName, TokenStreamComponents components)
+        {
+            // discard — don't store
+        }
+    };
+
+    private static class AnalyzerDelegate extends AnalyzerWrapper
+    {
+        private final Analyzer delegate;
+
+        AnalyzerDelegate(Analyzer delegate)
+        {
+            super(NO_REUSE_STRATEGY);
+            this.delegate = delegate;
+        }
+
+        @Override
+        protected Analyzer getWrappedAnalyzer(String fieldName)
+        {
+            return delegate;
+        }
     }
 }

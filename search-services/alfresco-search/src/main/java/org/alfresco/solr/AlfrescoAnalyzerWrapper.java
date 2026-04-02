@@ -48,8 +48,9 @@ public class AlfrescoAnalyzerWrapper extends AnalyzerWrapper
 	}
 	
     IndexSchema schema;
-    
+
     Mode mode;
+
     
     /**
      * @param schema
@@ -73,6 +74,22 @@ public class AlfrescoAnalyzerWrapper extends AnalyzerWrapper
         return 100;
     }
 
+    /**
+     * Offset gap between values of a multiValued field.
+     * Must be large enough so that the next value's offsets (starting near 0)
+     * remain >= the previous value's last offset. Lucene 8 strictly enforces
+     * monotonically non-decreasing offsets across all values.
+     *
+     * MLText properties produce one value per locale (e.g. fr + en), each
+     * with offsets starting from 0. Without a sufficient gap, the second
+     * locale's offsets would go backwards relative to the first.
+     */
+    @Override
+    public int getOffsetGap(String fieldName)
+    {
+        return 1000;
+    }
+
 
 
     /* (non-Javadoc)
@@ -81,13 +98,9 @@ public class AlfrescoAnalyzerWrapper extends AnalyzerWrapper
     @Override
     protected Analyzer getWrappedAnalyzer(String fieldName)
     {
-        if(fieldName.contains("l_@{"))
+        if(fieldName.contains("l_@{") || fieldName.contains("lt@{"))
         {
             return new MLAnalayser(MLAnalysisMode.EXACT_LANGUAGE, schema, mode);
-        }
-        else if(fieldName.contains("lt@{"))
-        {
-             return new MLAnalayser(MLAnalysisMode.EXACT_LANGUAGE, schema, mode);
         }
         else
         {
