@@ -107,7 +107,6 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.util.Version;
 import org.apache.solr.core.CoreDescriptorDecorator;
-import org.apache.solr.core.SolrResourceLoader;
 import org.apache.solr.request.SolrQueryRequest;
 import org.apache.solr.search.SyntaxError;
 import org.slf4j.Logger;
@@ -600,7 +599,8 @@ public class AlfrescoSolrDataModel implements QueryConstants
 
     public static File getResourceDirectory()
     {
-        return new File(SolrResourceLoader.locateSolrHome().toFile(), "conf");
+        // Solr 9 removed the static locateSolrHome(); resolve via the solr.solr.home property.
+        return new File(System.getProperty("solr.solr.home", "solr"), "conf");
     }
 
     /**

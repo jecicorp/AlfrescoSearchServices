@@ -38,6 +38,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
@@ -68,7 +69,14 @@ public abstract class AbstractAuthoritySetQuery extends Query
 
     @Override
     public abstract Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException;
-    
+
+    @Override
+    public void visit(QueryVisitor visitor)
+    {
+        // ACL filter query: matches by doc-set, exposes no scoring terms.
+        visitor.visitLeaf(this);
+    }
+
     @Override
     public String toString(String field)
     {

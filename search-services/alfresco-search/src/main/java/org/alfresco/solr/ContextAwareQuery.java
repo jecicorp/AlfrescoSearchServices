@@ -33,6 +33,7 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.Weight;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,6 +91,13 @@ public class ContextAwareQuery extends Query
     public Query rewrite(IndexReader reader) throws IOException
     {
         return luceneQuery.rewrite(reader);
+    }
+
+    @Override
+    public void visit(QueryVisitor visitor)
+    {
+        // Transparent wrapper: delegate term extraction to the wrapped query.
+        luceneQuery.visit(visitor);
     }
 
     @Override

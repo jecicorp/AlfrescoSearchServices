@@ -79,7 +79,7 @@ import org.apache.solr.common.SolrException.ErrorCode;
 import org.apache.solr.common.luke.FieldFlag;
 import org.apache.solr.common.params.CommonParams;
 import org.apache.solr.common.params.SolrParams;
-import org.apache.solr.common.util.Base64;
+import java.util.Base64;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.apache.solr.handler.RequestHandlerBase;
@@ -334,8 +334,8 @@ public class AlfrescoLukeRequestHandler extends RequestHandlerBase {
 
 			BytesRef bytes = field.binaryValue();
 			if (bytes != null) {
-				f.add("binary", Base64.byteArrayToBase64(bytes.bytes,
-						bytes.offset, bytes.length));
+				f.add("binary", Base64.getEncoder().encodeToString(
+						java.util.Arrays.copyOfRange(bytes.bytes, bytes.offset, bytes.offset + bytes.length)));
 			}
 			f.add("boost", 1.0f);
 			f.add("docFreq", t.text() == null ? 0 : reader.docFreq(t)); // this
@@ -459,10 +459,12 @@ public class AlfrescoLukeRequestHandler extends RequestHandlerBase {
 		}
 
 		SimpleOrderedMap<Object> finfo = new SimpleOrderedMap<>();
-		finfo.addAll(vInfo);
+		// Cast to NamedList: Solr 9's SimpleOrderedMap matches both addAll(Map) and
+		// addAll(NamedList) overloads, so the target overload must be made explicit.
+		finfo.addAll((NamedList<Object>) vInfo);
 		// finfo.add("mimetype()", finfo.get("cm:content.mimetype"));
 		// finfo.add("contentSize()", finfo.get("cm:content.size"));
-		finfo.addAll(aInfo);
+		finfo.addAll((NamedList<Object>) aInfo);
 		return finfo;
 	}
 
@@ -669,18 +671,10 @@ public class AlfrescoLukeRequestHandler extends RequestHandlerBase {
 
 	/** Returns the sum of RAM bytes used by each segment */
 	private static long getIndexHeapUsed(DirectoryReader reader) {
-		long indexHeapRamBytesUsed = 0;
-		for (LeafReaderContext leafReaderContext : reader.leaves()) {
-			LeafReader leafReader = leafReaderContext.reader();
-			if (leafReader instanceof SegmentReader) {
-				indexHeapRamBytesUsed += ((SegmentReader) leafReader)
-						.ramBytesUsed();
-			} else {
-				// Not supported for any reader that is not a SegmentReader
-				return -1;
-			}
-		}
-		return indexHeapRamBytesUsed;
+		// Lucene 9 removed per-segment RAM accounting (SegmentReader is no longer
+		// Accountable / no ramBytesUsed()), so this is reported as unsupported,
+		// matching the upstream Solr 9 LukeRequestHandler behaviour.
+		return -1;
 	}
 
 	// Get terribly detailed information about a particular field. This is a

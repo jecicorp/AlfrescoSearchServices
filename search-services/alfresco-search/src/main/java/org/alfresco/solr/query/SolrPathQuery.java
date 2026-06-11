@@ -37,6 +37,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
@@ -147,6 +148,13 @@ public class SolrPathQuery extends Query
         return new StructuredFieldWeight();
     }
 
+    @Override
+    public void visit(QueryVisitor visitor)
+    {
+        // Structured path query resolved via a custom Weight/doc-set; no scoring terms to expose.
+        visitor.visitLeaf(this);
+    }
+
     /*
      * @see java.lang.Object#toString()
      */
@@ -220,11 +228,6 @@ public class SolrPathQuery extends Query
         public Scorer scorer(LeafReaderContext context) throws IOException
         {
             return SolrPathScorer.createPathScorer(SolrPathQuery.this, context, this, dictionaryService, repeats);
-        }
-
-        @Override
-        public void extractTerms(Set<Term> terms)
-        {
         }
 
         @Override

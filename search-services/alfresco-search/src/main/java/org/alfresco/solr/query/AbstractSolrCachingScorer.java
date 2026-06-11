@@ -122,11 +122,14 @@ public abstract class AbstractSolrCachingScorer extends Scorer
               }
               else
               {
-                  this.matches = new BitDocSet(new FixedBitSet(searcher.maxDoc()));
+                  // Solr 9 removed BitDocSet.addUnique(int); build the FixedBitSet
+                  // directly and wrap it (the constructor recomputes the size).
+                  FixedBitSet fixedBitSet = new FixedBitSet(searcher.maxDoc());
                   for (DocIterator it = in.iterator(); it.hasNext(); /* */)
                   {
-                      matches.addUnique(it.nextDoc());
+                      fixedBitSet.set(it.nextDoc());
                   }
+                  this.matches = new BitDocSet(fixedBitSet);
               }
               bitSet = matches.getBits();
               

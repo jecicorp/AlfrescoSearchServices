@@ -63,7 +63,8 @@ public class SolrReaderSetScorer2 extends AbstractSolrCachingScorer
 
             String[] auths = authorities.substring(1).split(authorities.substring(0, 1));
 
-            readableDocSet = new BitDocSet(new FixedBitSet(searcher.maxDoc()));
+            // Solr 9 DocSet is immutable: accumulate into a FixedBitSet, wrap at the end.
+            FixedBitSet readableBits = new FixedBitSet(searcher.maxDoc());
 
             BooleanQuery.Builder bQuery = new BooleanQuery.Builder();
             for(String current : auths)
@@ -101,7 +102,7 @@ public class SolrReaderSetScorer2 extends AbstractSolrCachingScorer
                             Long key = getLong(aclID);
                             if(aclsFound.contains(key))
                             {
-                                readableDocSet.add(readerContext.docBase + i);
+                                readableBits.set(readerContext.docBase + i);
                             }
                         }
                     }
@@ -111,7 +112,7 @@ public class SolrReaderSetScorer2 extends AbstractSolrCachingScorer
             
             // Exclude the ACL docs from the results, we only want real docs that match.
             // Probably not very efficient, what we really want is remove(docID)
-            readableDocSet = readableDocSet.andNot(aclDocs);
+            readableDocSet = new BitDocSet(readableBits).andNot(aclDocs);
             searcher.cacheInsert(CacheConstants.ALFRESCO_READER_CACHE, authorities, readableDocSet);
         }
         

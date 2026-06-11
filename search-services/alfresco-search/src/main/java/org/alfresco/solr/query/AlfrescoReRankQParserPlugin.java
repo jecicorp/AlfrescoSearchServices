@@ -42,6 +42,7 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.LeafCollector;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.QueryRescorer;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Scorer;
@@ -152,6 +153,13 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
             return  this;
         }
 
+        @Override
+        public void visit(QueryVisitor visitor) {
+            // Re-ranking only reorders the top docs of the main query; term
+            // extraction (highlighting, etc.) follows the main query.
+            mainQuery.visit(visitor);
+        }
+
         public MergeStrategy getMergeStrategy() {
             return null;
         }
@@ -212,11 +220,6 @@ public class AlfrescoReRankQParserPlugin extends QParserPlugin {
         }
 public Scorer scorer(LeafReaderContext context) throws IOException {
             return mainWeight.scorer(context);
-        }
-
-        @Override
-        public void extractTerms(Set<Term> terms) {
-            this.mainWeight.extractTerms(terms);
         }
 
         @Override

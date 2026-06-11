@@ -84,9 +84,5 @@ public class SolrReaderSetQuery extends AbstractAuthoritySetQuery
             return SolrReaderSetScorer2.createReaderSetScorer(this, context, searcher, authorities, reader);
         }
 
-        @Override
-        public void extractTerms(java.util.Set<org.apache.lucene.index.Term> terms)
-        {
-        }
     }
 }

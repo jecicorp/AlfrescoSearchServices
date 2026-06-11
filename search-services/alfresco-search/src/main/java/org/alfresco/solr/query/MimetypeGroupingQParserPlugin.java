@@ -36,7 +36,6 @@ import java.util.HashMap;
 import org.apache.lucene.search.Query;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
-import org.apache.solr.core.SolrResourceLoader;
 import org.apache.solr.internal.csv.CSVParser;
 import org.apache.solr.internal.csv.CSVStrategy;
 import org.apache.solr.request.SolrQueryRequest;
@@ -64,7 +63,7 @@ public class MimetypeGroupingQParserPlugin extends QParserPlugin
     
     private static synchronized void initMap(String mappingFile)
     {
-        String solrHome = SolrResourceLoader.locateSolrHome().toString();
+        String solrHome = System.getProperty("solr.solr.home", "solr");
         File file = new File(solrHome, mappingFile);
 
         CSVParser parser;

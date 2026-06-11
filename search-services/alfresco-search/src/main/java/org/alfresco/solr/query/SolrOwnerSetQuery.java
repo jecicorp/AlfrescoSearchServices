@@ -83,9 +83,5 @@ public class SolrOwnerSetQuery extends AbstractAuthoritySetQuery
             return SolrOwnerSetScorer.createOwnerSetScorer(this, context, searcher, authorities);
         }
 
-        @Override
-        public void extractTerms(java.util.Set<org.apache.lucene.index.Term> terms)
-        {
-        }
     }
 }

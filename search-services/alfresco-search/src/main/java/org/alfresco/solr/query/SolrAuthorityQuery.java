@@ -83,9 +83,5 @@ public class SolrAuthorityQuery extends AbstractAuthorityQuery
             return SolrAuthorityScorer.createAuthorityScorer(this, context, searcher, authority);
         }
 
-        @Override
-        public void extractTerms(java.util.Set<org.apache.lucene.index.Term> terms)
-        {
-        }
     }
 }

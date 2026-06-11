@@ -31,7 +31,6 @@ import org.alfresco.web.scripts.servlet.X509ServletFilterBase;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import org.apache.solr.core.SolrResourceLoader;
 
 import javax.management.MBeanServer;
 import javax.management.MBeanServerFactory;
@@ -101,7 +100,7 @@ public class Solr4X509ServletFilter extends X509ServletFilterBase
             setHttpsPort(httpsPort);
         }
 
-        String solrHome = SolrResourceLoader.locateSolrHome().toString();
+        String solrHome = System.getProperty("solr.solr.home", "solr");
 
         if(logger.isDebugEnabled())
         {

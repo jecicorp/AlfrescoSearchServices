@@ -66,11 +66,6 @@ public class SolrCachingPathWeight extends Weight
     }
 
     @Override
-    public void extractTerms(Set<Term> terms)
-    {
-    }
-
-    @Override
     public boolean isCacheable(LeafReaderContext ctx)
     {
         return false;

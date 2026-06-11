@@ -58,7 +58,7 @@ public class SecretSharedAuthPlugin extends AuthenticationPlugin
      * "alfresco.secureComms.secret" value is expected as Java environment variable.
      */
     @Override
-    public boolean doAuthenticate(ServletRequest request, ServletResponse response, FilterChain chain) throws Exception
+    public boolean doAuthenticate(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws Exception
     {
 
         if (SecretSharedPropertyCollector.isCommsSecretShared())

@@ -29,6 +29,7 @@ package org.alfresco.solr.query;
 import java.io.IOException;
 
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Weight;
@@ -53,7 +54,14 @@ public abstract class AbstractAuthorityQuery extends Query
 
     @Override
     public abstract Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException;
-    
+
+    @Override
+    public void visit(QueryVisitor visitor)
+    {
+        // ACL filter query: matches by doc-set, exposes no scoring terms.
+        visitor.visitLeaf(this);
+    }
+
     public String toString(String field)
     {
         return toString();

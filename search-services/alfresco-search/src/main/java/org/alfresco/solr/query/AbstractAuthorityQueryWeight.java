@@ -53,11 +53,9 @@ public abstract class AbstractAuthorityQueryWeight extends Weight
     {
     	super(query);
         this.searcher = searcher;
-        searcher.collectionStatistics(authTermName);
-        final IndexReaderContext context = searcher.getTopReaderContext();
-        final Term term = new Term(authTermName, authTermText);
-        final TermStates termContext = TermStates.build(context, term, true);
-        searcher.termStatistics(term, termContext);
+        // Historically primed collection/term statistics here, but the computed
+        // values were discarded. Lucene 9 changed TermStates.build/termStatistics
+        // signatures; since the results were unused, the priming is dropped.
         this.needsScores = needsScores;
     }
     
@@ -65,11 +63,6 @@ public abstract class AbstractAuthorityQueryWeight extends Weight
     public Explanation explain(LeafReaderContext context, int doc)
     {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void extractTerms(java.util.Set<Term> terms)
-    {
     }
 
     @Override

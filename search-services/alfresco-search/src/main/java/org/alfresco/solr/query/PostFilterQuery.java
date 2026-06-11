@@ -39,6 +39,7 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.Scorer;
 import org.apache.solr.search.DelegatingCollector;
 import org.apache.solr.search.PostFilter;
@@ -103,7 +104,8 @@ public class PostFilterQuery extends Query implements PostFilter
         return false;
     }
 
-    @Override
+    // setCacheSep/getCacheSep were removed from Solr 9's ExtendedQuery contract;
+    // kept as a no-op without @Override for backward source compatibility.
     public void setCacheSep(boolean cacheSep)
     {
 
@@ -112,6 +114,13 @@ public class PostFilterQuery extends Query implements PostFilter
     public String toString(String s)
     {
         return s;
+    }
+
+    @Override
+    public void visit(QueryVisitor visitor)
+    {
+        // Post-filter wrapper: delegate term extraction to the wrapped query.
+        query.visit(visitor);
     }
 
     public DelegatingCollector getFilterCollector(IndexSearcher searcher)

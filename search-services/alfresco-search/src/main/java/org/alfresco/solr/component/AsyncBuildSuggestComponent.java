@@ -188,8 +188,8 @@ public class AsyncBuildSuggestComponent extends SearchComponent implements SolrC
           boolean buildOnStartup;
 		  Object buildOnStartupObj = suggesterParams.get(BUILD_ON_STARTUP_LABEL);
 		  if (buildOnStartupObj == null) {
-		    File storeFile = suggester.getStoreFile();
-			buildOnStartup = storeFile == null  || !storeFile.exists();
+		    Path storeFile = suggester.getStoreFile();
+			buildOnStartup = storeFile == null  || !Files.exists(storeFile);
 		  } else {
 			buildOnStartup = Boolean.parseBoolean((String) buildOnStartupObj);
 	      }
@@ -280,11 +280,11 @@ public class AsyncBuildSuggestComponent extends SearchComponent implements SolrC
   
 	private void reloadSuggester(SolrSuggester suggester, SolrCore core,
 			SolrIndexSearcher searcher) throws IOException {
-		File storeFile = suggester.getStoreFile();
-		if (storeFile == null || !storeFile.exists()) {
+		Path storeFile = suggester.getStoreFile();
+		if (storeFile == null || !Files.exists(storeFile)) {
 			suggester.build(core, searcher);
 		} else {
-			suggester.reload(core, searcher);
+			suggester.reload();
 		}
 	}
   
@@ -757,7 +757,7 @@ public class AsyncBuildSuggestComponent extends SearchComponent implements SolrC
                 }
                 else
                 {
-                    suggester.reload(core, searcher);
+                    suggester.reload();
                 }
                 final long timeTakenMillis = System.currentTimeMillis() - startMillis;
                 LOG.info("Loaded suggester " + suggester.getName() + ", took " + timeTakenMillis + " ms");

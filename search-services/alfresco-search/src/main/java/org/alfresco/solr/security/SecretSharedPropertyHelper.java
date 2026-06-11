@@ -25,7 +25,6 @@
  */
 package org.alfresco.solr.security;
 
-import org.apache.solr.core.SolrResourceLoader;
 
 import java.io.FileReader;
 import java.io.IOException;
@@ -65,7 +64,7 @@ class SecretSharedPropertyHelper
      */
     static Set<String> getPropertyFromCores(String name, String defaultValue)
     {
-        try (Stream<Path> walk = Files.walk(Paths.get(SolrResourceLoader.locateSolrHome().toString())))
+        try (Stream<Path> walk = Files.walk(Paths.get(System.getProperty("solr.solr.home", "solr"))))
         {
             var solrCorePropertiesFiles =
                     walk.map(Path::toString)

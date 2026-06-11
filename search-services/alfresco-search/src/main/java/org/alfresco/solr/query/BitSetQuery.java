@@ -37,6 +37,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSetIterator;
@@ -107,6 +108,13 @@ public class BitSetQuery extends Query
                 return new ConstantScoreScorer(this, score(), scoreMode, iterator);
             }
         };
+    }
+
+    @Override
+    public void visit(QueryVisitor visitor)
+    {
+        // Matches a precomputed bit set; exposes no scoring terms.
+        visitor.visitLeaf(this);
     }
 
     @Override

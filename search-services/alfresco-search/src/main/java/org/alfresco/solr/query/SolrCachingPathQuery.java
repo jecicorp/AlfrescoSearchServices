@@ -33,6 +33,7 @@ import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.Weight;
 import org.apache.solr.search.DocSet;
 import org.apache.solr.search.SolrIndexSearcher;
@@ -79,12 +80,20 @@ public class SolrCachingPathQuery extends Query
             searcher.cacheInsert(CacheConstants.ALFRESCO_PATH_CACHE, pathQuery, results);
         }
 
-        return new ConstantScoreQuery(results.getTopFilter()).createWeight(searcher, ScoreMode.COMPLETE_NO_SCORES, 1f);
+        // Solr 9 removed DocSet.getTopFilter(); makeQuery() returns a Query matching the doc-set.
+        return new ConstantScoreQuery(results.makeQuery()).createWeight(searcher, ScoreMode.COMPLETE_NO_SCORES, 1f);
     }
 
     /*
      * @see org.apache.lucene.search.Query#toString(java.lang.String)
      */
+    @Override
+    public void visit(QueryVisitor visitor)
+    {
+        // Cached path doc-set query; exposes no scoring terms.
+        visitor.visitLeaf(this);
+    }
+
     public String toString(String field)
     {
         StringBuilder stringBuilder = new StringBuilder();
