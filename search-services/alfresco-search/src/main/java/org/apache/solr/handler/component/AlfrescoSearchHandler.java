@@ -70,6 +70,8 @@ import org.apache.solr.core.SolrCore;
 import org.apache.solr.handler.RequestHandlerBase;
 import org.apache.solr.handler.component.FacetComponent.FacetContext;
 import org.apache.solr.request.SolrQueryRequest;
+import org.apache.solr.security.AuthorizationContext;
+import org.apache.solr.security.PermissionNameProvider;
 import org.apache.solr.response.BasicResultContext;
 import org.apache.solr.response.ResultContext;
 import org.apache.solr.response.SolrQueryResponse;
@@ -77,7 +79,6 @@ import org.apache.solr.schema.IndexSchema;
 import org.apache.solr.schema.SchemaField;
 import org.apache.solr.search.DocIterator;
 import org.apache.solr.search.DocList;
-import org.apache.solr.search.SolrQueryTimeoutImpl;
 import org.apache.solr.search.SolrReturnFields;
 import org.apache.solr.search.facet.FacetModule;
 import org.apache.solr.util.RTimerTree;
@@ -361,11 +362,9 @@ public class AlfrescoSearchHandler extends RequestHandlerBase implements
 		if (!rb.isDistrib) {
 			// a normal non-distributed request
 
-			long timeAllowed = req.getParams().getLong(
-					CommonParams.TIME_ALLOWED, -1L);
-			if (timeAllowed > 0L) {
-				SolrQueryTimeoutImpl.set(timeAllowed);
-			}
+			// Solr 9 enforces timeAllowed centrally via the request's QueryLimits
+			// (TimeAllowedLimit, wired into SolrIndexSearcher before the handler runs),
+			// so no per-request timeout needs to be set here anymore.
 			try {
 				// The semantics of debugging vs not debugging are different
 				// enough that
@@ -405,8 +404,6 @@ public class AlfrescoSearchHandler extends RequestHandlerBase implements
 					rb.rsp.add("debug", debug);
 				}
 				rb.rsp.getResponseHeader().add("partialResults", Boolean.TRUE);
-			} finally {
-				SolrQueryTimeoutImpl.reset();
 			}
 
 			if (req.getParams().getBool("alfresco.getSolrDocumentList", false)) {
@@ -690,6 +687,11 @@ public class AlfrescoSearchHandler extends RequestHandlerBase implements
 			}
 		}
 		return sb.toString();
+	}
+
+	@Override
+	public PermissionNameProvider.Name getPermissionName(AuthorizationContext request) {
+		return PermissionNameProvider.Name.READ_PERM;
 	}
 
 	public final SolrDocument toSolrDocument(Document doc, IndexSchema schema) {

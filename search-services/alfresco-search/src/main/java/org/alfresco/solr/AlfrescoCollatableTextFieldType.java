@@ -35,6 +35,7 @@ import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.FieldComparator;
 import org.apache.lucene.search.FieldComparatorSource;
+import org.apache.lucene.search.Pruning;
 import org.apache.lucene.search.LeafFieldComparator;
 import org.apache.lucene.search.Scorable;
 import org.apache.lucene.search.SortField;
@@ -89,10 +90,10 @@ public class AlfrescoCollatableTextFieldType extends StrField
     {
         /*
          * (non-Javadoc)
-         * @see org.apache.lucene.search.FieldComparatorSource#newComparator(java.lang.String, int, int, boolean)
+         * @see org.apache.lucene.search.FieldComparatorSource#newComparator(java.lang.String, int, org.apache.lucene.search.Pruning, boolean)
          */
         @Override
-        public FieldComparator<String> newComparator(String fieldname, int numHits, int sortPos, boolean reversed)
+        public FieldComparator<String> newComparator(String fieldname, int numHits, Pruning pruning, boolean reversed)
         {
             return new TextSortFieldComparator(numHits, fieldname, I18NUtil.getLocale());
         }

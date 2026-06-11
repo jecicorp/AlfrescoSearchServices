@@ -38,8 +38,17 @@
         <!-- provided dependencies -->
         <dependency>
             <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-analyzers-common</artifactId>
-            <version>${solr.version}</version>
+            <artifactId>lucene-analysis-common</artifactId>
+            <version>${lucene.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <!-- Lucene 9 moved the spans API (org.apache.lucene.queries.spans)
+                 out of lucene-core into the lucene-queries module. -->
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-queries</artifactId>
+            <version>${lucene.version}</version>
             <scope>provided</scope>
         </dependency>
 

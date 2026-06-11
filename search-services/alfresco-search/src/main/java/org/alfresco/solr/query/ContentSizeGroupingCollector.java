@@ -104,11 +104,11 @@ public class ContentSizeGroupingCollector extends DelegatingCollector
         leafDelegate.collect(doc);
     }
 
-    public void finish() throws IOException 
+    public void complete() throws IOException
     {
         NamedList<Object> analytics = new NamedList<>();
         rb.rsp.add("analytics", analytics);
-        NamedList<Object> fieldCounts = new NamedList<>(); 
+        NamedList<Object> fieldCounts = new NamedList<>();
         analytics.add("contentSize()", fieldCounts);
 
         for(Bucket bucket :stats.getHistogram())
@@ -118,7 +118,7 @@ public class ContentSizeGroupingCollector extends DelegatingCollector
 
 
         if(this.delegate instanceof DelegatingCollector) {
-            ((DelegatingCollector)this.delegate).finish();
+            ((DelegatingCollector)this.delegate).complete();
         }
     }
     

@@ -27,10 +27,13 @@
       <maven.build.sourceVersion>17</maven.build.sourceVersion>
       <maven.compiler.source>17</maven.compiler.source>
       <maven.compiler.target>17</maven.compiler.target>
-      <solr.base.version>8.11.4</solr.base.version>
+      <solr.base.version>9.10.1</solr.base.version>
       <solr.version>${solr.base.version}</solr.version>
-      <!-- The location to download the solr zip file from. -->
-      <solr.zip>https://archive.apache.org/dist/lucene/solr/${solr.version}/solr-${solr.version}.zip</solr.zip>
+      <!-- Solr 9 decouples its version from Lucene; Solr 9.10.1 ships Lucene 9.12.3. -->
+      <lucene.version>9.12.3</lucene.version>
+      <!-- The location to download the solr distribution from. Solr 9 ships as a
+           .tgz under dist/solr/solr (no longer under dist/lucene/solr). -->
+      <solr.zip>https://archive.apache.org/dist/solr/solr/${solr.version}/solr-${solr.version}.tgz</solr.zip>
       <solr.directory>${project.build.directory}/solr-${solr.version}</solr.directory>
       <license-maven-plugin.version>2.0.1</license-maven-plugin.version>
       <licenseName>enterprise</licenseName>

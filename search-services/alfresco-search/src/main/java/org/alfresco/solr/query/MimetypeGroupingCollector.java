@@ -115,19 +115,19 @@ public class MimetypeGroupingCollector extends DelegatingCollector
         leafDelegate.collect(doc);
     }
 
-    public void finish() throws IOException 
+    public void complete() throws IOException
     {
         NamedList<Object> analytics = new NamedList<>();
         rb.rsp.add("analytics", analytics);
-        NamedList<Object> fieldCounts = new NamedList<>(); 
+        NamedList<Object> fieldCounts = new NamedList<>();
         analytics.add("mimetype()", fieldCounts);
         for (Entry<String, Counter> counter : counters.entrySet())
         {
             fieldCounts.add(counter.getKey(), counter.getValue().get());
         }
-        
+
         if(this.delegate instanceof DelegatingCollector) {
-            ((DelegatingCollector)this.delegate).finish();
+            ((DelegatingCollector)this.delegate).complete();
         }
     }
 }

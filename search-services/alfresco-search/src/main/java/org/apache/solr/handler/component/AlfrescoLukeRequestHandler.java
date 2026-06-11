@@ -47,9 +47,9 @@ import java.util.TreeSet;
 
 import org.alfresco.solr.AlfrescoSolrDataModel;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.util.CharFilterFactory;
-import org.apache.lucene.analysis.util.TokenFilterFactory;
-import org.apache.lucene.analysis.util.TokenizerFactory;
+import org.apache.lucene.analysis.CharFilterFactory;
+import org.apache.lucene.analysis.TokenFilterFactory;
+import org.apache.lucene.analysis.TokenizerFactory;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.DirectoryReader;
@@ -84,6 +84,8 @@ import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.apache.solr.handler.RequestHandlerBase;
 import org.apache.solr.request.SolrQueryRequest;
+import org.apache.solr.security.AuthorizationContext;
+import org.apache.solr.security.PermissionNameProvider;
 import org.apache.solr.response.SolrQueryResponse;
 import org.apache.solr.schema.CopyField;
 import org.apache.solr.schema.FieldType;
@@ -755,6 +757,11 @@ public class AlfrescoLukeRequestHandler extends RequestHandlerBase {
 	@Override
 	public String getDescription() {
 		return "Lucene Index Browser.  Inspired and modeled after Luke: http://www.getopt.org/luke/";
+	}
+
+	@Override
+	public PermissionNameProvider.Name getPermissionName(AuthorizationContext request) {
+		return PermissionNameProvider.Name.READ_PERM;
 	}
 
 	// /////////////////////////////////////////////////////////////////////////////////////

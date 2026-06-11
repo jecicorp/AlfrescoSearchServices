@@ -42,6 +42,8 @@ import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.apache.solr.handler.RequestHandlerBase;
 import org.apache.solr.request.SolrQueryRequest;
+import org.apache.solr.security.AuthorizationContext;
+import org.apache.solr.security.PermissionNameProvider;
 import org.apache.solr.response.SolrQueryResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -274,5 +276,11 @@ public class ModelUpdateRequestHandler extends RequestHandlerBase
     public String getDescription()
     {
         return "Handles Alfresco M2Model updates for remote tracker synchronization";
+    }
+
+    @Override
+    public PermissionNameProvider.Name getPermissionName(AuthorizationContext request)
+    {
+        return PermissionNameProvider.Name.READ_PERM;
     }
 }
