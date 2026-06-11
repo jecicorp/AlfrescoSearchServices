@@ -35,7 +35,11 @@ public class TrackerProperties
     private CronConfig cron = new CronConfig();
     private int batchCount = 5000;
     private boolean cascadeTrackingEnabled = true;
-    private long commitInterval = 10000;
+    // Upstream solrcore.properties defaults: alfresco.commitInterval=2000,
+    // alfresco.newSearcherInterval=3000. Index visibility (content tracking,
+    // e2e waits) depends directly on the effective commit period.
+    private long commitInterval = 2000;
+    private long newSearcherInterval = 3000;
     private String solrHome = "/opt/solr/data";
     private int repairMaxRetries = 10;
 
@@ -97,6 +101,16 @@ public class TrackerProperties
     public void setCommitInterval(long commitInterval)
     {
         this.commitInterval = commitInterval;
+    }
+
+    public long getNewSearcherInterval()
+    {
+        return newSearcherInterval;
+    }
+
+    public void setNewSearcherInterval(long newSearcherInterval)
+    {
+        this.newSearcherInterval = newSearcherInterval;
     }
 
     public String getSolrHome()
@@ -204,8 +218,8 @@ public class TrackerProperties
         private String metadata = "0/10 * * * * ?";
         private String acl = "0/10 * * * * ?";
         private String content = "0/10 * * * * ?";
-        private String commit = "0/20 * * * * ?";
-        private String model = "0/30 * * * * ?";
+        private String commit = "0/5 * * * * ?";
+        private String model = "0/10 * * * * ?";
         private String cascade = "0/10 * * * * ?";
         private String repair = "0 0/1 * * * ?";
 

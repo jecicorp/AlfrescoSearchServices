@@ -11,8 +11,8 @@ alfresco:
       metadata: "0/5 * * * * ?"
       acl: "0/5 * * * * ?"
       content: "0/20 * * * * ?"
-      commit: "0/20 * * * * ?"
-      model: "0/30 * * * * ?"
+      commit: "0/5 * * * * ?"
+      model: "0/10 * * * * ?"
       cascade: "0/10 * * * * ?"
     batch-count: 5000
     cascade-tracking-enabled: true
