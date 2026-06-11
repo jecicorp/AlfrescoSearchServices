@@ -277,7 +277,10 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
         if (CORE_NOT_YET_CREATED)
         {
 
-            testExecutionSolrHome = TEST_EXECUTION_FOLDER + "/" + System.currentTimeMillis() + "/solrhome";
+            // Solr 9 asserts that a core's instanceDir is absolute (CoreDescriptor), so the
+            // test Solr home must be an absolute path.
+            testExecutionSolrHome = Paths.get(TEST_EXECUTION_FOLDER + "/" + System.currentTimeMillis() + "/solrhome")
+                    .toAbsolutePath().toString();
             testSolrCollection = testExecutionSolrHome + "/collection1";
             testSolrConf = testSolrCollection + "/conf/";
             templateConf = testExecutionSolrHome + "/templates/%s/conf/";
@@ -301,6 +304,12 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
     @Deprecated
     public static void createAlfrescoCore(String schema) throws ParserConfigurationException, IOException, SAXException
     {
+        // RAMDirectoryFactory only works with the 'single' lock in Solr 9, and
+        // SolrTestCaseJ4 randomizes solr.tests.lockType; the mock FS factory needs a
+        // RandomizedRunner context we don't use. Use the real NRTCaching (filesystem)
+        // factory for tests — it works with the native lock and matches production.
+        System.setProperty("solr.directoryFactory", "solr.NRTCachingDirectoryFactory");
+
         Properties properties = new Properties();
         properties.put("solr.tests.maxBufferedDocs", "1000");
         properties.put("solr.tests.maxIndexingThreads", "10");

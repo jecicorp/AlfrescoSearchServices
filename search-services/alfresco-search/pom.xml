@@ -342,6 +342,21 @@
         </dependency>
 
         <dependency>
+            <!-- Solr 9's embedded test harness uses Http2SolrClient; the Jetty HTTP/2
+                 client is optional in solrj so it must be pulled explicitly for tests. -->
+            <groupId>org.eclipse.jetty.http2</groupId>
+            <artifactId>http2-client</artifactId>
+            <version>${dependency.jetty.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty.http2</groupId>
+            <artifactId>http2-http-client-transport</artifactId>
+            <version>${dependency.jetty.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.solr</groupId>
             <artifactId>solr-test-framework</artifactId>
             <version>${solr.version}</version>

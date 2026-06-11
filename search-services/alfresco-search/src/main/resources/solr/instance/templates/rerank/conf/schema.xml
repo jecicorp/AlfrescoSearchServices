@@ -125,12 +125,12 @@
         <charFilter class="solr.PatternReplaceCharFilterFactory" pattern="\x{0000}.*\x{0000}" replacement=""/>
         <charFilter class="solr.PatternReplaceCharFilterFactory" pattern="(#0;.*#0;)" replacement=""/>
         <tokenizer class="solr.ICUTokenizerFactory"/>
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc_cf" mode="compose" />
+        <filter class="solr.ICUNormalizer2FilterFactory" form="nfkc_cf" mode="compose" />
         <filter class="solr.ShingleFilterFactory" minShingleSize="2" maxShingleSize="3" outputUnigrams="true" outputUnigramsIfNoShingles="true" tokenSeparator=" " />
       </analyzer>
       <analyzer type="query">
         <tokenizer class="solr.ICUTokenizerFactory"/>
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc_cf" mode="compose" />
+        <filter class="solr.ICUNormalizer2FilterFactory" form="nfkc_cf" mode="compose" />
         <filter class="solr.ShingleFilterFactory" minShingleSize="2" maxShingleSize="3" outputUnigrams="true" outputUnigramsIfNoShingles="true" tokenSeparator=" " />
       </analyzer>
     </fieldType>
@@ -138,7 +138,7 @@
     <fieldType name="text_min_hash" class="solr.TextField" positionIncrementGap="100">
       <analyzer type="index">
         <tokenizer class="solr.ICUTokenizerFactory"/>
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc_cf" mode="compose" />
+        <filter class="solr.ICUNormalizer2FilterFactory" form="nfkc_cf" mode="compose" />
         <filter class="solr.ShingleFilterFactory" minShingleSize="5" maxShingleSize="5" outputUnigrams="false" outputUnigramsIfNoShingles="false" tokenSeparator=" " />
         <!--
                 <filter class="org.apache.lucene.analysis.minhash.ContextAccumulatingFilterFactory" />

@@ -490,7 +490,7 @@
            autowarmCount - the number of entries to prepopulate from
                and old cache.  
       -->
-    <filterCache class="solr.FastLRUCache"
+    <filterCache class="solr.CaffeineCache"
                  size="${solr.filterCache.size:256}"
                  initialSize="${solr.filterCache.initialSize:128}"
                  autowarmCount="${solr.filterCache.autowarmCount:32}"/>
@@ -500,7 +500,7 @@
          Caches results of searches - ordered lists of document ids
          (DocList) based on a query, a sort, and the range of documents requested.  
       -->
-    <queryResultCache class="solr.LRUCache"
+    <queryResultCache class="solr.CaffeineCache"
                      size="${solr.queryResultCache.size:1024}"
                      initialSize="${solr.queryResultCache.initialSize:1024}"
                      autowarmCount="${solr.queryResultCache.autowarmCount:4}"/>
@@ -511,14 +511,14 @@
          document).  Since Lucene internal document ids are transient,
          this cache will not be autowarmed.  
       -->
-    <documentCache class="solr.LRUCache"
+    <documentCache class="solr.CaffeineCache"
                    size="${solr.documentCache.size:1024}"
                    initialSize="${solr.documentCache.initialSize:1024}"
                    autowarmCount="${solr.documentCache.autowarmCount:512}"/>
     
     <!-- custom cache currently used by block join --> 
     <cache name="perSegFilter"
-      class="solr.search.LRUCache"
+      class="solr.CaffeineCache"
       size="10"
       initialSize="0"
       autowarmCount="10"
@@ -531,7 +531,7 @@
          even if not configured here.
       -->
     <!--
-       <fieldValueCache class="solr.FastLRUCache"
+       <fieldValueCache class="solr.CaffeineCache"
                         size="512"
                         autowarmCount="128"
                         showItems="32" />
@@ -548,7 +548,7 @@
       -->
     <!--
        <cache name="myUserCache"
-              class="solr.LRUCache"
+              class="solr.CaffeineCache"
               size="4096"
               initialSize="1024"
               autowarmCount="1024"
@@ -558,28 +558,28 @@
 
 
     <cache name="alfrescoOwnerCache"
-              class="solr.LRUCache"
+              class="solr.CaffeineCache"
               size="${solr.ownerCache.size:128}"
               initialSize="${solr.ownerCache.initialSize:64}"
               autowarmCount="${solr.ownerCache.autowarmCount:0}"
               />
               
     <cache name="alfrescoReaderCache"
-              class="solr.LRUCache"
+              class="solr.CaffeineCache"
               size="${solr.readerCache.size:128}"
               initialSize="${solr.readerCache.initialSize:64}"
               autowarmCount="${solr.readerCache.autowarmCount:0}"
               />
               
     <cache name="alfrescoDeniedCache"
-              class="solr.LRUCache"
+              class="solr.CaffeineCache"
               size="${solr.deniedCache.size:128}"
               initialSize="${solr.deniedCache.initialSize:64}"
               autowarmCount="${solr.deniedCache.autowarmCount:0}"
               />
               
     <cache name="alfrescoAuthorityCache"
-              class="solr.LRUCache"
+              class="solr.CaffeineCache"
               size="${solr.authorityCache.size:128}"
               initialSize="${solr.authorityCache.initialSize:64}"
               autowarmCount="${solr.authorityCache.autowarmCount:4}"
@@ -587,7 +587,7 @@
               />
               
     <cache name="alfrescoPathCache"
-              class="solr.LRUCache"
+              class="solr.CaffeineCache"
               size="${solr.pathCache.size:256}"
               initialSize="${solr.pathCache.initialSize:128}"
               autowarmCount="${solr.pathCache.autowarmCount:32}"
