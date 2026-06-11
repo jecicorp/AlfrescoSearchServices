@@ -26,6 +26,7 @@
 package org.alfresco.indexing.server.solrj;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -112,6 +113,8 @@ public class SolrDocumentMapper
     public static final String FIELD_TENANT = "TENANT";
     public static final String FIELD_OWNER = "OWNER";
     public static final String FIELD_PATH = "PATH";
+    public static final String FIELD_APATH = "APATH";
+    public static final String FIELD_ANAME = "ANAME";
     public static final String FIELD_ANCESTOR = "ANCESTOR";
     public static final String FIELD_PARENT = "PARENT";
     public static final String FIELD_PRIMARYPARENT = "PRIMARYPARENT";
@@ -382,6 +385,9 @@ public class SolrDocumentMapper
         // Site and Tag — derived from paths
         addSiteAndTagFields(doc, paths);
 
+        // APATH and ANAME — derived from ancestor paths
+        addAncestorPathFields(doc, metadata.getAncestorPaths());
+
         // Ancestors
         Set<NodeRef> ancestors = metadata.getAncestors();
         if (ancestors != null)
@@ -539,6 +545,78 @@ public class SolrDocumentMapper
         if (repoOnly)
         {
             doc.addField(FIELD_SITE, NO_SITE);
+        }
+    }
+
+    /**
+     * Adds APATH and ANAME fields derived from the node's ancestor paths
+     * (UUID-based paths from {@link NodeMetaData#getAncestorPaths()}).
+     *
+     * <p>For an ancestor path {@code /a/b/c}, produces:</p>
+     * <ul>
+     *   <li>APATH: {@code 0/a}, {@code 1/a/b}, {@code 2/a/b/c}, {@code F/a/b/c} —
+     *       prefixes by depth, used for path-level faceting and drill-down</li>
+     *   <li>ANAME: {@code 0/c}, {@code 1/b/c}, {@code 2/a/b/c}, {@code F/a/b/c} —
+     *       suffixes from the node upwards</li>
+     * </ul>
+     *
+     * @param doc           the Solr document being built
+     * @param ancestorPaths UUID ancestor paths, may be null or empty
+     */
+    private static void addAncestorPathFields(SolrInputDocument doc, List<String> ancestorPaths)
+    {
+        if (ancestorPaths == null)
+        {
+            return;
+        }
+
+        // Track values across ancestor paths to avoid duplicates for shared prefixes/suffixes
+        Set<String> addedAPaths = new HashSet<>();
+        Set<String> addedANames = new HashSet<>();
+
+        for (String ancestorPath : ancestorPaths)
+        {
+            if (ancestorPath == null)
+            {
+                continue;
+            }
+
+            // The store root node has an empty ancestor path; "".split("/") yields
+            // one empty element, producing the "0/" and "F/" level-0 root buckets.
+            String[] elements = (!ancestorPath.isEmpty() && ancestorPath.startsWith("/")
+                    ? ancestorPath.substring(1)
+                    : ancestorPath).split("/");
+
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < elements.length; i++)
+            {
+                builder.append('/').append(elements[i].trim());
+                String apath = i + builder.toString();
+                if (addedAPaths.add(apath))
+                {
+                    doc.addField(FIELD_APATH, apath);
+                }
+            }
+            if (builder.length() > 0 && addedAPaths.add("F" + builder))
+            {
+                doc.addField(FIELD_APATH, "F" + builder);
+            }
+
+            builder = new StringBuilder();
+            for (int j = 0; j < elements.length; j++)
+            {
+                builder.insert(0, elements[elements.length - 1 - j].trim());
+                builder.insert(0, '/');
+                String aname = j + builder.toString();
+                if (addedANames.add(aname))
+                {
+                    doc.addField(FIELD_ANAME, aname);
+                }
+            }
+            if (builder.length() > 0 && addedANames.add("F" + builder))
+            {
+                doc.addField(FIELD_ANAME, "F" + builder);
+            }
         }
     }
 

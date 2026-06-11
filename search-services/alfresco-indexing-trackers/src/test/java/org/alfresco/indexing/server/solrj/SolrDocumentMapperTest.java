@@ -605,6 +605,119 @@ public class SolrDocumentMapperTest
         assertTrue(siteValues.contains("_REPOSITORY_"));
     }
 
+    // =========================================================================
+    // APATH and ANAME ancestor path fields
+    // =========================================================================
+
+    @Test
+    public void testAncestorPathsProduceApathAndAname()
+    {
+        Node node = new Node();
+        node.setId(810L);
+        node.setTxnId(74L);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(810L);
+        metadata.setTxnId(74L);
+        metadata.setAclId(610L);
+        metadata.setTenantDomain("");
+        metadata.setAncestorPaths(Collections.singletonList("/uuid-a/uuid-b/uuid-c"));
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        Collection<Object> apathValues = doc.getFieldValues("APATH");
+        assertNotNull("APATH field must be set from ancestorPaths", apathValues);
+        assertTrue(apathValues.contains("0/uuid-a"));
+        assertTrue(apathValues.contains("1/uuid-a/uuid-b"));
+        assertTrue(apathValues.contains("2/uuid-a/uuid-b/uuid-c"));
+        assertTrue(apathValues.contains("F/uuid-a/uuid-b/uuid-c"));
+        assertEquals(4, apathValues.size());
+
+        Collection<Object> anameValues = doc.getFieldValues("ANAME");
+        assertNotNull("ANAME field must be set from ancestorPaths", anameValues);
+        assertTrue(anameValues.contains("0/uuid-c"));
+        assertTrue(anameValues.contains("1/uuid-b/uuid-c"));
+        assertTrue(anameValues.contains("2/uuid-a/uuid-b/uuid-c"));
+        assertTrue(anameValues.contains("F/uuid-a/uuid-b/uuid-c"));
+        assertEquals(4, anameValues.size());
+    }
+
+    @Test
+    public void testAncestorPathsDeduplicateSharedPrefixes()
+    {
+        Node node = new Node();
+        node.setId(811L);
+        node.setTxnId(75L);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(811L);
+        metadata.setTxnId(75L);
+        metadata.setAclId(611L);
+        metadata.setTenantDomain("");
+        metadata.setAncestorPaths(Arrays.asList("/uuid-a/uuid-b", "/uuid-a/uuid-x"));
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        Collection<Object> apathValues = doc.getFieldValues("APATH");
+        assertNotNull(apathValues);
+        // "0/uuid-a" shared by both paths must appear only once;
+        // each full path also adds its own "F/..." value
+        assertEquals(1, apathValues.stream().filter("0/uuid-a"::equals).count());
+        assertTrue(apathValues.contains("1/uuid-a/uuid-b"));
+        assertTrue(apathValues.contains("1/uuid-a/uuid-x"));
+        assertTrue(apathValues.contains("F/uuid-a/uuid-b"));
+        assertTrue(apathValues.contains("F/uuid-a/uuid-x"));
+    }
+
+    @Test
+    public void testEmptyAncestorPathProducesRootBucket()
+    {
+        // The store root node has apath="" in the repository response; upstream
+        // indexed it as "0/" and "F/" (the level-0 facet bucket for the root).
+        Node node = new Node();
+        node.setId(813L);
+        node.setTxnId(77L);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(813L);
+        metadata.setTxnId(77L);
+        metadata.setAclId(613L);
+        metadata.setTenantDomain("");
+        metadata.setAncestorPaths(Collections.singletonList(""));
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        Collection<Object> apathValues = doc.getFieldValues("APATH");
+        assertNotNull("APATH must be set for empty ancestor path (store root)", apathValues);
+        assertTrue(apathValues.contains("0/"));
+        assertTrue(apathValues.contains("F/"));
+
+        Collection<Object> anameValues = doc.getFieldValues("ANAME");
+        assertNotNull(anameValues);
+        assertTrue(anameValues.contains("0/"));
+        assertTrue(anameValues.contains("F/"));
+    }
+
+    @Test
+    public void testNullAncestorPathsProduceNoApath()
+    {
+        Node node = new Node();
+        node.setId(812L);
+        node.setTxnId(76L);
+
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(812L);
+        metadata.setTxnId(76L);
+        metadata.setAclId(612L);
+        metadata.setTenantDomain("");
+        metadata.setAncestorPaths(null);
+
+        SolrInputDocument doc = mapper.toNodeDoc(node, metadata);
+
+        assertNull("APATH must be absent when ancestorPaths is null", doc.getFieldValues("APATH"));
+        assertNull("ANAME must be absent when ancestorPaths is null", doc.getFieldValues("ANAME"));
+    }
+
     @Test
     public void testNullOrEmptyPaths()
     {
