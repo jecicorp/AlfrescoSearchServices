@@ -143,6 +143,26 @@ public class AlfrescoSolrHighlighter extends DefaultSolrHighlighter implements P
 		super(core);
 	}
 
+	/**
+	 * Disables highlight document pre-fetching by field names.
+	 *
+	 * <p>DefaultSolrHighlighter (Solr 8) passes the returned set to
+	 * {@code new SolrReturnFields(names, req)} to pre-fetch documents. Alfresco schema
+	 * field names (e.g. {@code content@s_stored_t____@{ns}content}) contain {@code @}
+	 * and <code>{}</code> characters that the field-list parser cannot handle: parsing
+	 * stops at the first {@code @} and the remainder is parsed as a function query,
+	 * failing with {@code undefined field: "content"}.</p>
+	 *
+	 * <p>Returning {@code null} makes DefaultSolrHighlighter build an empty
+	 * SolrReturnFields (wants all stored fields), so highlighted documents are simply
+	 * fetched without the pre-fetch field restriction.</p>
+	 */
+	@Override
+	protected Set<String> getDocPrefetchFieldNames(String[] hlFieldNames, SolrQueryRequest request)
+	{
+		return null;
+	}
+
 	@Override
 	protected Highlighter getHighlighter(Query query, String requestFieldname, SolrQueryRequest request)
 	{
