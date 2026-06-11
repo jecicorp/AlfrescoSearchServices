@@ -5,6 +5,8 @@ ENV TOMCAT_HOME="/usr/local/tomcat"
 
 USER root
 
+RUN dnf update -y java-17-openjdk-headless
+
 # Copy keystore files (JCEKS format from pristy-demo)
 COPY ./assets/alfresco/keystore/keystore ${TOMCAT_HOME}/webapps/alfresco/WEB-INF/classes/alfresco/keystore/keystore
 COPY ./assets/alfresco/keystore/keystore-passwords.properties ${TOMCAT_HOME}/webapps/alfresco/WEB-INF/classes/alfresco/keystore/keystore-passwords.properties

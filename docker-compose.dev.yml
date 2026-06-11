@@ -40,7 +40,7 @@ services:
       context: ./acs
       args:
         ACS_TAG: "25.3.0"
-    mem_limit: 2g
+    mem_limit: 3g
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/probes/-ready-"]
       interval: 10s
@@ -65,6 +65,10 @@ services:
         -Dcsrf.filter.enabled=false
         -Dencryption.keystore.type=JCEKS
         -Dencryption.keystore.location=classpath:alfresco/keystore/keystore
+      CATALINA_OPTS: >-
+        -XshowSettings:vm
+        -XX:InitialRAMPercentage=60
+        -XX:MaxRAMPercentage=60
     volumes:
       - alfresco-data-volume:/usr/local/tomcat/alf_data
     depends_on:
