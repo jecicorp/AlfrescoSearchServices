@@ -48,7 +48,7 @@ public class AlfrescoSearchHandlerFacetQueryIT
 {
 
     @Mock
-    NamedList<NamedList<Object>> mockParams;
+    NamedList<Object> mockParams;
     @Mock
     SolrQueryResponse mockResponse;
     @Mock

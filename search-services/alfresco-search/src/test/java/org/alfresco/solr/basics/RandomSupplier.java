@@ -31,7 +31,7 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
-import static org.apache.lucene.util.LuceneTestCase.random;
+import static org.apache.lucene.tests.util.LuceneTestCase.random;
 
 public class RandomSupplier
 {

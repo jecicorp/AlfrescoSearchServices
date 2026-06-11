@@ -319,7 +319,8 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
                     Paths.get(testSolrConf + schema).toFile());
         }
 
-        SolrResourceLoader resourceLoader = new SolrResourceLoader(Paths.get(testExecutionSolrHome), null, properties);
+        // Solr 9 SolrResourceLoader dropped the (Path, ClassLoader, Properties) constructor.
+        SolrResourceLoader resourceLoader = new SolrResourceLoader(Paths.get(testExecutionSolrHome));
         TestCoresLocator locator = new TestCoresLocator(SolrTestCaseJ4.DEFAULT_TEST_CORENAME,
                                                         "data", 
                                                         "solrconfig.xml",

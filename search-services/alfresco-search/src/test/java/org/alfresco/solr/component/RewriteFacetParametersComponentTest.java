@@ -38,7 +38,7 @@ import java.util.Map;
 import com.google.common.collect.ImmutableMap;
 import com.sun.xml.xsom.impl.scd.Iterators;
 
-import org.apache.lucene.util.LuceneTestCase;
+import org.apache.lucene.tests.util.LuceneTestCase;
 import org.apache.solr.SolrTestCaseJ4;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.ShardParams;

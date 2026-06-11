@@ -27,7 +27,7 @@
 package org.alfresco.solr.query.cmis;
 
 import org.alfresco.repo.search.adaptor.QueryConstants;
-import org.apache.lucene.util.LuceneTestCase;
+import org.apache.lucene.tests.util.LuceneTestCase;
 import org.apache.solr.SolrTestCaseJ4;
 import org.junit.Ignore;
 import org.junit.Test;

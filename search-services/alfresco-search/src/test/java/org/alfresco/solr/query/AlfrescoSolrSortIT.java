@@ -27,7 +27,7 @@
 package org.alfresco.solr.query;
 
 import org.alfresco.solr.AbstractAlfrescoDistributedIT;
-import org.apache.lucene.util.LuceneTestCase;
+import org.apache.lucene.tests.util.LuceneTestCase;
 import org.apache.solr.SolrTestCaseJ4;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocumentList;

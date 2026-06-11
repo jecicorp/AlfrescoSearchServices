@@ -34,8 +34,8 @@ import org.alfresco.solr.client.SOLRAPIQueueClient;
 import org.apache.commons.io.FileUtils;
 import org.apache.solr.SolrTestCaseJ4;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.embedded.JettyConfig;
-import org.apache.solr.client.solrj.embedded.JettySolrRunner;
+import org.apache.solr.embedded.JettyConfig;
+import org.apache.solr.embedded.JettySolrRunner;
 import org.apache.solr.client.solrj.embedded.SSLConfig;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.core.CoreContainer;
@@ -145,6 +145,18 @@ public abstract class SolrITInitializer extends SolrTestCaseJ4
         System.setProperty("solr.tests.ramBufferSizeMB", "1024");
         
         testDir = new File(System.getProperty("user.dir") + "/target/jettys");
+    }
+
+    /**
+     * Returns an available ephemeral TCP port. Solr 9's test framework removed the
+     * old getNextAvailablePort() helper, so we grab one from the OS directly.
+     */
+    private static int getNextAvailablePort() throws IOException
+    {
+        try (java.net.ServerSocket socket = new java.net.ServerSocket(0))
+        {
+            return socket.getLocalPort();
+        }
     }
 
     /**

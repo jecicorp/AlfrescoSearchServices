@@ -27,7 +27,7 @@
 package org.alfresco.solr.query;
 
 import org.alfresco.solr.AbstractAlfrescoSolrIT;
-import org.apache.lucene.util.LuceneTestCase;
+import org.apache.lucene.tests.util.LuceneTestCase;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.request.SolrQueryRequest;
 import org.junit.Before;
