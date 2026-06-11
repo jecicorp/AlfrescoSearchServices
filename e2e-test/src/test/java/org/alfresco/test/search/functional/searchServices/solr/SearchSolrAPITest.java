@@ -124,7 +124,12 @@ public class SearchSolrAPITest extends AbstractE2EFunctionalTest
         restClient.authenticateUser(dataContent.getAdminUser()).withParams(encodedQueryParams).withSolrAPI().getSelectQuery();
         
         restClient.assertStatusCodeIs(HttpStatus.BAD_REQUEST);
-        String errorMsg = "No QueryObjectBuilder defined for node a in {q={!xmlparser";
-        Assert.assertTrue(restClient.onResponse().getResponse().body().xmlPath().getString("response").contains(errorMsg));
+        // The /select handler uses defType=afts, so the {!xmlparser ...} local-params
+        // syntax is not interpreted (no XXE risk) and the AFTS parser rejects the
+        // query string with a syntax error. Upstream rejected it with
+        // "No QueryObjectBuilder defined for node a" from the Lucene xmlparser
+        // and answered in XML; Solr 8 answers in JSON, so read the raw body.
+        String errorMsg = "no viable alternative";
+        Assert.assertTrue(restClient.onResponse().getResponse().body().asString().contains(errorMsg));
     }
 }

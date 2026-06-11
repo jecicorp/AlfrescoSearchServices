@@ -26,6 +26,7 @@
 
 package org.alfresco.solr.query;
 
+import org.alfresco.repo.search.impl.parsers.FTSQueryException;
 import org.alfresco.repo.search.impl.parsers.FTSQueryParser.RerankPhase;
 import org.alfresco.service.cmr.search.SearchParameters;
 import org.alfresco.solr.AlfrescoSolrDataModel;
@@ -146,6 +147,11 @@ public class AlfrescoFTSQParserPlugin extends QParserPlugin
             catch(ParseException e)
             {
                 throw new SyntaxError(e);
+            }
+            catch(FTSQueryException e)
+            {
+                // AFTS parse errors must surface as HTTP 400 (bad request), not 500
+                throw new SyntaxError(e.getMessage(), e);
             }
         }
     }
