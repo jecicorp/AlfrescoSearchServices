@@ -615,6 +615,9 @@
 				<configuration>
 					<excludes>
 						<exclude>**/AnnotationWriter.*</exclude>
+						<!-- ANTLR-generated FTS parser/lexer have DFA methods that exceed the
+						     JVM 64KB method limit once instrumented (MethodTooLargeException). -->
+						<exclude>org/alfresco/repo/search/impl/parsers/**</exclude>
 					</excludes>
 				</configuration>
 				<executions>

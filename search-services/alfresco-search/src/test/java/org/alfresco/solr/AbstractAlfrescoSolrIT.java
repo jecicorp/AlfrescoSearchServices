@@ -75,7 +75,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPathExpressionException;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import org.alfresco.repo.dictionary.M2Model;
 import java.math.BigInteger;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -135,6 +138,52 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
     protected static Date FTS_TEST_DATE;
 
 
+
+    /**
+     * Loads the bootstrap data models into the {@link AlfrescoSolrDataModel} dictionary.
+     *
+     * <p>Since the trackers were externalized, the data model no longer loads any model
+     * on startup — the (now separate) ModelTracker pushes them via {@code putModel()}.
+     * Embedded tests have no tracker, so we load the bootstrap models directly here, in
+     * dependency order (dictionary -> system -> content -> cmis), then refresh the CMIS
+     * dictionary.</p>
+     */
+    protected static void loadBootstrapModels() throws IOException
+    {
+        AlfrescoSolrDataModel dataModel = AlfrescoSolrDataModel.getInstance();
+
+        // Base dictionary model ships in alfresco-data-model.
+        try (InputStream is = AbstractAlfrescoSolrIT.class.getClassLoader()
+                .getResourceAsStream("alfresco/model/dictionaryModel.xml"))
+        {
+            if (is != null)
+            {
+                dataModel.putModel(M2Model.createModel(is));
+            }
+        }
+
+        File modelsDir = Paths.get(testExecutionSolrHome, "alfrescoModels").toFile();
+        File[] modelFiles = modelsDir.listFiles((dir, name) -> name.endsWith(".xml"));
+        if (modelFiles != null)
+        {
+            // Explicit dependency order: system, then content, then cmis.
+            for (String token : new String[]{ "systemmodel", "contentmodel", "cmismodel" })
+            {
+                for (File modelFile : modelFiles)
+                {
+                    if (modelFile.getName().contains(token))
+                    {
+                        try (InputStream is = new FileInputStream(modelFile))
+                        {
+                            dataModel.putModel(M2Model.createModel(is));
+                        }
+                    }
+                }
+            }
+        }
+
+        dataModel.afterInitModels();
+    }
 
     protected static void copyTestFiles() throws IOException {
 
@@ -287,6 +336,7 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
 
             copyTestFiles();
             createAlfrescoCore(schema);
+            loadBootstrapModels();
         }
         LOG.info("####initCore end");
 
