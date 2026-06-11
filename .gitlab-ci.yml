@@ -1,0 +1,76 @@
+---
+stages:
+  - build
+  - docker
+
+default:
+  tags:
+    - docker
+    - jeci
+
+####
+## Build Maven ##
+##
+
+.maven:
+  image: docker.io/maven:3.9-eclipse-temurin-17
+  before_script:
+    - source ${NEXUS_SECRET_FILE}
+  cache:
+    paths:
+      - .m2/repository
+  variables:
+    MAVEN_OPTS: "-Dhttps.protocols=TLSv1.2 -Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true"
+    MAVEN_CLI_OPTS: "-s ci_settings.xml --batch-mode --errors --show-version -DinstallAtEnd=true -DdeployAtEnd=true"
+
+maven-build:
+  stage: build
+  extends: .maven
+  script:
+    - mvn $MAVEN_CLI_OPTS package -Dmaven.test.skip=true
+  artifacts:
+    paths:
+      # Context Docker Solr : Dockerfile filtré par Maven + zip de distribution + scripts
+      - "search-services/packaging/target/docker-resources/"
+      # JAR Spring Boot des trackers (Dockerfile.trackers est dans le dépôt)
+      - "search-services/alfresco-indexing-trackers/target/alfresco-indexing-trackers-*.jar"
+    expire_in: 1 day
+  except:
+    - tags
+
+####
+## Build Docker ##
+##
+
+.kaniko:
+  stage: docker
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  variables:
+    REGISTRY_URI: rg.fr-par.scw.cloud/pristy
+  before_script:
+    - echo "{\"auths\":{\"${REGISTRY_URI}\":{\"auth\":\"$(printf "nologin:%s" "${SCW_SECRET_KEY}" | base64 | tr -d '\n')\"},\"$CI_DEPENDENCY_PROXY_SERVER\":{\"auth\":\"$(printf "%s:%s" ${CI_DEPENDENCY_PROXY_USER} "${CI_DEPENDENCY_PROXY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
+    - export VERSION=$(sed -n '1,/<version>/ s/\s*<[/]*version>//g p' pom.xml)
+  except:
+    - tags
+
+docker-build-solr:
+  extends: .kaniko
+  variables:
+    REGISTRY_REPOSITORY: alfresco-search-services
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}/search-services/packaging/target/docker-resources"
+      --dockerfile "${CI_PROJECT_DIR}/search-services/packaging/target/docker-resources/Dockerfile"
+      --destination "${REGISTRY_URI}/${REGISTRY_REPOSITORY}:${VERSION}-${CI_COMMIT_REF_NAME}"
+
+docker-build-trackers:
+  extends: .kaniko
+  variables:
+    REGISTRY_REPOSITORY: alfresco-indexing-trackers
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}/search-services/alfresco-indexing-trackers/target"
+      --dockerfile "${CI_PROJECT_DIR}/search-services/packaging/src/docker/Dockerfile.trackers"
+      --destination "${REGISTRY_URI}/${REGISTRY_REPOSITORY}:${VERSION}-${CI_COMMIT_REF_NAME}"
