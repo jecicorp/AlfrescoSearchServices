@@ -613,11 +613,23 @@ public class SolrJQueryService
     }
 
     /**
-     * Returns the set of parent node DB IDs that have the cascade flag set for any of the given transaction IDs.
+     * Solr field of the residual {@code sys:cascadeTx} property, Lucene-escaped.
+     * The repository stamps structurally-changed nodes (rename/move of a container)
+     * with {@code sys:cascadeTx} = txnId; {@code SolrDocumentMapper}/{@code PropertyFieldMapper}
+     * index it as {@code long@s_@{sys-uri}cascadeTx} (d:long, single-valued, no docValues).
+     * Not to be confused with {@code int@s_@cascade}, the 0/1 cascade flag on Tx documents.
+     */
+    static final String FIELD_CASCADE_TX_PROPERTY =
+            "long@s_@\\{http\\://www.alfresco.org/model/system/1.0\\}cascadeTx";
+
+    /**
+     * Returns the set of parent node DB IDs whose {@code sys:cascadeTx} property matches
+     * any of the given transaction IDs.
      *
      * <p>This is the first half of {@code getCascadeNodes}: it queries the index for node documents
-     * flagged for cascade update (cascade flag = txnId) for the given transaction IDs, and returns
-     * the set of DBID values. The caller is responsible for fetching node metadata from the repository.</p>
+     * stamped for cascade update ({@code sys:cascadeTx} = txnId) for the given transaction IDs, and
+     * returns the set of DBID values. The caller is responsible for fetching node metadata from the
+     * repository.</p>
      *
      * <p>Mirrors the Lucene query logic in
      * {@code SolrInformationServer.getCascadeNodes(List)} that uses
@@ -637,9 +649,9 @@ public class SolrJQueryService
 
         try
         {
-            // Build a Solr OR query: int@s_@cascade:(txnId1 OR txnId2 OR ...)
+            // Build a Solr OR query: long@s_@{sys}cascadeTx:(txnId1 OR txnId2 OR ...)
             StringBuilder queryBuilder = new StringBuilder();
-            queryBuilder.append(FIELD_CASCADE_FLAG).append(":(");
+            queryBuilder.append(FIELD_CASCADE_TX_PROPERTY).append(":(");
             for (int i = 0; i < txnIds.size(); i++)
             {
                 if (i > 0)
@@ -673,6 +685,10 @@ public class SolrJQueryService
         {
             throw new IOException("Failed to get cascade node IDs for txnIds " + txnIds, e);
         }
+        // INFO on purpose: a cascade transaction whose lookup finds no node is consumed
+        // (flag set to 0) and never retried — silent emptiness here is very hard to diagnose.
+        LOGGER.info("Cascade lookup for txnIds {} found {} node(s){}", txnIds, nodeIds.size(),
+                nodeIds.isEmpty() ? "" : " " + nodeIds);
         return nodeIds;
     }
 

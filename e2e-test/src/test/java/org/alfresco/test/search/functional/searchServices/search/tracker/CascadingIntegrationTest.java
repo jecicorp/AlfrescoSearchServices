@@ -190,6 +190,12 @@ public class CascadingIntegrationTest extends AbstractE2EFunctionalTest
                         indexingInProgress,
                         grandChildrenQueryAfterRename));
 
+        // Descendant re-indexing is eventually consistent: the grandchild and the
+        // child folder are not guaranteed to become visible in the same commit, so
+        // wait for the child folder under the new path before asserting on it (same
+        // pattern as the grandchild wait above).
+        isContentInSearchResults(childrenQueryAfterRename, childFolder.getName(), true);
+
         // Query using new parent name: Expect child folder
         int childrenCountOfNewName = query(childrenQueryAfterRename).getPagination().getCount();
         Assert.assertEquals(childrenCountOfNewName, 1,

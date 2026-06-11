@@ -667,6 +667,42 @@ public class SolrJQueryServiceTest
     }
 
     // -------------------------------------------------------------------------
+    // getCascadeNodeIds
+    // -------------------------------------------------------------------------
+
+    /**
+     * The repository marks structurally-changed nodes (rename/move) with the
+     * residual property {@code sys:cascadeTx} = txnId. The cascade lookup must
+     * query that property's Solr field ({@code long@s_@{sys}cascadeTx}) — NOT
+     * {@code int@s_@cascade}, which is the 0/1 cascade flag on Tx documents.
+     */
+    @Test
+    public void getCascadeNodeIds_queriesSysCascadeTxProperty() throws Exception
+    {
+        SolrDocumentList docs = new SolrDocumentList();
+        docs.setNumFound(1);
+        SolrDocument doc = new SolrDocument();
+        doc.addField(FIELD_DBID, 42L);
+        docs.add(doc);
+        QueryResponse response = mockQueryResponse(docs);
+        when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
+
+        java.util.Set<Long> nodeIds = queryService.getCascadeNodeIds(java.util.Arrays.asList(101L, 102L));
+
+        assertEquals(java.util.Collections.singleton(42L), nodeIds);
+
+        ArgumentCaptor<SolrQuery> captor = ArgumentCaptor.forClass(SolrQuery.class);
+        verify(solrClient).query(eq(COLLECTION), captor.capture());
+        String q = captor.getValue().getQuery();
+        assertTrue("query must target the sys:cascadeTx property field, was: " + q,
+                q.contains("cascadeTx"));
+        assertTrue("query must include the txn ids, was: " + q,
+                q.contains("101") && q.contains("102"));
+        assertFalse("query must not use the Tx-document cascade flag field, was: " + q,
+                q.contains(FIELD_CASCADE_FLAG));
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 

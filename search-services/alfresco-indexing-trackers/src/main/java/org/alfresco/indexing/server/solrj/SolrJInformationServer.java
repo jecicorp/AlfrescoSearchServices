@@ -335,6 +335,9 @@ public class SolrJInformationServer implements InformationServer
             nmdp.setIncludePaths(true);
             nmdp.setIncludeProperties(false);
             nmdp.setIncludeTxnId(true);
+            // Required: the repo metadata webscript returns an empty list for
+            // fromNodeId/toNodeId ranges when maxResults is absent (upstream set it too)
+            nmdp.setMaxResults(1);
             try
             {
                 List<NodeMetaData> metaDatas = repositoryClient.getNodesMetaData(nmdp);
