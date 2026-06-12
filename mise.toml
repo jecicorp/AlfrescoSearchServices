@@ -58,7 +58,10 @@ cd e2e-test/python-generator && python3 generator.py \
   --output=../../target/e2e-stack
 cd ../..
 echo "==> Redémarrage stack e2e..."
-docker compose -f target/e2e-stack/docker-compose.yml up --build --force-recreate -d
+# --renew-anon-volumes: the search image declares VOLUME .../solrhome, so a reused
+# anonymous volume would mask the freshly built template/config (cores are recreated
+# from the template at startup).
+docker compose -f target/e2e-stack/docker-compose.yml up --build --force-recreate --renew-anon-volumes -d
 echo "==> Stack e2e prête."
 """
 
