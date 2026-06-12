@@ -15,7 +15,9 @@ run = "mvn $MAVEN_CLI_OPTS test -pl search-services/alfresco-solrclient-lib,sear
 
 [tasks.install]
 description = "Install dans le repo local (sans e2e)"
-run = "mvn $MAVEN_CLI_OPTS install -DskipTests -pl search-services/alfresco-solrclient-lib,search-services/alfresco-search,search-services/packaging -am"
+# 'clean' is required: a stale target/ (e.g. an old solr-core-8.11.4.jar left in
+# the packaging libs) otherwise gets bundled into the assembled Solr webapp.
+run = "mvn $MAVEN_CLI_OPTS clean install -DskipTests -pl search-services/alfresco-solrclient-lib,search-services/alfresco-search,search-services/packaging -am"
 
 [tasks."e2e:build-image"]
 description = "Construit l'image Docker locale depuis le packaging"
@@ -43,7 +45,8 @@ echo "Lancer avec : mise run e2e:up"
 description = "Build + regénère + redémarre la stack e2e (ordre correct)"
 run = """
 echo "==> Build Maven (sans tests)..."
-mvn $MAVEN_CLI_OPTS package -Dmaven.test.skip=true
+# 'clean' avoids bundling stale jars (e.g. an old solr-core) from a previous build.
+mvn $MAVEN_CLI_OPTS clean package -Dmaven.test.skip=true
 echo "==> Build image Solr..."
 docker build -t alfresco/alfresco-search-services:local search-services/packaging/target/docker-resources/
 echo "==> Génération docker-compose e2e (copie JARs frais)..."
