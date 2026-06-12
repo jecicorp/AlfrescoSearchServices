@@ -1545,13 +1545,9 @@
     <str name="content-type">text/plain; charset=UTF-8</str>
   </queryResponseWriter>
 
-  <!-- XSLT response writer transforms the XML output by any xslt file found
-       in Solr's conf/xslt directory.  Changes to xslt files are checked for
-       every xsltCacheLifetimeSeconds.  
-    -->
-  <queryResponseWriter name="xslt" class="solr.XSLTResponseWriter">
-    <int name="xsltCacheLifetimeSeconds">5</int>
-  </queryResponseWriter>
+  <!-- The XSLT response writer (solr.XSLTResponseWriter) was removed from solr-core
+       in Solr 9 (moved to the optional 'scripting' module). Alfresco does not use
+       XSLT response rendering, so the writer is omitted. -->
 
   <!-- Query Parsers
 
