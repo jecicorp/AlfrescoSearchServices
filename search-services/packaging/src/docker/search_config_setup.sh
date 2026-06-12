@@ -120,7 +120,7 @@ if [[ true == "$DISABLE_CASCADE_TRACKING" ]]; then
 fi
 
 if [[ "${SEARCH_LOG_LEVEL}" != "" ]]; then
-   sed -i "s/log4j.rootLogger=WARN, file, CONSOLE/log4j.rootLogger=${SEARCH_LOG_LEVEL}, file, CONSOLE/" ${LOG_PROPERTIES}
+   sed -i "s/rootLogger.level = WARN/rootLogger.level = ${SEARCH_LOG_LEVEL}/" ${LOG_PROPERTIES}
 fi
 
 bash -c "$@"
