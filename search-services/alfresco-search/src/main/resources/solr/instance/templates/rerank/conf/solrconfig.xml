@@ -835,6 +835,8 @@
      <str name="echoParams">explicit</str>
      <int name="rows">10</int>
      <str name="df">suggest</str>
+     <!-- Use the original highlighter (AlfrescoSolrHighlighter) — see /afts handler. -->
+     <str name="hl.method">original</str>
     </lst>
     <arr name="components">
       <str>setLocale</str>
@@ -1669,6 +1671,10 @@
     <lst name="defaults">
      <str name="defType">afts</str>
 
+     <!-- Solr 9 defaults hl.method=unified; force the (deprecated) "original" method
+          so the AlfrescoSolrHighlighter, which maps cm:* names to Solr fields, is used. -->
+     <str name="hl.method">original</str>
+
      <str name="spellcheck">false</str>
      <str name="spellcheck.extendedResults">false</str>
      <str name="spellcheck.count">5</str>
@@ -1715,6 +1721,8 @@
  <requestHandler name="/cmis" class="org.apache.solr.handler.component.AlfrescoSearchHandler" lazy="true" >
     <lst name="defaults">
      <str name="defType">cmis</str>
+     <!-- Use the original highlighter (AlfrescoSolrHighlighter) — see /afts handler. -->
+     <str name="hl.method">original</str>
     </lst>
     <arr name="components">
       <str>setLocale</str>
