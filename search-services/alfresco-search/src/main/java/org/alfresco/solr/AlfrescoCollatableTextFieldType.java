@@ -30,9 +30,9 @@ import java.io.IOException;
 import java.text.Collator;
 import java.util.Locale;
 
-import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.search.FieldComparator;
 import org.apache.lucene.search.FieldComparatorSource;
 import org.apache.lucene.search.Pruning;
@@ -108,7 +108,7 @@ public class AlfrescoCollatableTextFieldType extends StrField
 
         private final String[] values;
 
-        private BinaryDocValues docTerms;
+        private SortedDocValues docTerms;
 
         private final String field;
 
@@ -172,7 +172,8 @@ public class AlfrescoCollatableTextFieldType extends StrField
             {
                 return null;
             }
-            BytesRef term = docTerms.binaryValue();
+            // StrField produces SORTED docvalues (Lucene 9 rejects reading them as BINARY).
+            BytesRef term = docTerms.lookupOrd(docTerms.ordValue());
 
             // Converts the stored bytes (as UTF8) to string
             String withLocale = term.utf8ToString();
@@ -217,7 +218,7 @@ public class AlfrescoCollatableTextFieldType extends StrField
         @Override
         public LeafFieldComparator getLeafComparator(LeafReaderContext context) throws IOException
         {
-            docTerms = DocValues.getBinary(context.reader(), field);
+            docTerms = DocValues.getSorted(context.reader(), field);
             return this;
         }
         
