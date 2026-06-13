@@ -151,7 +151,14 @@ public class ContentTracker extends ActivatableTracker
                 }
             }
 
-            LOGGER.info("{}-[CORE {}] Total number of docs with content updated: {} ", Thread.currentThread().getId(), coreName, totalDocs);
+            if (totalDocs > 0)
+            {
+                LOGGER.info("{}-[CORE {}] Total number of docs with content updated: {} ", Thread.currentThread().getId(), coreName, totalDocs);
+            }
+            else
+            {
+                LOGGER.debug("{}-[CORE {}] Total number of docs with content updated: 0 ", Thread.currentThread().getId(), coreName);
+            }
 
         }
         catch(Exception e)

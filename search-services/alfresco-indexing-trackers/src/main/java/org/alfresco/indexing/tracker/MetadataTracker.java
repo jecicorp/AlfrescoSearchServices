@@ -766,7 +766,7 @@ public class MetadataTracker extends ActivatableTracker
                 }
                 else
                 {
-                    LOGGER.info("{}:{}-[CORE {}] No transaction found after lastTxCommitTime {}",
+                    LOGGER.debug("{}:{}-[CORE {}] No transaction found after lastTxCommitTime {}",
                             Thread.currentThread().getId(),
                             idTrackerCycle,
                             coreName,
@@ -898,7 +898,14 @@ public class MetadataTracker extends ActivatableTracker
         }
         while (!reachedLagBoundary && (transactions.getTransactions().size() > 0));
 
-        LOGGER.info("{}-[CORE {}] Tracked {} DOCs", Thread.currentThread().getId(), coreName, totalUpdatedDocs);
+        if (totalUpdatedDocs > 0)
+        {
+            LOGGER.info("{}-[CORE {}] Tracked {} DOCs", Thread.currentThread().getId(), coreName, totalUpdatedDocs);
+        }
+        else
+        {
+            LOGGER.debug("{}-[CORE {}] Tracked 0 DOCs", Thread.currentThread().getId(), coreName);
+        }
     }
 
     /**

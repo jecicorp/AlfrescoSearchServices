@@ -280,7 +280,15 @@ public class CascadeTracker extends ActivatableTracker
             }
         }
 
-        LOGGER.info("{}-[CORE {}] Cascade processing complete — updated {} docs",
-                Thread.currentThread().getId(), coreName, totalUpdatedDocs);
+        if (totalUpdatedDocs > 0)
+        {
+            LOGGER.info("{}-[CORE {}] Cascade processing complete — updated {} docs",
+                    Thread.currentThread().getId(), coreName, totalUpdatedDocs);
+        }
+        else
+        {
+            LOGGER.debug("{}-[CORE {}] Cascade processing complete — updated 0 docs",
+                    Thread.currentThread().getId(), coreName);
+        }
     }
 }

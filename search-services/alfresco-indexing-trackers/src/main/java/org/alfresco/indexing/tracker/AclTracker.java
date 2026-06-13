@@ -731,7 +731,7 @@ public class AclTracker extends ActivatableTracker
                 }
                 else
                 {
-                    LOGGER.info("{}-[CORE {}] No ACL change set found after lastTxCommitTime {}",
+                    LOGGER.debug("{}-[CORE {}] No ACL change set found after lastTxCommitTime {}",
                             Thread.currentThread().getId(), coreName, fromCommitTime);
                 }
 
@@ -781,7 +781,14 @@ public class AclTracker extends ActivatableTracker
         }
         while ((aclChangeSets.getAclChangeSets().size() > 0));
 
-        LOGGER.info("{}-[CORE {}] <end> Tracked {} ACLs", Thread.currentThread().getId(), coreName, totalAclCount);
+        if (totalAclCount > 0)
+        {
+            LOGGER.info("{}-[CORE {}] <end> Tracked {} ACLs", Thread.currentThread().getId(), coreName, totalAclCount);
+        }
+        else
+        {
+            LOGGER.debug("{}-[CORE {}] <end> Tracked 0 ACLs", Thread.currentThread().getId(), coreName);
+        }
 
     }
 
