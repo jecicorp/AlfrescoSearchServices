@@ -441,6 +441,54 @@
                         <id>third-party-licenses</id>
                         <phase>none</phase>
                     </execution>
+                    <!-- Exclude Jeci-authored files from the inherited Alfresco (community) header check -->
+                    <execution>
+                        <id>check-licenses</id>
+                        <configuration>
+                            <excludes combine.children="append">
+                                <exclude>**/org/alfresco/repo/search/impl/lucene/analysis/MLAnalayserOffsetTest.java</exclude>
+                                <exclude>**/org/alfresco/repo/search/impl/lucene/analysis/MonotonicOffsetFilter.java</exclude>
+                                <exclude>**/org/alfresco/repo/search/impl/lucene/analysis/MultiValuedOffsetTest.java</exclude>
+                                <exclude>**/org/alfresco/solr/handler/ModelUpdateRequestHandler.java</exclude>
+                                <exclude>**/org/alfresco/solr/handler/ModelUpdateRequestHandlerTest.java</exclude>
+                                <exclude>**/org/alfresco/solr/query/BitSetQuery.java</exclude>
+                                <exclude>**/org/alfresco/solr/SolrDocTypeConstants.java</exclude>
+                                <exclude>**/org/apache/solr/handler/component/AlfrescoSolrHighlighterTest.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <!-- Check Jeci-authored files against the Pristy LGPL header -->
+                    <execution>
+                        <id>check-licenses-pristy</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>update-file-header</goal>
+                        </goals>
+                        <configuration>
+                            <licenseName>pristy_lgpl_v3</licenseName>
+                            <licenseResolver>file://${maven.multiModuleProjectDirectory}/license-headers</licenseResolver>
+                            <organizationName>Jeci SARL - https://jeci.fr</organizationName>
+                            <inceptionYear>2026</inceptionYear>
+                            <addJavaLicenseAfterPackage>false</addJavaLicenseAfterPackage>
+                            <canUpdateCopyright>${license.update.copyright}</canUpdateCopyright>
+                            <failOnMissingHeader>true</failOnMissingHeader>
+                            <failOnNotUptodateHeader>true</failOnNotUptodateHeader>
+                            <dryRun>${license.update.dryrun}</dryRun>
+                            <roots>
+                                <root>src</root>
+                            </roots>
+                            <includes>
+                                <include>**/org/alfresco/repo/search/impl/lucene/analysis/MLAnalayserOffsetTest.java</include>
+                                <include>**/org/alfresco/repo/search/impl/lucene/analysis/MonotonicOffsetFilter.java</include>
+                                <include>**/org/alfresco/repo/search/impl/lucene/analysis/MultiValuedOffsetTest.java</include>
+                                <include>**/org/alfresco/solr/handler/ModelUpdateRequestHandler.java</include>
+                                <include>**/org/alfresco/solr/handler/ModelUpdateRequestHandlerTest.java</include>
+                                <include>**/org/alfresco/solr/query/BitSetQuery.java</include>
+                                <include>**/org/alfresco/solr/SolrDocTypeConstants.java</include>
+                                <include>**/org/apache/solr/handler/component/AlfrescoSolrHighlighterTest.java</include>
+                            </includes>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
             <plugin>

@@ -1,16 +1,24 @@
-/*
- * Copyright 2026 - Jeci SARL - https://jeci.fr
- *
- * This program is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser General
- * Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any
- * later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
- * details.
- *
- * You should have received a copy of the GNU Lesser General Public License along with this program. If not, see
- * http://www.gnu.org/licenses/.
+/*-
+ * #%L
+ * Alfresco Indexing Trackers
+ * %%
+ * Copyright (C) 2026 Jeci SARL - https://jeci.fr
+ * %%
+ * This file is part of the Pristy software, developed by Jeci SARL.
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * #L%
  */
 package org.alfresco.indexing.config;
 
@@ -107,6 +115,8 @@ public class TrackerBootstrap implements ApplicationRunner
         List<String> collections = props.getSolr().getCollections();
         Properties trackerProps = buildTrackerProperties();
 
+        logEffectiveConfiguration(collections);
+
         LOGGER.info("Initialising tracking subsystem for collections: {}", collections);
 
         // Shared registry and scheduler across all cores
@@ -156,6 +166,26 @@ public class TrackerBootstrap implements ApplicationRunner
 
         LOGGER.info("Tracking subsystem fully initialised for {} collections, {} trackers active.",
                 collections.size(), trackers.size() + 1 /* +1 for ModelTracker */);
+    }
+
+    /**
+     * Logs the cron schedules and timing settings actually in effect, so the
+     * resolved configuration (defaults + environment overrides) is visible in
+     * the logs at startup. See docs/tracker-configuration.md for impacts.
+     */
+    private void logEffectiveConfiguration(List<String> collections)
+    {
+        TrackerProperties.CronConfig cron = props.getCron();
+        LOGGER.info("Tracker configuration in effect (collections={}):", collections);
+        LOGGER.info("  cron.metadata = {}", cron.getMetadata());
+        LOGGER.info("  cron.acl      = {}", cron.getAcl());
+        LOGGER.info("  cron.content  = {}", cron.getContent());
+        LOGGER.info("  cron.commit   = {}", cron.getCommit());
+        LOGGER.info("  cron.model    = {}", cron.getModel());
+        LOGGER.info("  cron.cascade  = {} (enabled={})", cron.getCascade(), props.isCascadeTrackingEnabled());
+        LOGGER.info("  cron.repair   = {} (maxRetries={})", cron.getRepair(), props.getRepairMaxRetries());
+        LOGGER.info("  commitInterval={} ms, newSearcherInterval={} ms, batchCount={}",
+                props.getCommitInterval(), props.getNewSearcherInterval(), props.getBatchCount());
     }
 
     private SolrJInformationServer initInformationServer(String coreName, Properties trackerProps)

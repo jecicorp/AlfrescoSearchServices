@@ -153,12 +153,55 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <excludes>
-                        <!-- Excluding this test, because it requires the 
+                        <!-- Excluding this test, because it requires the
                             keystore which is a part of SystemBuildTest.
                             into that project or making it pass on its own. -->
                         <exclude>**/SOLRAPIClientTest.java</exclude>
                     </excludes>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <executions>
+                    <!-- Exclude Jeci-authored files from the inherited Alfresco (community) header check -->
+                    <execution>
+                        <id>check-licenses</id>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/org/alfresco/solr/client/ContentPropertySpecs.java</exclude>
+                                <exclude>**/org/alfresco/solr/client/TenantDbId.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <!-- Check Jeci-authored files against the Pristy LGPL header -->
+                    <execution>
+                        <id>check-licenses-pristy</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>update-file-header</goal>
+                        </goals>
+                        <configuration>
+                            <licenseName>pristy_lgpl_v3</licenseName>
+                            <licenseResolver>file://${maven.multiModuleProjectDirectory}/license-headers</licenseResolver>
+                            <organizationName>Jeci SARL - https://jeci.fr</organizationName>
+                            <inceptionYear>2026</inceptionYear>
+                            <addJavaLicenseAfterPackage>false</addJavaLicenseAfterPackage>
+                            <canUpdateCopyright>${license.update.copyright}</canUpdateCopyright>
+                            <failOnMissingHeader>true</failOnMissingHeader>
+                            <failOnNotUptodateHeader>true</failOnNotUptodateHeader>
+                            <dryRun>${license.update.dryrun}</dryRun>
+                            <roots>
+                                <root>src</root>
+                            </roots>
+                            <includes>
+                                <include>**/org/alfresco/solr/client/ContentPropertySpecs.java</include>
+                                <include>**/org/alfresco/solr/client/TenantDbId.java</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
