@@ -725,7 +725,7 @@ public class MetadataTracker extends ActivatableTracker
         BoundedDeque<Transaction> txnsFound = new BoundedDeque<>(METADATA_TRANSACTIONS_FOUND_QUEUE_SIZE);
         int totalUpdatedDocs = 0;
 
-        LOGGER.info("{}-[CORE {}] Starting metadata tracker execution", Thread.currentThread().getId(), coreName);
+        LOGGER.debug("{}-[CORE {}] Starting metadata tracker execution", Thread.currentThread().getId(), coreName);
         boolean reachedLagBoundary = false;
 
         do

@@ -199,7 +199,7 @@ public class CascadeTracker extends ActivatableTracker
                     {
                         // Final hard commit with waitSearcher=true
                         infoSrv.commit(true);
-                        LOGGER.info("{}-[CORE {}] Final commit after {} batches",
+                        LOGGER.debug("{}-[CORE {}] Final commit after {} batches",
                                 Thread.currentThread().getId(), coreName, batchesSinceCommit);
                     }
                     break;

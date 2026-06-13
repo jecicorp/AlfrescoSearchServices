@@ -153,7 +153,7 @@ public class SolrJQueryService
 
             if (docs == null || docs.getNumFound() == 0)
             {
-                LOGGER.info("No tracker state documents found in index — first run.");
+                LOGGER.debug("No tracker state documents found in index — first run.");
                 // Do NOT return early — fall through to set timing fields
                 // (timeToStopIndexing, lastGoodTxCommitTimeInIndex, etc.)
             }

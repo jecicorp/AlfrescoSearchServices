@@ -699,7 +699,7 @@ public class AclTracker extends ActivatableTracker
         long totalAclCount = 0;
         int aclCount;
 
-        LOGGER.info("{}-[CORE {}] <init> Tracking ACLs", Thread.currentThread().getId(), coreName);
+        LOGGER.debug("{}-[CORE {}] <init> Tracking ACLs", Thread.currentThread().getId(), coreName);
 
         do
         {

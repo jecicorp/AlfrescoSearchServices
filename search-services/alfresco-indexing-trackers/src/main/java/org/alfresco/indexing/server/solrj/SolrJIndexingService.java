@@ -364,7 +364,7 @@ public class SolrJIndexingService
             long parentTxnId = parentMeta.getTxnId();
 
             Map<Long, Long> descendants = queryService.getDescendantNodeIds(parentNodeRef);
-            LOGGER.info("cascadeNodes: node {} has {} descendants to check", parentMeta.getId(), descendants.size());
+            LOGGER.debug("cascadeNodes: node {} has {} descendants to check", parentMeta.getId(), descendants.size());
 
             // Filter descendants: only cascade those with txnId < parent txnId
             List<Long> childDbIds = new ArrayList<>();
@@ -382,7 +382,7 @@ public class SolrJIndexingService
                 continue;
             }
 
-            LOGGER.info("cascadeNodes: re-indexing {} descendants for parent node {}", childDbIds.size(), parentMeta.getId());
+            LOGGER.debug("cascadeNodes: re-indexing {} descendants for parent node {}", childDbIds.size(), parentMeta.getId());
             reindexDescendants(childDbIds, overwrite);
         }
     }
