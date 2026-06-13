@@ -3,6 +3,7 @@
  * Alfresco Search Services
  * %%
  * Copyright (C) 2005 - 2022 Alfresco Software Limited
+ * Copyright (C) 2026 Jeci SARL - https://jeci.fr
  * %%
  * This file is part of the Alfresco software. 
  * If the software was purchased under a paid Alfresco license, the terms of 
