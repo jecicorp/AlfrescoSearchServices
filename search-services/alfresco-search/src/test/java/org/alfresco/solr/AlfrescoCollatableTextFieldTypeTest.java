@@ -38,7 +38,7 @@ import java.text.Collator;
 import java.util.Locale;
 
 import org.alfresco.solr.AlfrescoCollatableTextFieldType.TextSortFieldComparator;
-import org.apache.lucene.index.BinaryDocValues;
+import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.util.BytesRef;
 import org.junit.Before;
 import org.junit.Test;
@@ -59,7 +59,7 @@ public class AlfrescoCollatableTextFieldTypeTest
     @InjectMocks
     TextSortFieldComparator textSortFieldComparator = new TextSortFieldComparator(NUM_HITS, FIELD, LOCALE);
     @Mock
-    BinaryDocValues mockDocTerms;
+    SortedDocValues mockDocTerms;
     @Mock
     Collator mockCollator;
 
@@ -92,7 +92,8 @@ public class AlfrescoCollatableTextFieldTypeTest
     {
         // Set up the document to have an empty term.
         when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
-        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef());
+        when(mockDocTerms.ordValue()).thenReturn(0);
+        when(mockDocTerms.lookupOrd(0)).thenReturn(new BytesRef());
 
         // Call the method under test.
         textSortFieldComparator.compareBottom(DOC);
@@ -107,7 +108,8 @@ public class AlfrescoCollatableTextFieldTypeTest
     {
         // Set up the document to have "Some value" for the field.
         when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
-        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef("Some value"));
+        when(mockDocTerms.ordValue()).thenReturn(0);
+        when(mockDocTerms.lookupOrd(0)).thenReturn(new BytesRef("Some value"));
 
         // Call the method under test.
         textSortFieldComparator.compareBottom(DOC);
@@ -121,7 +123,8 @@ public class AlfrescoCollatableTextFieldTypeTest
     {
         // Set up the document to have an encoded value for the field.
         when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
-        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef("\u0000Ignored\u0000Value"));
+        when(mockDocTerms.ordValue()).thenReturn(0);
+        when(mockDocTerms.lookupOrd(0)).thenReturn(new BytesRef("\u0000Ignored\u0000Value"));
 
         // Call the method under test.
         textSortFieldComparator.compareBottom(DOC);
@@ -170,7 +173,8 @@ public class AlfrescoCollatableTextFieldTypeTest
     {
         // Set up the document to have an encoded value for the field.
         when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
-        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef("\u0000"));
+        when(mockDocTerms.ordValue()).thenReturn(0);
+        when(mockDocTerms.lookupOrd(0)).thenReturn(new BytesRef("\u0000"));
 
         // Call the method under test.
         textSortFieldComparator.compareBottom(DOC);

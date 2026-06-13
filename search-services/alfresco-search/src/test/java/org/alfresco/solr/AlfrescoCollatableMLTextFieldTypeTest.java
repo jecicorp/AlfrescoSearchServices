@@ -38,7 +38,7 @@ import java.text.Collator;
 import java.util.Locale;
 
 import org.alfresco.solr.AlfrescoCollatableMLTextFieldType.MLTextSortFieldComparator;
-import org.apache.lucene.index.BinaryDocValues;
+import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.util.BytesRef;
 import org.junit.Before;
 import org.junit.Test;
@@ -59,7 +59,7 @@ public class AlfrescoCollatableMLTextFieldTypeTest
     @InjectMocks
     MLTextSortFieldComparator textSortFieldComparator = new MLTextSortFieldComparator(NUM_HITS, FIELD, LOCALE);
     @Mock
-    BinaryDocValues mockDocTerms;
+    SortedDocValues mockDocTerms;
     @Mock
     Collator mockCollator;
 
@@ -92,7 +92,8 @@ public class AlfrescoCollatableMLTextFieldTypeTest
     {
         // Set up the document to have an empty term.
         when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
-        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef());
+        when(mockDocTerms.ordValue()).thenReturn(0);
+        when(mockDocTerms.lookupOrd(0)).thenReturn(new BytesRef());
 
         // Call the method under test.
         textSortFieldComparator.compareBottom(DOC);
@@ -107,7 +108,8 @@ public class AlfrescoCollatableMLTextFieldTypeTest
     {
         // Set up the document to have "Some value" for the field.
         when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
-        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef("Some value"));
+        when(mockDocTerms.ordValue()).thenReturn(0);
+        when(mockDocTerms.lookupOrd(0)).thenReturn(new BytesRef("Some value"));
 
         // Call the method under test.
         textSortFieldComparator.compareBottom(DOC);
@@ -125,7 +127,8 @@ public class AlfrescoCollatableMLTextFieldTypeTest
                 "\u0000th_TH_TH\u0000Third\u0000AlsoIgnored";
         // Set up the document to have an encoded value for the field.
         when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
-        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef(mlText));
+        when(mockDocTerms.ordValue()).thenReturn(0);
+        when(mockDocTerms.lookupOrd(0)).thenReturn(new BytesRef(mlText));
 
         // Check that the Russian text can be extracted.
         textSortFieldComparator.collatorLocale = Locale.forLanguageTag("ru");
@@ -153,7 +156,8 @@ public class AlfrescoCollatableMLTextFieldTypeTest
         // Set the value to have a locale but no text.
         String mlText = "\u0000ru";
         when(mockDocTerms.advanceExact(DOC)).thenReturn(true);
-        when(mockDocTerms.binaryValue()).thenReturn(new BytesRef(mlText));
+        when(mockDocTerms.ordValue()).thenReturn(0);
+        when(mockDocTerms.lookupOrd(0)).thenReturn(new BytesRef(mlText));
 
         // Call the method under test.
         textSortFieldComparator.compareBottom(DOC);
