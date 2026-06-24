@@ -12,14 +12,19 @@ are bound from `application.yml` (baked into the image) or overridden at runtime
 Because Spring Boot uses *relaxed binding*, every property can be set with an
 environment variable by upper-casing it and replacing `.` / `-` with `_`:
 
-| Property (`application.yml`)        | Environment variable                       |
-|-------------------------------------|--------------------------------------------|
-| `alfresco.tracker.cron.content`     | `ALFRESCO_TRACKER_CRON_CONTENT`            |
-| `alfresco.tracker.commit-interval`  | `ALFRESCO_TRACKER_COMMIT_INTERVAL`         |
-| `alfresco.tracker.batch-count`      | `ALFRESCO_TRACKER_BATCH_COUNT`             |
+| Property (`application.yml`)                    | Environment variable                                   |
+|-------------------------------------------------|--------------------------------------------------------|
+| `alfresco.tracker.cron.content`                 | `ALFRESCO_TRACKER_CRON_CONTENT`                        |
+| `alfresco.tracker.commit-interval`              | `ALFRESCO_TRACKER_COMMIT_INTERVAL`                     |
+| `alfresco.tracker.batch-count`                  | `ALFRESCO_TRACKER_BATCH_COUNT`                         |
+| `alfresco.tracker.cores.archive.transform-content` | `ALFRESCO_TRACKER_CORES_ARCHIVE_TRANSFORM_CONTENT` |
 
 This means you can re-tune a running stack (e.g. `pristy-demo`) by adding
 environment variables to the `trackers` service — **no image rebuild required**.
+
+> **Per-core settings** live under `alfresco.tracker.cores.<coreName>.*` and
+> override the global value for that core only — see
+> [Per-core configuration & store selection](#per-core-configuration--store-selection).
 
 ## The indexing pipeline (why full-text is slower than metadata)
 
@@ -86,9 +91,11 @@ tracker wakes up*; it does not by itself guarantee a commit (see commit settings
 | Property | Default | Impact |
 |----------|---------|--------|
 | `alfresco.tracker.cascade-tracking-enabled` | `true` | Enables propagation of path changes to descendants. Disabling speeds up renames/moves of large subtrees but leaves descendant paths stale until a full reindex. |
+| `alfresco.tracker.transform-content` | `true` | Maps to the legacy `alfresco.index.transformContent`. When `false`, the tracker does **not** request text extraction for that core — useful for the `archive` core, where full-text search of trashed documents is rarely needed. |
+| `alfresco.tracker.max-live-searchers` | `2` | Maximum number of concurrent live Solr searchers a tracker keeps open while indexing. |
 | `alfresco.tracker.repair-max-retries` | `10` | How many times the RepairTracker retries a failing node before marking it permanently failed. |
 | `alfresco.tracker.solr-home` | `/opt/solr/data` | Local directory where the model dictionary is persisted. |
-| `alfresco.tracker.solr.collections` | `alfresco,archive` | Cores/collections to track. Must match the cores created in the Solr image. |
+| `alfresco.tracker.solr.collections` | `alfresco,archive` | Cores/collections to track. Must match the cores created in the Solr image. The **store** each core tracks is resolved separately — see [Per-core configuration & store selection](#per-core-configuration--store-selection). |
 
 ### Internal content settings (not externally configurable today)
 
@@ -105,6 +112,92 @@ In addition, each ContentTracker cycle pulls at most **2000** outdated documents
 from Solr (hardcoded in `SolrJQueryService#getDocsWithUncleanContent`). With a
 large backlog, full re-indexing therefore progresses 2000 documents per
 `cron.content` tick.
+
+## Per-core configuration & store selection
+
+When several cores are tracked (the default `alfresco,archive`), each one can be
+configured **independently**. This matters because the cores have different
+roles: `alfresco` indexes the live `workspace://SpacesStore`, while `archive`
+indexes the trashcan `archive://SpacesStore`, whose updates are secondary and
+can be tracked far less aggressively.
+
+### Store selection
+
+Each core tracks exactly one store, resolved in this order:
+
+1. an explicit `alfresco.tracker.cores.<coreName>.store`, otherwise
+2. **by convention**: the core named `archive` tracks `archive://SpacesStore`;
+   every other core tracks `workspace://SpacesStore`.
+
+Thanks to the convention, a standard `alfresco` + `archive` deployment needs
+**no `cores` configuration at all** to track the correct stores.
+
+> **Why this exists.** `AbstractTracker` falls back to `workspace://SpacesStore`
+> when no store is set. Previously the configuration was shared across all cores
+> and never carried a store, so *every* core defaulted to the workspace store and
+> the `archive` core indexed the live nodes instead of the trashcan — two distinct
+> indexes holding identical documents. The resolved store of every core is now
+> logged at startup (`TrackerBootstrap`), e.g.
+> `[core 'archive'] store=archive://SpacesStore …`.
+
+### Global default vs. per-core override
+
+Every setting below has a **global default** (the `alfresco.tracker.*` keys in
+the reference tables above) and may be **overridden per core** under
+`alfresco.tracker.cores.<coreName>.*`. A per-core key that is left unset
+**inherits the global value**.
+
+Overridable per core:
+
+| Per-core key | Global counterpart |
+|--------------|--------------------|
+| `cores.<name>.store` | *(convention — see above)* |
+| `cores.<name>.batch-count` | `batch-count` |
+| `cores.<name>.max-live-searchers` | `max-live-searchers` |
+| `cores.<name>.transform-content` | `transform-content` |
+| `cores.<name>.cascade-tracking-enabled` | `cascade-tracking-enabled` |
+| `cores.<name>.commit-interval` | `commit-interval` |
+| `cores.<name>.new-searcher-interval` | `new-searcher-interval` |
+| `cores.<name>.cron.{metadata,acl,content,commit,cascade,repair}` | `cron.*` |
+
+> `cron.model` is **not** per-core: the ModelTracker is a single repo-global
+> instance (initialised on the first core), so the model schedule always comes
+> from the global / first-core configuration.
+
+### Example: a deprioritised `archive` core
+
+```yaml
+alfresco:
+  tracker:
+    solr:
+      collections: [alfresco, archive]
+    cores:
+      archive:
+        # store is "archive://SpacesStore" by convention — no need to set it
+        transform-content: false        # skip full-text extraction for the trash
+        max-live-searchers: 1
+        batch-count: 1000
+        commit-interval: 30000
+        new-searcher-interval: 60000
+        cascade-tracking-enabled: false
+        cron:
+          metadata: "0 0/5 * * * ?"      # every 5 min instead of every 5 s
+          content:  "0 0/30 * * * ?"
+          acl:      "0 0/5 * * * ?"
+```
+
+The equivalent with environment variables (no image rebuild):
+
+```yaml
+# compose.yml — trackers service
+environment:
+  ALFRESCO_TRACKER_CORES_ARCHIVE_TRANSFORM_CONTENT: "false"
+  ALFRESCO_TRACKER_CORES_ARCHIVE_CRON_METADATA: "0 0/5 * * * ?"
+  ALFRESCO_TRACKER_CORES_ARCHIVE_CRON_CONTENT: "0 0/30 * * * ?"
+```
+
+The implementation is described in
+[`doc/architecture/trackers/00002-per-core-configuration.md`](../search-services/alfresco-search/doc/architecture/trackers/00002-per-core-configuration.md).
 
 ## Reducing full-text indexing delay
 
@@ -155,5 +248,11 @@ alfresco:
 ```
 
 `commit-interval` (2000 ms), `new-searcher-interval` (3000 ms),
-`cron.repair` (1 min) and `repair-max-retries` (10) are not listed in
-`application.yml` and fall back to the defaults shown in the reference tables.
+`transform-content` (`true`), `max-live-searchers` (2), `cron.repair` (1 min)
+and `repair-max-retries` (10) are not listed in `application.yml` and fall back
+to the defaults shown in the reference tables.
+
+No `cores` block is shipped: both `alfresco` and `archive` track the correct
+store by convention, and every core inherits the global tuning above. Add a
+`cores.archive.*` section only when you want the `archive` core tracked
+differently (see [Per-core configuration & store selection](#per-core-configuration--store-selection)).

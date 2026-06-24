@@ -69,6 +69,26 @@ All tracker settings are environment variables on the **trackers** service (pref
 > On a busy production repository, keep these conservative — a faster content cron
 > hits the transform engine harder.
 
+### Per-core tuning (the `archive` core is secondary)
+
+Each setting above can be overridden **per core** with the prefix
+`ALFRESCO_TRACKER_CORES_<CORE>_…`. The `archive` core (the trashcan) is rarely
+searched, so it is the obvious candidate to deprioritise — track it less often
+and skip full-text extraction entirely:
+
+```yaml
+environment:
+  ALFRESCO_TRACKER_CORES_ARCHIVE_TRANSFORM_CONTENT: "false"      # no text extraction for trash
+  ALFRESCO_TRACKER_CORES_ARCHIVE_CRON_METADATA: "0 0/5 * * * ?"  # every 5 min, not every 5 s
+  ALFRESCO_TRACKER_CORES_ARCHIVE_CRON_CONTENT: "0 0/30 * * * ?"
+```
+
+The **store** each core indexes is chosen automatically: a core named `archive`
+indexes the archive (trashcan) store, every other core indexes the live
+workspace store. No configuration is needed for the standard layout. See
+[tracker-configuration.md](tracker-configuration.md#per-core-configuration--store-selection)
+for the full per-core reference.
+
 ### Solr runtime — new secure-by-default settings
 
 Solr 9 ships "secure by default", and a few of those defaults must be turned off for
@@ -123,6 +143,7 @@ You do **not** need to relearn day-to-day search administration:
 | Schema fails to load mentioning ICU / analysis | `SOLR_MODULES=analysis-extras` missing. |
 | Documents searchable by name but not by content | Normal during the content-indexing lag; if persistent, lower/inspect `ALFRESCO_TRACKER_CRON_CONTENT` and check the transform service. |
 | Index count stuck at 0 | Trackers service not running or not pointed at the right cores (`ALFRESCO_TRACKER_SOLR_COLLECTIONS`). |
+| `alfresco` and `archive` cores show identical document counts | The `archive` core is indexing the live store instead of the trashcan. Check the trackers startup log for `[core 'archive'] store=archive://SpacesStore`; if it shows `workspace://…`, the store was misconfigured. Fixed in current versions (store resolved per core). After fixing, purge and rebuild the archive index (`./purgeIndex.sh` or delete its data dir). |
 | ACL deny filtering questions | See [debugging.md](debugging.md) (`processedDenies`). |
 
 ## See also
