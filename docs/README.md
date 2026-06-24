@@ -10,6 +10,7 @@ standalone indexing trackers) running on Alfresco Community Edition.
 | [solr9-admin-guide.md](solr9-admin-guide.md) | **For administrators.** What changes with the new Solr 9 search version in plain terms: the new two-service layout, the mandatory re-index, the new configuration options, and what stays the same. |
 | [solr6-to-solr9-migration.md](solr6-to-solr9-migration.md) | How the search tier was migrated from Solr 6.6.5 to Solr 9.10.1 / Lucene 9.12.3, in two phases (6→8, then 8→9). API, schema, solrconfig, runtime and test changes. |
 | [tracker-configuration.md](tracker-configuration.md) | Configuration and tuning of the standalone `alfresco-indexing-trackers` Spring Boot service (cron, commit interval, batch size, latency/throughput trade-offs), including **per-core overrides and store selection** for the `alfresco`/`archive` cores. |
+| [tracker-admin-endpoints.md](tracker-admin-endpoints.md) | Operational REST API of the trackers service (`:8085`): index reports (`summary`, `report`, `node-report`), on-demand reindex of a node/transaction/query, error-node retry, and the Solr-compat `/solr/admin/cores?action=…` alias. |
 | [debugging.md](debugging.md) | Debugging guide — ACL deny filtering (`processedDenies`) and how to enable the relevant diagnostic logs. |
 
 ## About this fork

@@ -146,8 +146,37 @@ You do **not** need to relearn day-to-day search administration:
 | `alfresco` and `archive` cores show identical document counts | The `archive` core is indexing the live store instead of the trashcan. Check the trackers startup log for `[core 'archive'] store=archive://SpacesStore`; if it shows `workspace://…`, the store was misconfigured. Fixed in current versions (store resolved per core). After fixing, purge and rebuild the archive index (`./purgeIndex.sh` or delete its data dir). |
 | ACL deny filtering questions | See [debugging.md](debugging.md) (`processedDenies`). |
 
+## Operations: reports & on-demand reindex
+
+Indexing reports and maintenance actions are served by the **trackers** service on
+`:8085` (Solr stays vanilla — the old `/solr/admin/cores?action=…` handler now
+lives here). The most useful:
+
+```bash
+# Is indexing caught up? (per-core stats + TXLag/AclTXLag)
+curl -s "http://<trackers>:8085/api/admin/summary" | python3 -m json.tool
+
+# Index consistency report (missing/duplicated/error docs)
+curl -s "http://<trackers>:8085/api/admin/report?core=alfresco" | python3 -m json.tool
+
+# Status of one node (by DBID)
+curl -s "http://<trackers>:8085/api/admin/node-report?nodeid=<DBID>&core=alfresco"
+
+# Reindex a node / transaction / AFTS query on demand
+curl -s -X POST "http://<trackers>:8085/api/admin/reindex?nodeid=<DBID>&core=alfresco"
+curl -s -X POST "http://<trackers>:8085/api/admin/reindex?txid=<TXID>&core=alfresco"
+
+# Inspect and retry error nodes
+curl -s  "http://<trackers>:8085/actuator/repairreport"
+curl -s -X POST "http://<trackers>:8085/api/admin/retry?core=alfresco"
+```
+
+Full action list, parameters and the Solr-compat alias:
+[tracker-admin-endpoints.md](tracker-admin-endpoints.md).
+
 ## See also
 
+- [tracker-admin-endpoints.md](tracker-admin-endpoints.md) — reports & reindex REST API reference.
 - [tracker-configuration.md](tracker-configuration.md) — full tracker tuning reference.
 - [solr6-to-solr9-migration.md](solr6-to-solr9-migration.md) — technical migration details.
 - [debugging.md](debugging.md) — ACL deny filtering diagnostics.
