@@ -242,7 +242,7 @@ public class ModelTracker extends AbstractTracker
             loadModel(modelMap, loadedModels, model);
         }
 
-        if(modelMap.size() > 0)
+        if(!modelMap.isEmpty())
         {
             dataModelCallback.afterInitModels();
         }
@@ -379,7 +379,7 @@ public class ModelTracker extends AbstractTracker
         {
             loadModel(modelMap, loadedModels, model);
         }
-        if (loadedModels.size() > 0)
+        if (!loadedModels.isEmpty())
         {
             this.infoSrv.afterInitModels();
         }

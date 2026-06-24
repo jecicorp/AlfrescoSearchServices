@@ -223,13 +223,13 @@ public class MetadataTracker extends ActivatableTracker
 
     public boolean hasMaintenance()
     {
-        return  transactionsToReindex.size() > 0 ||
-                transactionsToIndex.size() > 0 ||
-                transactionsToPurge.size() > 0 ||
-                nodesToReindex.size() > 0 ||
-                nodesToIndex.size() > 0 ||
-                nodesToPurge.size() > 0 ||
-                queriesToReindex.size() > 0;
+        return  !transactionsToReindex.isEmpty() ||
+                !transactionsToIndex.isEmpty() ||
+                !transactionsToPurge.isEmpty() ||
+                !nodesToReindex.isEmpty() ||
+                !nodesToIndex.isEmpty() ||
+                !nodesToPurge.isEmpty() ||
+                !queriesToReindex.isEmpty();
     }
 
     private void trackRepository() throws IOException, AuthenticationException, JSONException
@@ -359,7 +359,7 @@ public class MetadataTracker extends ActivatableTracker
             {
                 Transactions transactions = client.getTransactions(null, transactionId,
                         null, transactionId + 1, 1);
-                if ((transactions.getTransactions().size() > 0) &&
+                if ((!transactions.getTransactions().isEmpty()) &&
                         (transactionId.equals(transactions.getTransactions().get(0).getId())))
                 {
                     Transaction info = transactions.getTransactions().get(0);
@@ -447,7 +447,7 @@ public class MetadataTracker extends ActivatableTracker
 
                 Transactions transactions = client.getTransactions(null, transactionId,
                         null, transactionId+1, 1);
-                if ((transactions.getTransactions().size() > 0) &&
+                if ((!transactions.getTransactions().isEmpty()) &&
                         (transactionId.equals(transactions.getTransactions().get(0).getId())))
                 {
                     Transaction info = transactions.getTransactions().get(0);
@@ -677,7 +677,7 @@ public class MetadataTracker extends ActivatableTracker
             }
 
         } while (((transactions.getTransactions().size() == 0) && (startTime < endTime))
-                    || ((transactions.getTransactions().size() > 0) && alreadyFoundTransactions(txnsFound, transactions)));
+                    || ((!transactions.getTransactions().isEmpty()) && alreadyFoundTransactions(txnsFound, transactions)));
 
 
         return transactions;
@@ -753,7 +753,7 @@ public class MetadataTracker extends ActivatableTracker
                 long idTrackerCycle = System.currentTimeMillis();
                 long lagCutoff = state.getTimeToStopIndexing();
                 AtomicBoolean hitLagBoundary = new AtomicBoolean(false);
-                if (transactions.getTransactions().size() > 0)
+                if (!transactions.getTransactions().isEmpty())
                 {
                     LOGGER.info("{}:{}-[CORE {}] Found {} transactions after lastTxCommitTime {}, transactions from {} to {}",
                             Thread.currentThread().getId(),
@@ -896,7 +896,7 @@ public class MetadataTracker extends ActivatableTracker
             }
 
         }
-        while (!reachedLagBoundary && (transactions.getTransactions().size() > 0));
+        while (!reachedLagBoundary && (!transactions.getTransactions().isEmpty()));
 
         if (totalUpdatedDocs > 0)
         {
@@ -1033,7 +1033,7 @@ public class MetadataTracker extends ActivatableTracker
         protected void doWork() throws IOException, AuthenticationException, JSONException
         {
             List<Node> filteredNodes = filterNodes(nodes);
-            if(filteredNodes.size() > 0)
+            if(!filteredNodes.isEmpty())
             {
                 this.infoServer.indexNodes(filteredNodes, true);
             }
@@ -1125,7 +1125,7 @@ public class MetadataTracker extends ActivatableTracker
         long firstTransactionCommitTime = 0;
         Transactions firstTransactions = client.getTransactions(null, minTxnIdRange.getFirst(),
                 null, minTxnIdRange.getSecond(), 1);
-        if(firstTransactions.getTransactions().size() > 0)
+        if(!firstTransactions.getTransactions().isEmpty())
         {
             Transaction firstTransaction = firstTransactions.getTransactions().get(0);
             firstTransactionCommitTime = firstTransaction.getCommitTimeMs();
@@ -1179,7 +1179,7 @@ public class MetadataTracker extends ActivatableTracker
                 txnsFound.add(info);
             }
         }
-        while (transactions.getTransactions().size() > 0);
+        while (!transactions.getTransactions().isEmpty());
 
         return this.infoSrv.reportIndexTransactions(minTxId, txIdsInDb, maxTxId);
     }

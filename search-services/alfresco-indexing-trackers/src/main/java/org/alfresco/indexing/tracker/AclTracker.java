@@ -171,12 +171,12 @@ public class AclTracker extends ActivatableTracker
 
     public boolean hasMaintenance()
     {
-        return  aclChangeSetsToReindex.size() > 0 ||
-                aclChangeSetsToIndex.size() > 0 ||
-                aclChangeSetsToPurge.size() > 0 ||
-                aclsToReindex.size() > 0 ||
-                aclsToIndex.size() > 0 ||
-                aclsToPurge.size() > 0;
+        return  !aclChangeSetsToReindex.isEmpty() ||
+                !aclChangeSetsToIndex.isEmpty() ||
+                !aclChangeSetsToPurge.isEmpty() ||
+                !aclsToReindex.isEmpty() ||
+                !aclsToIndex.isEmpty() ||
+                !aclsToPurge.isEmpty();
     }
 
     protected void indexAclChangeSets() throws AuthenticationException, IOException, JSONException
@@ -189,7 +189,7 @@ public class AclTracker extends ActivatableTracker
             {
                 AclChangeSets aclChangeSets = client.getAclChangeSets(null, aclChangeSetId,
                         null, aclChangeSetId+1, 1);
-                if ((aclChangeSets.getAclChangeSets().size() > 0) &&
+                if ((!aclChangeSets.getAclChangeSets().isEmpty()) &&
                         aclChangeSetId.equals(aclChangeSets.getAclChangeSets().get(0).getId()))
                 {
                     AclChangeSet changeSet = aclChangeSets.getAclChangeSets().get(0);
@@ -245,7 +245,7 @@ public class AclTracker extends ActivatableTracker
 
                 AclChangeSets aclChangeSets = client.getAclChangeSets(null, aclChangeSetId,
                         null, aclChangeSetId+1, 1);
-                if ((aclChangeSets.getAclChangeSets().size() > 0) &&
+                if ((!aclChangeSets.getAclChangeSets().isEmpty()) &&
                         aclChangeSetId.equals(aclChangeSets.getAclChangeSets().get(0).getId()))
                 {
                     AclChangeSet changeSet = aclChangeSets.getAclChangeSets().get(0);
@@ -530,7 +530,7 @@ public class AclTracker extends ActivatableTracker
             }
         }
         while( ((aclChangeSets.getAclChangeSets().size() == 0) && (startTime < endTime)) ||
-                ((aclChangeSets.getAclChangeSets().size() > 0) && alreadyFoundChangeSets(changeSetsFound, aclChangeSets)));
+                ((!aclChangeSets.getAclChangeSets().isEmpty()) && alreadyFoundChangeSets(changeSetsFound, aclChangeSets)));
 
         return aclChangeSets;
 
@@ -578,7 +578,7 @@ public class AclTracker extends ActivatableTracker
         long firstChangeSetCommitTimex = 0;
         AclChangeSets firstChangeSets = client.getAclChangeSets(null, 0L,
                 null, INITIAL_MAX_ACL_CHANGE_SET_ID, 1);
-        if(firstChangeSets.getAclChangeSets().size() > 0)
+        if(!firstChangeSets.getAclChangeSets().isEmpty())
         {
             AclChangeSet firstChangeSet = firstChangeSets.getAclChangeSets().get(0);
             firstChangeSetCommitTimex = firstChangeSet.getCommitTimeMs();
@@ -633,7 +633,7 @@ public class AclTracker extends ActivatableTracker
                 changeSetsFound.add(set);
             }
         }
-        while (aclTransactions.getAclChangeSets().size() > 0);
+        while (!aclTransactions.getAclChangeSets().isEmpty());
 
         return this.infoSrv.reportAclTransactionsInIndex(minAclTxId, aclTxIdsInDb, maxAclTxId);
     }
@@ -719,7 +719,7 @@ public class AclTracker extends ActivatableTracker
                 aclChangeSets = getSomeAclChangeSets(changeSetsFound, fromCommitTime, timeStep, maxNumberOfAclChangeSets,
                         state.getTimeToStopIndexing());
 
-                if (aclChangeSets.getAclChangeSets().size() > 0)
+                if (!aclChangeSets.getAclChangeSets().isEmpty())
                 {
                     LOGGER.info("{}-[CORE {}] Found {} ACL change sets after lastTxCommitTime {}, ACL Change Sets from {} to {}",
                             Thread.currentThread().getId(),
@@ -779,7 +779,7 @@ public class AclTracker extends ActivatableTracker
             }
 
         }
-        while ((aclChangeSets.getAclChangeSets().size() > 0));
+        while ((!aclChangeSets.getAclChangeSets().isEmpty()));
 
         if (totalAclCount > 0)
         {
