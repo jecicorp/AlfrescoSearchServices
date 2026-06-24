@@ -76,7 +76,7 @@ public class TrackerBootstrapTest
     {
         TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
 
-        Properties result = bootstrap.buildTrackerProperties();
+        Properties result = bootstrap.buildTrackerProperties("test-core");
 
         assertEquals("0/5 * * * * ?", result.getProperty("alfresco.metadata.tracker.cron"));
         assertEquals("0/15 * * * * ?", result.getProperty("alfresco.acl.tracker.cron"));
@@ -91,7 +91,7 @@ public class TrackerBootstrapTest
     {
         TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
 
-        Properties result = bootstrap.buildTrackerProperties();
+        Properties result = bootstrap.buildTrackerProperties("test-core");
 
         assertEquals("repo", result.getProperty("alfresco.host"));
         assertEquals("8080", result.getProperty("alfresco.port"));
@@ -105,7 +105,7 @@ public class TrackerBootstrapTest
     {
         TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
 
-        Properties result = bootstrap.buildTrackerProperties();
+        Properties result = bootstrap.buildTrackerProperties("test-core");
 
         assertEquals("true", result.getProperty("alfresco.cascade.tracker.enabled"));
     }
@@ -116,9 +116,71 @@ public class TrackerBootstrapTest
         props.setCascadeTrackingEnabled(false);
         TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
 
-        Properties result = bootstrap.buildTrackerProperties();
+        Properties result = bootstrap.buildTrackerProperties("test-core");
 
         assertEquals("false", result.getProperty("alfresco.cascade.tracker.enabled"));
+    }
+
+    @Test
+    public void buildTrackerProperties_defaultsStoreFromCoreName()
+    {
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
+
+        // No explicit store override → convention: archive core tracks the archive store,
+        // every other core tracks the workspace store.
+        assertEquals("workspace://SpacesStore",
+                bootstrap.buildTrackerProperties("alfresco").getProperty("alfresco.stores"));
+        assertEquals("archive://SpacesStore",
+                bootstrap.buildTrackerProperties("archive").getProperty("alfresco.stores"));
+    }
+
+    @Test
+    public void buildTrackerProperties_perCoreOverridesLayerOverGlobal()
+    {
+        // Global tuning
+        props.setBatchCount(5000);
+        props.setTransformContent(true);
+        props.setCommitInterval(2000);
+        props.getCron().setMetadata("0/10 * * * * ?");
+
+        // The archive core is secondary: smaller batches, no content extraction,
+        // slower commit and a sparse metadata schedule.
+        TrackerProperties.CoreConfig archive = new TrackerProperties.CoreConfig();
+        archive.setBatchCount(1000);
+        archive.setTransformContent(false);
+        archive.setCommitInterval(30000L);
+        archive.getCron().setMetadata("0 0/5 * * * ?");
+        props.getCores().put("archive", archive);
+
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
+
+        // Primary core inherits all global values.
+        Properties primary = bootstrap.buildTrackerProperties("alfresco");
+        assertEquals("5000", primary.getProperty("alfresco.batch.count"));
+        assertEquals("true", primary.getProperty("alfresco.index.transformContent"));
+        assertEquals("2000", primary.getProperty("alfresco.commitInterval"));
+        assertEquals("0/10 * * * * ?", primary.getProperty("alfresco.metadata.tracker.cron"));
+
+        // Archive core applies its overrides but inherits the rest (e.g. acl cron).
+        Properties archiveProps = bootstrap.buildTrackerProperties("archive");
+        assertEquals("1000", archiveProps.getProperty("alfresco.batch.count"));
+        assertEquals("false", archiveProps.getProperty("alfresco.index.transformContent"));
+        assertEquals("30000", archiveProps.getProperty("alfresco.commitInterval"));
+        assertEquals("0 0/5 * * * ?", archiveProps.getProperty("alfresco.metadata.tracker.cron"));
+        assertEquals("0/15 * * * * ?", archiveProps.getProperty("alfresco.acl.tracker.cron"));
+    }
+
+    @Test
+    public void buildTrackerProperties_explicitStoreOverridesConvention()
+    {
+        TrackerProperties.CoreConfig custom = new TrackerProperties.CoreConfig();
+        custom.setStore("workspace://SpacesStore");
+        props.getCores().put("archive", custom);
+
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
+
+        assertEquals("workspace://SpacesStore",
+                bootstrap.buildTrackerProperties("archive").getProperty("alfresco.stores"));
     }
 
     @Test

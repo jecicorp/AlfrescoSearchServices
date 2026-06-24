@@ -113,7 +113,6 @@ public class TrackerBootstrap implements ApplicationRunner
     public void run(ApplicationArguments args) throws Exception
     {
         List<String> collections = props.getSolr().getCollections();
-        Properties trackerProps = buildTrackerProperties();
 
         logEffectiveConfiguration(collections);
 
@@ -124,8 +123,10 @@ public class TrackerBootstrap implements ApplicationRunner
         String firstCore = collections.get(0);
         scheduler = new TrackerScheduler(firstCore);
 
-        // ModelTracker is shared (one per repo, not per core) — init on first core
-        SolrJInformationServer firstInfoSrv = initInformationServer(firstCore, trackerProps);
+        // ModelTracker is shared (one per repo, not per core) — init on first core.
+        // It uses the first core's resolved properties (model sync is repo-global).
+        Properties firstCoreProps = buildTrackerProperties(firstCore);
+        SolrJInformationServer firstInfoSrv = initInformationServer(firstCore, firstCoreProps);
         String solrHome = props.getSolrHome();
 
         SolrJModelService modelService = new SolrJModelService(solrClient, firstCore);
@@ -145,23 +146,27 @@ public class TrackerBootstrap implements ApplicationRunner
         };
 
         ModelTracker modelTracker = new ModelTracker(
-                solrHome, trackerProps, repoClient, firstCore, firstInfoSrv, dataModelCallback);
+                solrHome, firstCoreProps, repoClient, firstCore, firstInfoSrv, dataModelCallback);
         registry.setModelTracker(modelTracker);
 
         LOGGER.info("ModelTracker: ensuring first model sync.");
         modelTracker.ensureFirstModelSync();
         loadSolrModelsIntoLocalDictionary(firstInfoSrv);
-        scheduler.schedule(modelTracker, firstCore, trackerProps);
+        scheduler.schedule(modelTracker, firstCore, firstCoreProps);
         LOGGER.info("ModelTracker initialised and scheduled.");
 
-        // Init trackers for each core
+        // Init trackers for each core, each with its own resolved configuration.
         for (String coreName : collections)
         {
+            Properties coreProps = coreName.equals(firstCore)
+                    ? firstCoreProps
+                    : buildTrackerProperties(coreName);
+
             SolrJInformationServer infoSrv = coreName.equals(firstCore)
                     ? firstInfoSrv
-                    : initInformationServer(coreName, trackerProps);
+                    : initInformationServer(coreName, coreProps);
 
-            initCoreTrackers(coreName, trackerProps, infoSrv);
+            initCoreTrackers(coreName, coreProps, infoSrv);
         }
 
         LOGGER.info("Tracking subsystem fully initialised for {} collections, {} trackers active.",
@@ -175,17 +180,21 @@ public class TrackerBootstrap implements ApplicationRunner
      */
     private void logEffectiveConfiguration(List<String> collections)
     {
-        TrackerProperties.CronConfig cron = props.getCron();
-        LOGGER.info("Tracker configuration in effect (collections={}):", collections);
-        LOGGER.info("  cron.metadata = {}", cron.getMetadata());
-        LOGGER.info("  cron.acl      = {}", cron.getAcl());
-        LOGGER.info("  cron.content  = {}", cron.getContent());
-        LOGGER.info("  cron.commit   = {}", cron.getCommit());
-        LOGGER.info("  cron.model    = {}", cron.getModel());
-        LOGGER.info("  cron.cascade  = {} (enabled={})", cron.getCascade(), props.isCascadeTrackingEnabled());
-        LOGGER.info("  cron.repair   = {} (maxRetries={})", cron.getRepair(), props.getRepairMaxRetries());
-        LOGGER.info("  commitInterval={} ms, newSearcherInterval={} ms, batchCount={}",
-                props.getCommitInterval(), props.getNewSearcherInterval(), props.getBatchCount());
+        LOGGER.info("Tracker configuration in effect (collections={}, repairMaxRetries={}):",
+                collections, props.getRepairMaxRetries());
+
+        for (String coreName : collections)
+        {
+            TrackerProperties.ResolvedCoreConfig c = props.resolvedCore(coreName);
+            LOGGER.info("  [core '{}'] store={} transformContent={} cascadeEnabled={} batchCount={} maxLiveSearchers={}",
+                    coreName, c.getStore(), c.isTransformContent(), c.isCascadeTrackingEnabled(),
+                    c.getBatchCount(), c.getMaxLiveSearchers());
+            LOGGER.info("  [core '{}'] commitInterval={} ms, newSearcherInterval={} ms",
+                    coreName, c.getCommitInterval(), c.getNewSearcherInterval());
+            LOGGER.info("  [core '{}'] cron: metadata={} acl={} content={} commit={} cascade={} repair={} (model={}, shared)",
+                    coreName, c.getCronMetadata(), c.getCronAcl(), c.getCronContent(),
+                    c.getCronCommit(), c.getCronCascade(), c.getCronRepair(), c.getCronModel());
+        }
     }
 
     private SolrJInformationServer initInformationServer(String coreName, Properties trackerProps)
@@ -261,32 +270,46 @@ public class TrackerBootstrap implements ApplicationRunner
 
     /**
      * Builds the flat {@link Properties} expected by tracker constructors and
-     * the {@link TrackerScheduler}, bridging from Spring Boot's
-     * {@link TrackerProperties} to the legacy key-value format.
+     * the {@link TrackerScheduler} for a <em>specific core</em>, bridging from
+     * Spring Boot's {@link TrackerProperties} to the legacy key-value format.
+     *
+     * <p>Repository connection keys come from the shared {@code repositoryProperties}
+     * bean; every per-core tunable (store, cron schedules, batch size, commit
+     * intervals, content transformation, …) is resolved via
+     * {@link TrackerProperties#resolvedCore(String)} so that secondary cores such
+     * as {@code archive} can be tracked independently from the primary core.</p>
+     *
+     * @param coreName the Solr core / collection name this configuration targets.
      */
-    Properties buildTrackerProperties()
+    Properties buildTrackerProperties(String coreName)
     {
         Properties p = new Properties();
 
-        // Copy all repository connection properties (host, port, baseUrl, secureComms, batch.count, etc.)
+        // Repository connection properties (host, port, baseUrl, secureComms, secret).
         p.putAll(repositoryProperties);
 
-        // Cron schedules — keyed as trackers expect them
-        TrackerProperties.CronConfig cron = props.getCron();
-        p.setProperty("alfresco.acl.tracker.cron", cron.getAcl());
-        p.setProperty("alfresco.model.tracker.cron", cron.getModel());
-        p.setProperty("alfresco.content.tracker.cron", cron.getContent());
-        p.setProperty("alfresco.metadata.tracker.cron", cron.getMetadata());
-        p.setProperty("alfresco.cascade.tracker.cron", cron.getCascade());
-        p.setProperty("alfresco.commit.tracker.cron", cron.getCommit());
-        p.setProperty("alfresco.repair.tracker.cron", cron.getRepair());
+        TrackerProperties.ResolvedCoreConfig core = props.resolvedCore(coreName);
 
-        // Cascade tracker enabled flag
-        p.setProperty("alfresco.cascade.tracker.enabled", String.valueOf(props.isCascadeTrackingEnabled()));
+        // Store tracked by this core — the per-core key. Without it, every core
+        // would default to workspace://SpacesStore and index the same nodes.
+        p.setProperty("alfresco.stores", core.getStore());
 
-        // Commit interval and searcher refresh interval
-        p.setProperty("alfresco.commitInterval", String.valueOf(props.getCommitInterval()));
-        p.setProperty("alfresco.newSearcherInterval", String.valueOf(props.getNewSearcherInterval()));
+        // Tuning — global defaults, optionally overridden per core.
+        p.setProperty("alfresco.batch.count", String.valueOf(core.getBatchCount()));
+        p.setProperty("alfresco.maxLiveSearchers", String.valueOf(core.getMaxLiveSearchers()));
+        p.setProperty("alfresco.index.transformContent", String.valueOf(core.isTransformContent()));
+        p.setProperty("alfresco.cascade.tracker.enabled", String.valueOf(core.isCascadeTrackingEnabled()));
+        p.setProperty("alfresco.commitInterval", String.valueOf(core.getCommitInterval()));
+        p.setProperty("alfresco.newSearcherInterval", String.valueOf(core.getNewSearcherInterval()));
+
+        // Cron schedules — keyed as trackers / TrackerScheduler expect them.
+        p.setProperty("alfresco.metadata.tracker.cron", core.getCronMetadata());
+        p.setProperty("alfresco.acl.tracker.cron", core.getCronAcl());
+        p.setProperty("alfresco.content.tracker.cron", core.getCronContent());
+        p.setProperty("alfresco.commit.tracker.cron", core.getCronCommit());
+        p.setProperty("alfresco.model.tracker.cron", core.getCronModel());
+        p.setProperty("alfresco.cascade.tracker.cron", core.getCronCascade());
+        p.setProperty("alfresco.repair.tracker.cron", core.getCronRepair());
 
         return p;
     }

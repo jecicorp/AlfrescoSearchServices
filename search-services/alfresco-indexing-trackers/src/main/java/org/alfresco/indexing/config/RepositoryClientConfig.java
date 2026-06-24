@@ -55,8 +55,15 @@ public class RepositoryClientConfig
     private static final Logger LOGGER = LoggerFactory.getLogger(RepositoryClientConfig.class);
 
     /**
-     * Builds the legacy {@link Properties} object expected by
+     * Builds the legacy {@link Properties} object carrying the <em>repository
+     * connection</em> settings expected by
      * {@link SOLRAPIClientFactory#getSOLRAPIClient}.
+     *
+     * <p>This bean holds only repository-global connection keys (host, port,
+     * secureComms, shared secret). All per-core tracker tuning (store, cron
+     * schedules, batch sizes, commit intervals, …) is layered on top, per core,
+     * by {@code TrackerBootstrap#buildTrackerProperties(String)} — which is the
+     * single source of truth for those values.</p>
      */
     @Bean
     public Properties repositoryProperties(TrackerProperties props)
@@ -75,19 +82,6 @@ public class RepositoryClientConfig
         {
             p.setProperty("alfresco.secureComms.secret", repo.getSharedSecret());
         }
-
-        // Batch / tracker properties
-        p.setProperty("alfresco.batch.count", String.valueOf(props.getBatchCount()));
-
-        // Cron schedules — keyed as TrackerScheduler expects them
-        TrackerProperties.CronConfig cron = props.getCron();
-        p.setProperty("alfresco.metadata.tracker.cron", cron.getMetadata());
-        p.setProperty("alfresco.acl.tracker.cron", cron.getAcl());
-        p.setProperty("alfresco.content.tracker.cron", cron.getContent());
-        p.setProperty("alfresco.commit.tracker.cron", cron.getCommit());
-        p.setProperty("alfresco.model.tracker.cron", cron.getModel());
-        p.setProperty("alfresco.cascade.tracker.cron", cron.getCascade());
-        p.setProperty("alfresco.cascade.tracker.enabled", String.valueOf(props.isCascadeTrackingEnabled()));
 
         LOGGER.info("Repository client configured for {} (secureComms={})",
                 repo.getUrl(), repo.getSecureComms());

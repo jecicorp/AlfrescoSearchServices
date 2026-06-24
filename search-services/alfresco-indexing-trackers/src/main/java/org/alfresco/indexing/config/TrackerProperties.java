@@ -22,11 +22,18 @@
  */
 package org.alfresco.indexing.config;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "alfresco.tracker")
 public class TrackerProperties
 {
+    /** Convention-based default stores, used when a core has no explicit {@code store} override. */
+    public static final String WORKSPACE_STORE = "workspace://SpacesStore";
+    public static final String ARCHIVE_STORE = "archive://SpacesStore";
+
     private SolrConfig solr = new SolrConfig();
     private RepositoryConfig repository = new RepositoryConfig();
     private CronConfig cron = new CronConfig();
@@ -37,8 +44,20 @@ public class TrackerProperties
     // e2e waits) depends directly on the effective commit period.
     private long commitInterval = 2000;
     private long newSearcherInterval = 3000;
+    // Upstream solrcore.properties defaults: alfresco.maxLiveSearchers=2,
+    // alfresco.index.transformContent=true.
+    private int maxLiveSearchers = 2;
+    private boolean transformContent = true;
     private String solrHome = "/opt/solr/data";
     private int repairMaxRetries = 10;
+
+    /**
+     * Per-core configuration overrides, keyed by core (collection) name.
+     * Any field left unset on a {@link CoreConfig} inherits the corresponding
+     * global value above. Secondary cores (e.g. {@code archive}) can thus be
+     * tracked less aggressively than the primary {@code alfresco} core.
+     */
+    private Map<String, CoreConfig> cores = new LinkedHashMap<>();
 
     public SolrConfig getSolr()
     {
@@ -108,6 +127,74 @@ public class TrackerProperties
     public void setNewSearcherInterval(long newSearcherInterval)
     {
         this.newSearcherInterval = newSearcherInterval;
+    }
+
+    public int getMaxLiveSearchers()
+    {
+        return maxLiveSearchers;
+    }
+
+    public void setMaxLiveSearchers(int maxLiveSearchers)
+    {
+        this.maxLiveSearchers = maxLiveSearchers;
+    }
+
+    public boolean isTransformContent()
+    {
+        return transformContent;
+    }
+
+    public void setTransformContent(boolean transformContent)
+    {
+        this.transformContent = transformContent;
+    }
+
+    public Map<String, CoreConfig> getCores()
+    {
+        return cores;
+    }
+
+    public void setCores(Map<String, CoreConfig> cores)
+    {
+        this.cores = cores;
+    }
+
+    /**
+     * Default store reference for a core when no explicit {@code store} override
+     * is configured. By convention the core named {@code archive} tracks the
+     * archive (trashcan) store; every other core tracks the live workspace store.
+     */
+    public static String defaultStoreFor(String coreName)
+    {
+        return "archive".equalsIgnoreCase(coreName) ? ARCHIVE_STORE : WORKSPACE_STORE;
+    }
+
+    /**
+     * Resolves the effective configuration for a given core by layering its
+     * optional per-core overrides on top of the global defaults. The returned
+     * object never contains nulls and is safe to read directly.
+     */
+    public ResolvedCoreConfig resolvedCore(String coreName)
+    {
+        CoreConfig o = cores.getOrDefault(coreName, new CoreConfig());
+        CronOverride oc = o.getCron();
+
+        ResolvedCoreConfig r = new ResolvedCoreConfig();
+        r.store = o.getStore() != null ? o.getStore() : defaultStoreFor(coreName);
+        r.batchCount = o.getBatchCount() != null ? o.getBatchCount() : batchCount;
+        r.maxLiveSearchers = o.getMaxLiveSearchers() != null ? o.getMaxLiveSearchers() : maxLiveSearchers;
+        r.transformContent = o.getTransformContent() != null ? o.getTransformContent() : transformContent;
+        r.cascadeTrackingEnabled = o.getCascadeTrackingEnabled() != null ? o.getCascadeTrackingEnabled() : cascadeTrackingEnabled;
+        r.commitInterval = o.getCommitInterval() != null ? o.getCommitInterval() : commitInterval;
+        r.newSearcherInterval = o.getNewSearcherInterval() != null ? o.getNewSearcherInterval() : newSearcherInterval;
+        r.cronMetadata = oc.getMetadata() != null ? oc.getMetadata() : cron.getMetadata();
+        r.cronAcl = oc.getAcl() != null ? oc.getAcl() : cron.getAcl();
+        r.cronContent = oc.getContent() != null ? oc.getContent() : cron.getContent();
+        r.cronCommit = oc.getCommit() != null ? oc.getCommit() : cron.getCommit();
+        r.cronModel = oc.getModel() != null ? oc.getModel() : cron.getModel();
+        r.cronCascade = oc.getCascade() != null ? oc.getCascade() : cron.getCascade();
+        r.cronRepair = oc.getRepair() != null ? oc.getRepair() : cron.getRepair();
+        return r;
     }
 
     public String getSolrHome()
@@ -289,5 +376,119 @@ public class TrackerProperties
         {
             this.repair = repair;
         }
+    }
+
+    /**
+     * Per-core overrides. Every field is a nullable wrapper: {@code null} means
+     * "not overridden — inherit the global default". Bound from
+     * {@code alfresco.tracker.cores.<coreName>.*}.
+     */
+    public static class CoreConfig
+    {
+        private String store;
+        private Integer batchCount;
+        private Integer maxLiveSearchers;
+        private Boolean transformContent;
+        private Boolean cascadeTrackingEnabled;
+        private Long commitInterval;
+        private Long newSearcherInterval;
+        private CronOverride cron = new CronOverride();
+
+        public String getStore() { return store; }
+        public void setStore(String store) { this.store = store; }
+
+        public Integer getBatchCount() { return batchCount; }
+        public void setBatchCount(Integer batchCount) { this.batchCount = batchCount; }
+
+        public Integer getMaxLiveSearchers() { return maxLiveSearchers; }
+        public void setMaxLiveSearchers(Integer maxLiveSearchers) { this.maxLiveSearchers = maxLiveSearchers; }
+
+        public Boolean getTransformContent() { return transformContent; }
+        public void setTransformContent(Boolean transformContent) { this.transformContent = transformContent; }
+
+        public Boolean getCascadeTrackingEnabled() { return cascadeTrackingEnabled; }
+        public void setCascadeTrackingEnabled(Boolean cascadeTrackingEnabled) { this.cascadeTrackingEnabled = cascadeTrackingEnabled; }
+
+        public Long getCommitInterval() { return commitInterval; }
+        public void setCommitInterval(Long commitInterval) { this.commitInterval = commitInterval; }
+
+        public Long getNewSearcherInterval() { return newSearcherInterval; }
+        public void setNewSearcherInterval(Long newSearcherInterval) { this.newSearcherInterval = newSearcherInterval; }
+
+        public CronOverride getCron() { return cron; }
+        public void setCron(CronOverride cron) { this.cron = cron; }
+    }
+
+    /**
+     * Per-core cron overrides. Unlike {@link CronConfig}, every field defaults
+     * to {@code null} so that an unset schedule inherits the global one.
+     */
+    public static class CronOverride
+    {
+        private String metadata;
+        private String acl;
+        private String content;
+        private String commit;
+        private String model;
+        private String cascade;
+        private String repair;
+
+        public String getMetadata() { return metadata; }
+        public void setMetadata(String metadata) { this.metadata = metadata; }
+
+        public String getAcl() { return acl; }
+        public void setAcl(String acl) { this.acl = acl; }
+
+        public String getContent() { return content; }
+        public void setContent(String content) { this.content = content; }
+
+        public String getCommit() { return commit; }
+        public void setCommit(String commit) { this.commit = commit; }
+
+        public String getModel() { return model; }
+        public void setModel(String model) { this.model = model; }
+
+        public String getCascade() { return cascade; }
+        public void setCascade(String cascade) { this.cascade = cascade; }
+
+        public String getRepair() { return repair; }
+        public void setRepair(String repair) { this.repair = repair; }
+    }
+
+    /**
+     * Fully-resolved, null-free effective configuration for a single core,
+     * produced by {@link #resolvedCore(String)}.
+     */
+    public static class ResolvedCoreConfig
+    {
+        private String store;
+        private int batchCount;
+        private int maxLiveSearchers;
+        private boolean transformContent;
+        private boolean cascadeTrackingEnabled;
+        private long commitInterval;
+        private long newSearcherInterval;
+        private String cronMetadata;
+        private String cronAcl;
+        private String cronContent;
+        private String cronCommit;
+        private String cronModel;
+        private String cronCascade;
+        private String cronRepair;
+
+        public String getStore() { return store; }
+        public int getBatchCount() { return batchCount; }
+        public int getMaxLiveSearchers() { return maxLiveSearchers; }
+        public boolean isTransformContent() { return transformContent; }
+        public boolean isCascadeTrackingEnabled() { return cascadeTrackingEnabled; }
+        public long getCommitInterval() { return commitInterval; }
+        public long getNewSearcherInterval() { return newSearcherInterval; }
+        public String getCronMetadata() { return cronMetadata; }
+        public String getCronAcl() { return cronAcl; }
+        public String getCronContent() { return cronContent; }
+        public String getCronCommit() { return cronCommit; }
+        public String getCronModel() { return cronModel; }
+        public String getCronCascade() { return cronCascade; }
+        public String getCronRepair() { return cronRepair; }
     }
 }
