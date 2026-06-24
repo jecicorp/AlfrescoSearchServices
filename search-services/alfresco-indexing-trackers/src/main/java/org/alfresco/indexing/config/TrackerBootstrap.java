@@ -409,6 +409,14 @@ public class TrackerBootstrap implements ApplicationRunner
             }
         }
         localDictionaryService.putModelOrFail(model);
+        // Register the model's namespace prefixes in the shared NamespaceDAO so that
+        // SOLRAPIClient can resolve QNames (e.g. a model name like "pk:...") on the very
+        // next getModelsDiff. Mirrors SolrJInformationServer.putModel; without it, persisted
+        // models with non-built-in prefixes break model tracking after every restart.
+        for (M2Namespace ns : model.getNamespaces())
+        {
+            localNamespaceDAO.addPrefix(ns.getPrefix(), ns.getUri());
+        }
         loaded.add(name);
     }
 
