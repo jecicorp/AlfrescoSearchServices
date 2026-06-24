@@ -34,10 +34,14 @@ import java.net.URL;
 public class RepositoryHealthIndicator implements HealthIndicator
 {
     private final String repositoryUrl;
+    private final int connectTimeout;
+    private final int readTimeout;
 
     public RepositoryHealthIndicator(TrackerProperties props)
     {
         this.repositoryUrl = props.getRepository().getUrl();
+        this.connectTimeout = props.getHealth().getConnectTimeout();
+        this.readTimeout = props.getHealth().getReadTimeout();
     }
 
     @Override
@@ -48,8 +52,8 @@ public class RepositoryHealthIndicator implements HealthIndicator
             URL url = new URL(repositoryUrl);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(5000);
+            connection.setConnectTimeout(connectTimeout);
+            connection.setReadTimeout(readTimeout);
             int statusCode = connection.getResponseCode();
             connection.disconnect();
 

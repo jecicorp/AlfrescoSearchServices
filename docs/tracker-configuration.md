@@ -95,6 +95,8 @@ tracker wakes up*; it does not by itself guarantee a commit (see commit settings
 | `alfresco.tracker.max-live-searchers` | `2` | Maximum number of concurrent live Solr searchers a tracker keeps open while indexing. |
 | `alfresco.tracker.repair-max-retries` | `10` | How many times the RepairTracker retries a failing node before marking it permanently failed. |
 | `alfresco.tracker.solr-home` | `/opt/solr/data` | Local directory where the model dictionary is persisted. |
+| `alfresco.tracker.health.connect-timeout` | `5000` ms | Connection timeout for the repository health probe behind `/actuator/health` (`RepositoryHealthIndicator`). |
+| `alfresco.tracker.health.read-timeout` | `5000` ms | Read timeout for the repository health probe. Raise both on a slow/loaded repository to avoid the health endpoint reporting `DOWN` under transient latency. |
 | `alfresco.tracker.solr.collections` | `alfresco,archive` | Cores/collections to track. Must match the cores created in the Solr image. The **store** each core tracks is resolved separately — see [Per-core configuration & store selection](#per-core-configuration--store-selection). |
 
 ### Internal content settings (not externally configurable today)

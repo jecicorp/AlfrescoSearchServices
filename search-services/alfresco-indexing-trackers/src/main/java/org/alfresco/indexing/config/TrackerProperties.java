@@ -58,6 +58,7 @@ public class TrackerProperties
      * tracked less aggressively than the primary {@code alfresco} core.
      */
     private Map<String, CoreConfig> cores = new LinkedHashMap<>();
+    private HealthConfig health = new HealthConfig();
 
     public SolrConfig getSolr()
     {
@@ -157,6 +158,16 @@ public class TrackerProperties
     public void setCores(Map<String, CoreConfig> cores)
     {
         this.cores = cores;
+    }
+
+    public HealthConfig getHealth()
+    {
+        return health;
+    }
+
+    public void setHealth(HealthConfig health)
+    {
+        this.health = health;
     }
 
     /**
@@ -294,6 +305,38 @@ public class TrackerProperties
         public void setSharedSecret(String sharedSecret)
         {
             this.sharedSecret = sharedSecret;
+        }
+    }
+
+    /**
+     * Settings for the {@code RepositoryHealthIndicator}, which probes the
+     * Alfresco Repository URL exposed on the {@code /actuator/health} endpoint.
+     */
+    public static class HealthConfig
+    {
+        /** Connection timeout for the repository health probe, in milliseconds. */
+        private int connectTimeout = 5000;
+        /** Read timeout for the repository health probe, in milliseconds. */
+        private int readTimeout = 5000;
+
+        public int getConnectTimeout()
+        {
+            return connectTimeout;
+        }
+
+        public void setConnectTimeout(int connectTimeout)
+        {
+            this.connectTimeout = connectTimeout;
+        }
+
+        public int getReadTimeout()
+        {
+            return readTimeout;
+        }
+
+        public void setReadTimeout(int readTimeout)
+        {
+            this.readTimeout = readTimeout;
         }
     }
 

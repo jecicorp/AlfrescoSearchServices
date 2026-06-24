@@ -17,6 +17,9 @@ alfresco:
     batch-count: 5000
     cascade-tracking-enabled: true
     solr-home: /opt/solr/data
+    health:
+      connect-timeout: 5000   # ms — repository health probe (/actuator/health)
+      read-timeout: 5000      # ms
 
 server:
   port: 8085
