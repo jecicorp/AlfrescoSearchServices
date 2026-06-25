@@ -2,4 +2,5 @@
 <solr>
    <str name="adminHandler">${adminHandler:org.apache.solr.handler.admin.CoreAdminHandler}</str>
    <str name="allowPaths">${solr.allowPaths:}</str>
+   <int name="maxBooleanClauses">${solr.max.booleanClauses:10000}</int>
 </solr>
