@@ -149,9 +149,15 @@ public class TrackerBootstrap implements ApplicationRunner
                 solrHome, firstCoreProps, repoClient, firstCore, firstInfoSrv, dataModelCallback);
         registry.setModelTracker(modelTracker);
 
+        // Rehydrate the in-memory dictionary and NamespaceDAO from the models already
+        // persisted in Solr BEFORE the first delta sync. getModelsDiff() builds a QName
+        // for every known model (e.g. "pk:..."), so the prefixes must be mapped first;
+        // otherwise the first sync after every restart throws NamespaceException. On a
+        // first-ever boot Solr holds no models, so this is a harmless no-op and
+        // ensureFirstModelSync() registers everything via putModel().
+        loadSolrModelsIntoLocalDictionary(firstInfoSrv);
         LOGGER.info("ModelTracker: ensuring first model sync.");
         modelTracker.ensureFirstModelSync();
-        loadSolrModelsIntoLocalDictionary(firstInfoSrv);
         scheduler.schedule(modelTracker, firstCore, firstCoreProps);
         LOGGER.info("ModelTracker initialised and scheduled.");
 
