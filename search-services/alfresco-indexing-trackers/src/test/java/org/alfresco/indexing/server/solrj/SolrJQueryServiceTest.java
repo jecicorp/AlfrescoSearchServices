@@ -70,23 +70,19 @@ public class SolrJQueryServiceTest
     // -------------------------------------------------------------------------
 
     @Test
-    public void getTrackerInitialState_withBothStateDocs_populatesState() throws Exception
+    public void getTrackerInitialState_derivesResumePointFromTxAndAclTxDocs() throws Exception
     {
-        SolrDocumentList docs = new SolrDocumentList();
-        docs.setNumFound(2);
-
-        SolrDocument aclTxDoc = new SolrDocument();
-        aclTxDoc.addField(FIELD_S_ACLTXCOMMITTIME, 5000L);
-        aclTxDoc.addField(FIELD_S_ACLTXID, 50L);
-        docs.add(aclTxDoc);
-
+        // The resume point is derived from the real Tx / AclTx documents in the index,
+        // not from a written state document (self-healing across restarts).
         SolrDocument txDoc = new SolrDocument();
         txDoc.addField(FIELD_S_TXCOMMITTIME, 3000L);
         txDoc.addField(FIELD_S_TXID, 30L);
-        docs.add(txDoc);
 
-        QueryResponse response = mockQueryResponse(docs);
-        when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
+        SolrDocument aclTxDoc = new SolrDocument();
+        aclTxDoc.addField(FIELD_ACLTXCOMMITTIME, 5000L);
+        aclTxDoc.addField(FIELD_ACLTXID, 50L);
+
+        mockTopDocPerDocType(txDoc, aclTxDoc);
 
         TrackerState state = queryService.getTrackerInitialState(1000, 3600000);
 
@@ -95,6 +91,24 @@ public class SolrJQueryServiceTest
         assertEquals(3000L, state.getLastIndexedTxCommitTime());
         assertEquals(30L, state.getLastIndexedTxId());
         assertTrue(state.getLastStartTime() > 0);
+    }
+
+    @Test
+    public void getTrackerInitialState_txDocsPresentButNoStateDoc_stillResumes() throws Exception
+    {
+        // Regression: the resume point previously came from a TRACKER!STATE!TX / !ACLTX
+        // document that was never written (the writer used id "TRACKER!STATE"), so every
+        // restart re-tracked from scratch. It must now come from the indexed Tx docs.
+        SolrDocument txDoc = new SolrDocument();
+        txDoc.addField(FIELD_S_TXCOMMITTIME, 7777L);
+        txDoc.addField(FIELD_S_TXID, 77L);
+
+        mockTopDocPerDocType(txDoc, null);
+
+        TrackerState state = queryService.getTrackerInitialState(1000, 3600000);
+
+        assertEquals(7777L, state.getLastIndexedTxCommitTime());
+        assertEquals(77L, state.getLastIndexedTxId());
     }
 
     @Test
@@ -331,7 +345,7 @@ public class SolrJQueryServiceTest
     @Test
     public void getMaxTransactionIdAndCommitTimeInIndex_withState_returnsValues() throws Exception
     {
-        // Mock the standard query response for STATE_DOC_TX
+        // Top Tx document in the index (sorted by commit time, descending)
         SolrDocument stateDoc = new SolrDocument();
         stateDoc.addField(FIELD_S_TXID, 100L);
         stateDoc.addField(FIELD_S_TXCOMMITTIME, 9999L);
@@ -367,15 +381,15 @@ public class SolrJQueryServiceTest
     // -------------------------------------------------------------------------
 
     @Test
-    public void getMaxAclChangeSetIdAndCommitTimeInIndex_withState_returnsValues() throws Exception
+    public void getMaxAclChangeSetIdAndCommitTimeInIndex_fromIndexedAclTxDoc_returnsValues() throws Exception
     {
-        SolrDocument stateDoc = new SolrDocument();
-        stateDoc.addField(FIELD_S_ACLTXID, 200L);
-        stateDoc.addField(FIELD_S_ACLTXCOMMITTIME, 8888L);
+        SolrDocument aclTxDoc = new SolrDocument();
+        aclTxDoc.addField(FIELD_ACLTXID, 200L);
+        aclTxDoc.addField(FIELD_ACLTXCOMMITTIME, 8888L);
 
         QueryResponse response = mock(QueryResponse.class);
         SolrDocumentList docList = new SolrDocumentList();
-        docList.add(stateDoc);
+        docList.add(aclTxDoc);
         docList.setNumFound(1);
         when(response.getResults()).thenReturn(docList);
         when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
@@ -708,5 +722,39 @@ public class SolrJQueryServiceTest
         QueryResponse response = mock(QueryResponse.class);
         when(response.getResults()).thenReturn(docs);
         return response;
+    }
+
+    /**
+     * Mocks Solr so a "top document" query (rows=1, sorted desc, filtered by DOC_TYPE)
+     * returns the matching doc for the Tx vs AclTx core type. Exercises the two distinct
+     * queries getTrackerInitialState() issues. Pass {@code null} for a type that has no doc.
+     */
+    private void mockTopDocPerDocType(SolrDocument txDoc, SolrDocument aclTxDoc) throws Exception
+    {
+        when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenAnswer(invocation -> {
+            SolrQuery query = invocation.getArgument(1);
+            String[] fqs = query.getFilterQueries();
+            String fq = fqs == null ? "" : String.join(" ", fqs);
+            SolrDocument pick = null;
+            if (fq.contains(FIELD_DOC_TYPE + ":" + DOC_TYPE_ACL_TX))
+            {
+                pick = aclTxDoc;
+            }
+            else if (fq.contains(FIELD_DOC_TYPE + ":" + DOC_TYPE_TX))
+            {
+                pick = txDoc;
+            }
+            SolrDocumentList docs = new SolrDocumentList();
+            if (pick != null)
+            {
+                docs.add(pick);
+                docs.setNumFound(1);
+            }
+            else
+            {
+                docs.setNumFound(0);
+            }
+            return mockQueryResponse(docs);
+        });
     }
 }

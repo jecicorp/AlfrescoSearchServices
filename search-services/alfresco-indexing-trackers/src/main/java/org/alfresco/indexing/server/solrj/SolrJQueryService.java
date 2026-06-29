@@ -93,8 +93,6 @@ public class SolrJQueryService
     private static final Logger LOGGER = LoggerFactory.getLogger(SolrJQueryService.class);
 
     // State document IDs — stored in Solr as special documents
-    static final String STATE_DOC_TX = "TRACKER!STATE!TX";
-    static final String STATE_DOC_ACLTX = "TRACKER!STATE!ACLTX";
     static final String INDEX_CAP_ID = "TRACKER!STATE!CAP";
     static final String PREFIX_ERROR = "ERROR-";
 
@@ -151,58 +149,25 @@ public class SolrJQueryService
         TrackerState state = new TrackerState();
         try
         {
-            // Query both state documents by their IDs using standard /select handler
-            SolrQuery query = luceneQuery("id:\"" + STATE_DOC_ACLTX + "\" OR id:\"" + STATE_DOC_TX + "\"");
-            query.setRows(2);
-            query.setFields("*");
-
-            QueryResponse response = solrClient.query(collection, query);
-            SolrDocumentList docs = response.getResults();
-
-            if (docs == null || docs.getNumFound() == 0)
+            // Derive the resume point from the real transaction / ACL-changeset documents
+            // present in the index, rather than from a written state document. This is
+            // self-healing: it reflects exactly what has been indexed even if a state-doc
+            // write was missed, and mirrors stock Alfresco SolrInformationServer.
+            SolrDocument txDoc = topDocByField(DOC_TYPE_TX, FIELD_S_TXCOMMITTIME);
+            if (txDoc != null)
             {
-                LOGGER.debug("No tracker state documents found in index — first run.");
-                // Do NOT return early — fall through to set timing fields
-                // (timeToStopIndexing, lastGoodTxCommitTimeInIndex, etc.)
+                state.setLastIndexedTxCommitTime(getFieldValueLong(txDoc, FIELD_S_TXCOMMITTIME));
+                state.setLastIndexedTxId(getFieldValueLong(txDoc, FIELD_S_TXID));
             }
-            else
-            {
 
-            for (SolrDocument current : docs)
+            SolrDocument aclTxDoc = topDocByField(DOC_TYPE_ACL_TX, FIELD_ACLTXCOMMITTIME);
+            if (aclTxDoc != null)
             {
-                // ACLTX state document
-                if (current.getFieldValue(FIELD_S_ACLTXCOMMITTIME) != null)
-                {
-                    if (state.getLastIndexedChangeSetCommitTime() == 0)
-                    {
-                        state.setLastIndexedChangeSetCommitTime(
-                                getFieldValueLong(current, FIELD_S_ACLTXCOMMITTIME));
-                    }
-                    if (state.getLastIndexedChangeSetId() == 0)
-                    {
-                        state.setLastIndexedChangeSetId(
-                                getFieldValueLong(current, FIELD_S_ACLTXID));
-                    }
-                }
-
-                // TX state document
-                if (current.getFieldValue(FIELD_S_TXCOMMITTIME) != null)
-                {
-                    if (state.getLastIndexedTxCommitTime() == 0)
-                    {
-                        state.setLastIndexedTxCommitTime(
-                                getFieldValueLong(current, FIELD_S_TXCOMMITTIME));
-                    }
-                    if (state.getLastIndexedTxId() == 0)
-                    {
-                        state.setLastIndexedTxId(
-                                getFieldValueLong(current, FIELD_S_TXID));
-                    }
-                }
+                state.setLastIndexedChangeSetCommitTime(getFieldValueLong(aclTxDoc, FIELD_ACLTXCOMMITTIME));
+                state.setLastIndexedChangeSetId(getFieldValueLong(aclTxDoc, FIELD_ACLTXID));
             }
-            } // end else (state docs found)
         }
-        catch (SolrServerException | IOException e)
+        catch (IOException e)
         {
             LOGGER.error("Failed to get tracker initial state", e);
         }
@@ -362,30 +327,32 @@ public class SolrJQueryService
     // -------------------------------------------------------------------------
 
     /**
-     * Gets the maximum transaction ID and commit time from the tracker state document.
+     * Gets the maximum transaction ID and commit time from the transaction documents
+     * actually present in the index (sorted by commit time, descending).
      */
     public Transaction getMaxTransactionIdAndCommitTimeInIndex() throws IOException
     {
-        SolrDocument txState = getStateDocument(STATE_DOC_TX);
+        SolrDocument txDoc = topDocByField(DOC_TYPE_TX, FIELD_S_TXCOMMITTIME);
         Transaction maxTransaction = new Transaction();
-        if (txState != null)
+        if (txDoc != null)
         {
-            maxTransaction.setId(getFieldValueLong(txState, FIELD_S_TXID));
-            maxTransaction.setCommitTimeMs(getFieldValueLong(txState, FIELD_S_TXCOMMITTIME));
+            maxTransaction.setId(getFieldValueLong(txDoc, FIELD_S_TXID));
+            maxTransaction.setCommitTimeMs(getFieldValueLong(txDoc, FIELD_S_TXCOMMITTIME));
         }
         return maxTransaction;
     }
 
     /**
-     * Gets the maximum ACL changeset ID and commit time from the tracker state document.
+     * Gets the maximum ACL changeset ID and commit time from the ACL-changeset documents
+     * actually present in the index (sorted by commit time, descending).
      */
     public AclChangeSet getMaxAclChangeSetIdAndCommitTimeInIndex() throws IOException
     {
-        SolrDocument aclState = getStateDocument(STATE_DOC_ACLTX);
-        if (aclState != null)
+        SolrDocument aclDoc = topDocByField(DOC_TYPE_ACL_TX, FIELD_ACLTXCOMMITTIME);
+        if (aclDoc != null)
         {
-            long id = getFieldValueLong(aclState, FIELD_S_ACLTXID);
-            long commitTime = getFieldValueLong(aclState, FIELD_S_ACLTXCOMMITTIME);
+            long id = getFieldValueLong(aclDoc, FIELD_ACLTXID);
+            long commitTime = getFieldValueLong(aclDoc, FIELD_ACLTXCOMMITTIME);
             return new AclChangeSet(id, commitTime, -1);
         }
         return new AclChangeSet(0, 0, -1);
@@ -883,31 +850,6 @@ public class SolrJQueryService
     // =========================================================================
 
     /**
-     * Retrieves a state document by its ID using the /get handler (real-time get).
-     */
-    SolrDocument getStateDocument(String id) throws IOException
-    {
-        try
-        {
-            SolrQuery query = luceneQuery("id:\"" + id + "\"");
-            query.setRows(1);
-            query.setFields("*");
-
-            QueryResponse response = solrClient.query(collection, query);
-            SolrDocumentList docs = response.getResults();
-            if (docs != null && docs.getNumFound() > 0)
-            {
-                return docs.get(0);
-            }
-            return null;
-        }
-        catch (SolrServerException e)
-        {
-            throw new IOException("Failed to get state document: " + id, e);
-        }
-    }
-
-    /**
      * Checks whether a document with the given numeric ID exists in a given field.
      */
     private boolean isInIndex(long id, LRUCache<Long, Object> cache, String fieldName,
@@ -997,6 +939,36 @@ public class SolrJQueryService
         catch (SolrServerException e)
         {
             throw new IOException("Failed to get top node ID", e);
+        }
+    }
+
+    /**
+     * Returns the document of the given DOC_TYPE with the highest value of {@code sortField}
+     * (i.e. the most recently committed transaction or ACL changeset in the index), or
+     * {@code null} when no such document exists. Used to derive the tracker resume point
+     * directly from indexed data.
+     */
+    private SolrDocument topDocByField(String docType, String sortField) throws IOException
+    {
+        try
+        {
+            SolrQuery query = luceneQuery("*:*");
+            query.addFilterQuery(FIELD_DOC_TYPE + ":" + docType);
+            query.setRows(1);
+            query.addSort(sortField, SolrQuery.ORDER.desc);
+            query.setFields("*");
+
+            QueryResponse response = solrClient.query(collection, query);
+            SolrDocumentList docs = response.getResults();
+            if (docs != null && docs.getNumFound() > 0)
+            {
+                return docs.get(0);
+            }
+            return null;
+        }
+        catch (SolrServerException e)
+        {
+            throw new IOException("Failed to get top " + docType + " document", e);
         }
     }
 
