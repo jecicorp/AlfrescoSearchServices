@@ -28,6 +28,8 @@ package org.alfresco.test.search.functional.searchServices.solr.admin;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import java.util.Random;
@@ -116,5 +118,31 @@ public class SolrE2ESummaryTest extends AbstractE2EFunctionalTest
             int toUpdate = response.getResponse().body().jsonPath().get("Summary.alfresco.FTS.'Node count whose content needs to be updated'");
             assertNotEquals(toUpdate, 0, "Expected number of outdated documents to be greater than zero.");
         });
+    }
+
+    /** The metrics filter keeps only matching keys (case-insensitive substring match). */
+    @Test
+    public void testMetricsFilter() throws Exception
+    {
+        RestResponse response = trackerAdmin.getAction("SUMMARY", "core=alfresco", "metrics=fts");
+
+        // FTS matches "fts" and must be kept...
+        Object fts = response.getResponse().body().jsonPath().get("Summary.alfresco.FTS");
+        assertNotNull(fts, "Expected the FTS section to be kept by metrics=fts.");
+
+        // ...while unrelated keys (e.g. TX) must be filtered out.
+        Object tx = response.getResponse().body().jsonPath().get("Summary.alfresco.TX");
+        assertNull(tx, "Expected the TX section to be filtered out by metrics=fts.");
+    }
+
+    /** The cores filter restricts the report to the requested cores. */
+    @Test
+    public void testCoresFilter() throws Exception
+    {
+        // Restrict to archive: the always-present alfresco core must be excluded.
+        RestResponse response = trackerAdmin.getAction("SUMMARY", "cores=archive");
+
+        Object alfresco = response.getResponse().body().jsonPath().get("Summary.alfresco");
+        assertNull(alfresco, "Expected the alfresco core to be excluded by cores=archive.");
     }
 }

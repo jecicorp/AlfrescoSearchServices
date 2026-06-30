@@ -25,7 +25,9 @@ package org.alfresco.indexing.admin;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -252,13 +254,22 @@ public class AdminService
     // Group 2: Report actions
     // ----------------------------------------------------------------
 
-    public Map<String, Object> summary(String core)
+    public Map<String, Object> summary(String core, String cores, String metrics)
     {
+        Set<String> coreFilter = parseCsv(cores);
+        Set<String> metricFilter = parseCsv(metrics);
+
         Map<String, Object> result = new LinkedHashMap<>();
         TrackerRegistry registry = trackerBootstrap.getRegistry();
 
         for (String coreName : coresToProcess(registry, core))
         {
+            // Restrict to the explicitly requested cores, when a list is given
+            if (!coreFilter.isEmpty() && !coreFilter.contains(coreName))
+            {
+                continue;
+            }
+
             Map<String, Object> coreReport = new LinkedHashMap<>();
             InformationServer infoSrv = trackerBootstrap.getInformationServer(coreName);
 
@@ -351,7 +362,8 @@ public class AdminService
                 coreReport.put("error", e.getMessage());
             }
 
-            result.put(coreName, coreReport);
+            // Keep only the requested metrics when a filter is given; full report otherwise
+            result.put(coreName, filterMetrics(coreReport, metricFilter));
         }
 
         return result;
@@ -745,5 +757,55 @@ public class AdminService
             return Set.of(core);
         }
         return registry.getCoreNames();
+    }
+
+    /**
+     * Parse a comma-separated parameter into an ordered set of trimmed,
+     * non-empty values. Returns an empty set when the input is null or blank.
+     */
+    private static Set<String> parseCsv(String csv)
+    {
+        if (csv == null || csv.isBlank())
+        {
+            return Set.of();
+        }
+        Set<String> values = new LinkedHashSet<>();
+        for (String part : csv.split(","))
+        {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty())
+            {
+                values.add(trimmed);
+            }
+        }
+        return values;
+    }
+
+    /**
+     * Keep only the report entries whose key matches one of the requested
+     * metrics, using a case-insensitive substring match (so {@code tx} selects
+     * TX, TXLag, AclTX... and {@code nodes} selects the node counts). Returns
+     * the report unchanged when no metric filter is requested.
+     */
+    private static Map<String, Object> filterMetrics(Map<String, Object> coreReport, Set<String> metricFilter)
+    {
+        if (metricFilter.isEmpty())
+        {
+            return coreReport;
+        }
+        Map<String, Object> filtered = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : coreReport.entrySet())
+        {
+            String key = entry.getKey().toLowerCase(Locale.ROOT);
+            for (String wanted : metricFilter)
+            {
+                if (key.contains(wanted.toLowerCase(Locale.ROOT)))
+                {
+                    filtered.put(entry.getKey(), entry.getValue());
+                    break;
+                }
+            }
+        }
+        return filtered;
     }
 }

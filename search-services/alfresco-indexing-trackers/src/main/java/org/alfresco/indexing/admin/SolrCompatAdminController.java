@@ -52,6 +52,8 @@ public class SolrCompatAdminController
             @RequestParam("action") String action,
             @RequestParam(value = "core", required = false) String core,
             @RequestParam(value = "coreName", required = false) String coreName,
+            @RequestParam(value = "cores", required = false) String cores,
+            @RequestParam(value = "metrics", required = false) String metrics,
             @RequestParam(value = "txid", required = false) Long txid,
             @RequestParam(value = "acltxid", required = false) Long acltxid,
             @RequestParam(value = "nodeid", required = false) Long nodeid,
@@ -70,7 +72,7 @@ public class SolrCompatAdminController
         try
         {
             String upperAction = action.toUpperCase();
-            Map<String, Object> data = executeAction(upperAction, core, coreName,
+            Map<String, Object> data = executeAction(upperAction, core, coreName, cores, metrics,
                     txid, acltxid, nodeid, nodeId, aclid, query,
                     storeRef, template, resource, fromTime, toTime);
 
@@ -93,7 +95,7 @@ public class SolrCompatAdminController
     }
 
     private Map<String, Object> executeAction(String upperAction,
-            String core, String coreName,
+            String core, String coreName, String cores, String metrics,
             Long txid, Long acltxid, Long nodeid, Long nodeId, Long aclid,
             String query, String storeRef, String template, String resource,
             Long fromTime, Long toTime)
@@ -103,7 +105,7 @@ public class SolrCompatAdminController
 
         return switch (upperAction)
         {
-            case "SUMMARY" -> adminService.summary(effectiveCore);
+            case "SUMMARY" -> adminService.summary(effectiveCore, cores, metrics);
             case "REPORT" -> adminService.report(effectiveCore, fromTime, toTime);
             case "NODEREPORT" -> adminService.nodeReport(effectiveNodeId, effectiveCore);
             case "ACLREPORT" -> adminService.aclReport(aclid, effectiveCore);

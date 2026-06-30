@@ -35,7 +35,7 @@ otherwise.
 
 | Endpoint | Solr-compat `action` | Params | Returns |
 |----------|----------------------|--------|---------|
-| `/api/admin/summary` | `SUMMARY` | `core?` | Per-core stats: index doc counts, `FTS` (content outdated/updated), tracker states `TX`/`AclTX` with `…Lag` and `…DurationLag` (repo vs index), `ModelErrors`, `TrackerStats`. |
+| `/api/admin/summary` | `SUMMARY` | `core?`, `cores?`, `metrics?` | Per-core stats: index doc counts, `FTS` (content outdated/updated), tracker states `TX`/`AclTX` with `…Lag` and `…DurationLag` (repo vs index), `ModelErrors`, `TrackerStats`. `cores` is a comma-separated list of cores to display (defaults to all). `metrics` is a comma-separated filter on the displayed keys, matched case-insensitively as a **substring** (e.g. `tx` → TX/TXLag/AclTX…, `nodes` → the node counts, `trackerstats` → TrackerStats). |
 | `/api/admin/report` | `REPORT` | `core?`, `fromTime?`, `toTime?` (epoch ms) | Index consistency: DB vs index transaction counts, leaf/aux/error/unindexed doc counts, and counts of **missing**, **duplicated**, and **in-index-but-not-DB** transactions (tx and acl-tx). |
 | `/api/admin/node-report` | `NODEREPORT` | `nodeid`, `core?` | Status of one node by **DBID**: `dbNodeStatus`, `dbTx`, `indexLeafDoc`/`indexAuxDoc`, `indexLeafTx`/`indexAuxTx`, `indexedNodeDocCount`. The go-to for "is node X indexed?". |
 | `/api/admin/tx-report` | `TXREPORT` | `txid`, `core?` | Per-transaction indexing detail. |
@@ -49,6 +49,9 @@ curl -s "http://localhost:8085/api/admin/report?core=alfresco" | python3 -m json
 
 # Per-core stats + tracking lag
 curl -s "http://localhost:8085/api/admin/summary?core=alfresco" | python3 -m json.tool
+
+# Only the alfresco + archive cores, only TX-lag and FTS metrics
+curl -s "http://localhost:8085/api/admin/summary?cores=alfresco,archive&metrics=tx,fts" | python3 -m json.tool
 
 # Is node 15695 indexed? (DBID)
 curl -s "http://localhost:8085/api/admin/node-report?nodeid=15695&core=alfresco" | python3 -m json.tool

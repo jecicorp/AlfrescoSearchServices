@@ -47,9 +47,11 @@ public class AdminController
 
     @GetMapping("/summary")
     public Map<String, Object> summary(
-            @RequestParam(value = "core", required = false) String core)
+            @RequestParam(value = "core", required = false) String core,
+            @RequestParam(value = "cores", required = false) String cores,
+            @RequestParam(value = "metrics", required = false) String metrics)
     {
-        return adminService.summary(core);
+        return adminService.summary(core, cores, metrics);
     }
 
     @GetMapping("/report")
