@@ -326,11 +326,23 @@ public class AdminService
                     }
                 }
 
-                // Tracker stats
+                // Tracker stats: expose aggregated indexing-performance indicators as a
+                // structured map. The previous trackerStats.toString() dumped a multi-KB blob
+                // of Java object internals (per-thread histograms) as a single JSON string,
+                // which drowned out the rest of the report and was unusable for monitoring.
                 TrackerStats trackerStats = infoSrv.getTrackerStats();
                 if (trackerStats != null)
                 {
-                    coreReport.put("TrackerStats", trackerStats.toString());
+                    Map<String, Object> statsReport = new LinkedHashMap<>();
+                    statsReport.put("MeanDocsPerTx", trackerStats.getMeanDocsPerTx());
+                    statsReport.put("MeanAclsPerChangeSet", trackerStats.getMeanAclsPerChangeSet());
+                    statsReport.put("NodeIndexingThreadCount", trackerStats.getNodeIndexingThreadCount());
+                    statsReport.put("MeanModelSyncTimeMs", trackerStats.getMeanModelSyncTime());
+                    statsReport.put("MeanNodeIndexTimeMs", trackerStats.getMeanNodeIndexTime());
+                    statsReport.put("MeanNodeElapsedIndexTimeMs", trackerStats.getMeanNodeElapsedIndexTime());
+                    statsReport.put("MeanAclElapsedIndexTimeMs", trackerStats.getMeanAclElapsedIndexTime());
+                    statsReport.put("MeanContentElapsedIndexTimeMs", trackerStats.getMeanContentElapsedIndexTime());
+                    coreReport.put("TrackerStats", statsReport);
                 }
             }
             catch (Exception e)
