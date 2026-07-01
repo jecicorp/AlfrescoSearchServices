@@ -30,6 +30,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -180,10 +181,23 @@ public final class SslParametersFactory
             }
         }
 
-        // Write to a temp file with restricted permissions.
-        Path tmp = Files.createTempFile("alf-ks-meta-", ".properties");
+        // Write to a temp file with restricted permissions (atomic 0600 creation).
+        Path tmp;
+        try
+        {
+            // Atomic creation with POSIX owner-only permissions on POSIX filesystems.
+            Set<PosixFilePermission> perms = Set.of(PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE);
+            tmp = Files.createTempFile("alf-ks-meta-", ".properties",
+                    PosixFilePermissions.asFileAttribute(perms));
+        }
+        catch (UnsupportedOperationException | IOException e)
+        {
+            // Non-POSIX filesystem: fall back to plain creation with best-effort permissions.
+            tmp = Files.createTempFile("alf-ks-meta-", ".properties");
+            setOwnerOnlyPermissions(tmp);
+        }
         tmp.toFile().deleteOnExit();
-        setOwnerOnlyPermissions(tmp);
         try (OutputStream out = new FileOutputStream(tmp.toFile()))
         {
             props.store(out, null);
