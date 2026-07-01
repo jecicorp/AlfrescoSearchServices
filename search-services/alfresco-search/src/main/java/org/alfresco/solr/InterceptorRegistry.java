@@ -26,32 +26,6 @@
 
 package org.alfresco.solr;
 
-import org.alfresco.solr.io.interceptor.SharedSecretRequestInterceptor;
-import org.alfresco.solr.security.SecretSharedPropertyCollector;
-import org.apache.http.HttpRequestInterceptor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class InterceptorRegistry
 {
-        protected static final Logger LOGGER = LoggerFactory.getLogger(InterceptorRegistry.class);
-        /**
-         * Register the required {@link HttpRequestInterceptor}s
-         */
-        public static void registerSolrClientInterceptors()
-        {
-                try
-                {
-                        if (SecretSharedPropertyCollector.isCommsSecretShared())
-                        {
-                                SharedSecretRequestInterceptor.register();
-                        }
-                }
-                catch (Throwable t)
-                {
-                        LOGGER.warn("It was not possible to add the Shared Secret Authentication interceptor. "
-                                + "Please make sure to pass the required -Dalfresco.secureComms=secret and "
-                                + "-Dalfresco.secureComms.secret=my-secret-value JVM args if trying to use Secret Authentication with Solr.");
-                }
-        }
 }
