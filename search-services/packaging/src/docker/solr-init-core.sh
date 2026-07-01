@@ -32,13 +32,16 @@ for CORE_NAME in $CORE_LIST; do
                 ;;
         esac
 
-        # Configure secure comms
+        # Configure secure comms (template default is https)
         case "${ALFRESCO_SECURE_COMMS}" in
             secret)
                 sed -i 's|alfresco.secureComms=https|alfresco.secureComms=secret|' "$PROPS"
                 ;;
             none)
                 sed -i 's|alfresco.secureComms=https|alfresco.secureComms=none|' "$PROPS"
+                ;;
+            https|"")
+                : # keep template default alfresco.secureComms=https
                 ;;
         esac
 
@@ -61,6 +64,11 @@ EOF
     fi
 done
 unset IFS
+
+# Log SSL state
+if [ -n "${SOLR_SSL_KEY_STORE}" ]; then
+    echo "TLS enabled: keystore=${SOLR_SSL_KEY_STORE} needClientAuth=${SOLR_SSL_NEED_CLIENT_AUTH:-false}"
+fi
 
 # Start Solr (exec replaces the shell with solr process)
 exec /opt/alfresco-search-services/solr/bin/solr start -f
