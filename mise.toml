@@ -97,6 +97,25 @@ run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='FacetedSearchTest,FacetFiel
 description = "Lance un test e2e par nom de classe — ex: mise run e2e:test:class MyTest"
 run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='{{arg(name=\"class\")}}'"
 
+[tasks."e2e:generate:https"]
+description = "Génère le docker-compose pour la stack e2e avec le profil Pristy https/mTLS (PKCS12)"
+dir = "e2e-test/python-generator"
+run = """
+# Prerequisites: run the keystore generator first:
+#   STORE_PASS=changeit keystore/generate-keystores.sh /tmp/mtls-out
+# This produces solr.p12, trackers.p12, alfresco.p12 and truststore.p12 in /tmp/mtls-out.
+python3 generator.py \
+  --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
+  --search=alfresco/alfresco-search-services:local \
+  --postgres=postgres:16 \
+  --transformer=AIOTransformers \
+  --communication=https \
+  --keystoreDir=/tmp/mtls-out \
+  --output=../../target/e2e-stack-https
+echo "Stack https/mTLS générée dans target/e2e-stack-https/"
+echo "Démarrer avec : docker compose -f target/e2e-stack-https/docker-compose.yml up --build -d"
+"""
+
 [tasks."trackers:build"]
 description = "Build trackers Spring Boot JAR"
 run = "cd search-services && mvn package -pl alfresco-indexing-trackers -am -Dmaven.test.skip=true"

@@ -51,6 +51,7 @@
                   <configuration>
                      <excludes combine.children="append">
                         <exclude>**/org/alfresco/test/search/functional/searchServices/solr/admin/TrackerAdminClient.java</exclude>
+                        <exclude>**/org/alfresco/test/search/functional/searchServices/solr/admin/TrackerAdminMtlsTest.java</exclude>
                      </excludes>
                   </configuration>
                </execution>
@@ -76,6 +77,7 @@
                      </roots>
                      <includes>
                         <include>**/org/alfresco/test/search/functional/searchServices/solr/admin/TrackerAdminClient.java</include>
+                        <include>**/org/alfresco/test/search/functional/searchServices/solr/admin/TrackerAdminMtlsTest.java</include>
                      </includes>
                   </configuration>
                </execution>
