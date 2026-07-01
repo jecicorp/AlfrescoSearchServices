@@ -4,9 +4,26 @@ alfresco:
       url: http://localhost:8983/solr
       collection: alfresco
       collections: alfresco,archive
+      secure-comms: none          # none | secret | https
+      shared-secret: ""
+      ssl:
+        key-store: ""
+        key-store-password: ""
+        key-store-type: PKCS12
+        trust-store: ""
+        trust-store-password: ""
+        trust-store-type: PKCS12
     repository:
       url: http://localhost:8080/alfresco
-      secure-comms: none
+      secure-comms: none          # none | secret | https
+      shared-secret: ""
+      ssl:
+        key-store: ""
+        key-store-password: ""
+        key-store-type: PKCS12
+        trust-store: ""
+        trust-store-password: ""
+        trust-store-type: PKCS12
     cron:
       metadata: "0/5 * * * * ?"
       acl: "0/5 * * * * ?"
