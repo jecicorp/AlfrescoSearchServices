@@ -171,6 +171,8 @@
                             <exclude>**/org/alfresco/indexing/config/RepairReportEndpoint.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/RepositoryClientConfig.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/SolrJConfig.java</exclude>
+                            <exclude>**/org/alfresco/indexing/config/FileKeyResourceLoader.java</exclude>
+                            <exclude>**/org/alfresco/indexing/config/FileKeyResourceLoaderTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/TrackerBootstrap.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/TrackerBootstrapTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/TrackerProperties.java</exclude>
@@ -237,6 +239,8 @@
                             <include>**/org/alfresco/indexing/config/RepairReportEndpoint.java</include>
                             <include>**/org/alfresco/indexing/config/RepositoryClientConfig.java</include>
                             <include>**/org/alfresco/indexing/config/SolrJConfig.java</include>
+                            <include>**/org/alfresco/indexing/config/FileKeyResourceLoader.java</include>
+                            <include>**/org/alfresco/indexing/config/FileKeyResourceLoaderTest.java</include>
                             <include>**/org/alfresco/indexing/config/TrackerBootstrap.java</include>
                             <include>**/org/alfresco/indexing/config/TrackerBootstrapTest.java</include>
                             <include>**/org/alfresco/indexing/config/TrackerProperties.java</include>
