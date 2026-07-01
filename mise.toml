@@ -98,7 +98,7 @@ description = "Lance un test e2e par nom de classe — ex: mise run e2e:test:cla
 run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='{{arg(name=\"class\")}}'"
 
 [tasks."e2e:generate:https"]
-description = "Génère le docker-compose pour la stack e2e avec le profil Pristy https/mTLS (PKCS12)"
+description = "Generate docker-compose for the e2e stack with the Pristy https/mTLS (PKCS12) profile"
 dir = "e2e-test/python-generator"
 run = """
 # Prerequisites: run the keystore generator first:
@@ -112,8 +112,8 @@ python3 generator.py \
   --communication=https \
   --keystoreDir=/tmp/mtls-out \
   --output=../../target/e2e-stack-https
-echo "Stack https/mTLS générée dans target/e2e-stack-https/"
-echo "Démarrer avec : docker compose -f target/e2e-stack-https/docker-compose.yml up --build -d"
+echo "https/mTLS stack generated in target/e2e-stack-https/"
+echo "Start with: docker compose -f target/e2e-stack-https/docker-compose.yml up --build -d"
 """
 
 [tasks."trackers:build"]

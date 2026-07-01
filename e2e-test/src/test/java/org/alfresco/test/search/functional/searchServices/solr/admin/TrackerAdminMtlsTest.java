@@ -26,13 +26,8 @@ package org.alfresco.test.search.functional.searchServices.solr.admin;
 import io.restassured.RestAssured;
 import io.restassured.config.RestAssuredConfig;
 import io.restassured.config.SSLConfig;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import static org.hamcrest.Matchers.anyOf;
-import static org.hamcrest.Matchers.is;
 
 /**
  * Negative mTLS test: verifies that a request to the tracker admin endpoint
@@ -45,29 +40,29 @@ import static org.hamcrest.Matchers.is;
  * <p>Prerequisites: run
  * {@code STORE_PASS=changeit keystore/generate-keystores.sh /tmp/mtls-out}
  * before starting the stack with {@code --communication https}.</p>
+ *
+ * <p>Configuration is read from system properties (set via -D on the JVM or in the
+ * TestNG suite XML), falling back to the defaults below which match the Pristy
+ * https stack ({@code --keystoreDir=/tmp/mtls-out}).  The same keys are used by
+ * sibling tests (e.g. {@link SolrE2eAdminTest}) where Spring wires them from
+ * {@code default.properties}; here we read them directly so no Spring context
+ * is required.</p>
  */
-@Configuration
 public class TrackerAdminMtlsTest
 {
     // ---------------------------------------------------------------------------
-    // Spring/TestNG injectable properties — values come from the test properties
-    // file (e.g. src/test/resources/alfresco-search.properties) or system props.
+    // Configuration — read from system properties with sensible defaults.
+    // The property names match default.properties so the same -D flags work for
+    // both this test and the Spring-wired siblings.
     // ---------------------------------------------------------------------------
 
-    @Value("${tracker.scheme:https}")
     private String trackerScheme;
-
-    @Value("${tracker.server:trackers}")
     private String trackerServer;
-
-    @Value("${tracker.port:8085}")
     private int trackerPort;
 
     /** Path to the PKCS12 truststore used to verify the server certificate. */
-    @Value("${tracker.ssl.trustStorePath:/keystore/truststore.p12}")
     private String trustStorePath;
 
-    @Value("${tracker.ssl.trustStorePass:changeit}")
     private String trustStorePass;
 
     // Full base URL, built in @BeforeClass.
@@ -76,6 +71,11 @@ public class TrackerAdminMtlsTest
     @BeforeClass(alwaysRun = true)
     public void setUp()
     {
+        trackerScheme   = System.getProperty("tracker.scheme", "https");
+        trackerServer   = System.getProperty("tracker.server", "localhost");
+        trackerPort     = Integer.parseInt(System.getProperty("tracker.port", "8085"));
+        trustStorePath  = System.getProperty("tracker.ssl.trustStorePath", "/tmp/mtls-out/truststore.p12");
+        trustStorePass  = System.getProperty("tracker.ssl.trustStorePass", "changeit");
         baseUrl = trackerScheme + "://" + trackerServer + ":" + trackerPort;
     }
 

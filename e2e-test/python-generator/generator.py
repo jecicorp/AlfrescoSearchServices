@@ -49,6 +49,12 @@ MTLS_JAVA_TOOL_OPTIONS = ('-Dencryption.keystore.type=pkcs12 -Dencryption.cipher
         '-Dssl-truststore.aliases=alfresco-ca,ssl-repo-client '
         '-Dssl-truststore.alfresco-ca.password=kT9X6oe68t '
         '-Dssl-truststore.ssl-repo-client.password=kT9X6oe68t')
+# Pristy PKCS12 https profile: point Alfresco at the mounted PKCS12 keystores.
+# The keystore dir is mounted at /keystore:ro by addAlfrescoHttpsVolumes.
+HTTPS_JAVA_TOOL_OPTIONS = ('-Dencryption.ssl.keystore.location=/keystore/alfresco.p12 '
+        '-Dencryption.ssl.keystore.type=PKCS12 '
+        '-Dencryption.ssl.truststore.location=/keystore/truststore.p12 '
+        '-Dencryption.ssl.truststore.type=PKCS12')
 
 def getJavaOpts(includeAMQ, includeTransform, includeShare, solrHost, solrBaseUrl, sharding, communication):
 
@@ -69,11 +75,13 @@ def getJavaOpts(includeAMQ, includeTransform, includeShare, solrHost, solrBaseUr
 
 def getJavaToolOptions(communication):
     # The JCEKS-based JAVA_TOOL_OPTIONS apply to the legacy 'mtls' profile only.
-    # The 'https' (PKCS12) profile does not need these extra options because
-    # the keystore type/password are passed via JAVA_OPTS (-Dsolr.secureComms=https etc.).
     mtlsJavaToolOptions = (MTLS_JAVA_TOOL_OPTIONS if communication == 'mtls' else '')
+    # The Pristy PKCS12 https profile mounts keystores at /keystore and needs
+    # -Dencryption.ssl.keystore.location / -Dencryption.ssl.truststore.location
+    # so Alfresco's SSL subsystem can find alfresco.p12 and truststore.p12.
+    httpsJavaToolOptions = (HTTPS_JAVA_TOOL_OPTIONS if communication == 'https' else '')
 
-    return ' '.join([JAVA_TOOL_OPTIONS, mtlsJavaToolOptions])
+    return ' '.join(filter(None, [JAVA_TOOL_OPTIONS, mtlsJavaToolOptions, httpsJavaToolOptions]))
 
 def deleteServices(dcYaml, *services):
     for service in services:
@@ -449,9 +457,8 @@ if __name__ == '__main__':
         trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS'] = 'secret'
         trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SHAREDSECRET'] = 'secret'
     elif args.communication == 'https':
-        # https profile: full mTLS on both Solr and repository sides
-        trackersEnv['ALFRESCO_TRACKER_SOLR_SECURECOMMS'] = 'none'   # overridden below by addTrackersHttpsConfig
-        trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS'] = 'none'
+        # https profile: full mTLS on both Solr and repository sides (set by addTrackersHttpsConfig below)
+        pass
     else:
         trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS'] = 'none'
     trackersNode = {
