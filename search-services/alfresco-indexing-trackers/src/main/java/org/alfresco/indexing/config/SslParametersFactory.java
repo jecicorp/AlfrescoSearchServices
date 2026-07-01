@@ -23,8 +23,21 @@
 package org.alfresco.indexing.config;
 
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -40,26 +53,19 @@ import org.alfresco.encryption.ssl.SSLEncryptionParameters;
  * <ul>
  *   <li>{@link #toAlfrescoParams(TrackerProperties.SslConfig)} — produces an
  *       {@link SSLEncryptionParameters} for the Alfresco {@code HttpClientFactory} (L3, Task 2.3).
- *       Passwords are published as JVM system properties so that
- *       {@code AlfrescoKeyStoreImpl} can load them without a metadata side-car file.</li>
+ *       Passwords are delivered via Alfresco's native password-file mechanism: a temporary
+ *       properties file is written for each keystore/truststore, and its path is passed as
+ *       the {@code keyMetaDataFileLocation} of {@link KeyStoreParameters}.  No JVM system
+ *       properties are set.</li>
  *   <li>{@link #toSslContext(TrackerProperties.SslConfig)} — produces a standard JSSE
  *       {@link SSLContext} for the SolrJ {@code HttpSolrClient} (L2, Task 2.4).</li>
  * </ul>
  */
 public final class SslParametersFactory
 {
-    /** JVM property suffix used by AlfrescoKeyStoreImpl to read the keystore password. */
-    private static final String PASSWORD_SUFFIX = ".password";
-
-    /**
-     * JVM property suffix used by AlfrescoKeyStoreImpl to read the key alias list.
-     * A non-null (but possibly empty) value suppresses the "No aliases" warning.
-     */
-    private static final String ALIASES_SUFFIX = ".aliases";
-
     /**
      * Keystore ID used when building the repository-side {@link SSLEncryptionParameters}.
-     * Must be unique and stable so JVM properties are predictable.
+     * Stable so that AlfrescoKeyStoreImpl can log a meaningful name.
      */
     private static final String KEY_STORE_ID = "ssl-keystore";
 
@@ -76,39 +82,45 @@ public final class SslParametersFactory
      * Builds an {@link SSLEncryptionParameters} for the Alfresco
      * {@code HttpClientFactory} (L3, repository channel).
      *
-     * <p>{@code AlfrescoKeyStoreImpl} reads the keystore password from a JVM system
-     * property when the {@code KeyStoreParameters} carries a non-null id and an empty
-     * metadata-file location.  This method publishes {@code <id>.password} before
-     * returning so that the factory can look it up at SSL initialization time.</p>
+     * <p>Passwords are delivered to {@code AlfrescoKeyStoreImpl} via Alfresco's native
+     * password-file mechanism rather than JVM system properties.  For each keystore a
+     * temporary properties file is written containing the keys expected by
+     * {@code AlfrescoKeyStoreImpl.KeyInfoManager.loadKeyMetaData}:
+     * <ul>
+     *   <li>{@code aliases} — comma-separated list of alias names from the keystore</li>
+     *   <li>{@code keystore.password} — the store/key password</li>
+     *   <li>{@code <alias>.password} — per-alias key password (same value for PKCS12)</li>
+     * </ul>
+     * The path of the temp file is passed as the {@code keyMetaDataFileLocation} argument
+     * of {@link KeyStoreParameters}.  When that location is non-blank,
+     * {@code AlfrescoKeyStoreImpl} delegates to
+     * {@link FileKeyResourceLoader#loadKeyMetaData(String)} instead of reading JVM
+     * properties.</p>
      *
-     * <p>The actual constructor signature of {@code KeyStoreParameters} (6-arg) is:<br>
-     * {@code (String id, String name, String type, String provider,
-     *   String keyMetaDataFileLocation, String location)}<br>
-     * The 5th argument is a <em>path to a password metadata properties file</em>,
-     * not a raw password.  Passing an empty string here triggers the JVM-property
-     * lookup path inside {@code AlfrescoKeyStoreImpl.loadKeyMetaData}.</p>
+     * <p>Temp files are created with owner-only read/write permissions (POSIX 0600) and
+     * registered for deletion on JVM exit.</p>
      *
      * @param ssl SSL configuration carrying keystore/truststore paths and passwords
      * @return a configured {@link SSLEncryptionParameters}
+     * @throws Exception if a keystore cannot be opened or the temp file cannot be written
      */
     public static SSLEncryptionParameters toAlfrescoParams(TrackerProperties.SslConfig ssl)
+            throws Exception
     {
-        // Publish passwords as JVM system properties so AlfrescoKeyStoreImpl can find them
-        // without a metadata side-car file.  The property names follow the
-        // "<id>.password" convention defined in AlfrescoKeyStore.KEY_KEYSTORE_PASSWORD.
-        System.setProperty(KEY_STORE_ID + PASSWORD_SUFFIX, ssl.getKeyStorePassword());
-        System.setProperty(KEY_STORE_ID + ALIASES_SUFFIX, "");
-        System.setProperty(TRUST_STORE_ID + PASSWORD_SUFFIX, ssl.getTrustStorePassword());
-        System.setProperty(TRUST_STORE_ID + ALIASES_SUFFIX, "");
+        KeyStore keyStore = load(ssl.getKeyStore(), ssl.getKeyStorePassword(), ssl.getKeyStoreType());
+        String keyMetaFile = writePasswordFile(keyStore, ssl.getKeyStorePassword(), true);
 
-        // Empty keyMetaDataFileLocation + non-null id → AlfrescoKeyStoreImpl reads password
-        // from JVM properties (the branch taken when "secure storage" is not configured).
+        KeyStore trustStore = load(ssl.getTrustStore(), ssl.getTrustStorePassword(), ssl.getTrustStoreType());
+        String trustMetaFile = writePasswordFile(trustStore, ssl.getTrustStorePassword(), false);
+
+        // Non-blank keyMetaDataFileLocation makes AlfrescoKeyStoreImpl use the file path
+        // (via FileKeyResourceLoader.loadKeyMetaData) instead of JVM system properties.
         KeyStoreParameters keyParams = new KeyStoreParameters(
                 KEY_STORE_ID,
                 "SSL Key Store",
                 ssl.getKeyStoreType(),
                 null,
-                "",
+                keyMetaFile,
                 ssl.getKeyStore());
 
         KeyStoreParameters trustParams = new KeyStoreParameters(
@@ -116,10 +128,86 @@ public final class SslParametersFactory
                 "SSL Trust Store",
                 ssl.getTrustStoreType(),
                 null,
-                "",
+                trustMetaFile,
                 ssl.getTrustStore());
 
         return new SSLEncryptionParameters(keyParams, trustParams);
+    }
+
+    /**
+     * Writes a temporary password-properties file for {@code AlfrescoKeyStoreImpl}.
+     *
+     * <p>The file contains:
+     * <pre>
+     * aliases=&lt;comma-separated alias list from the keystore&gt;
+     * keystore.password=&lt;storePassword&gt;
+     * &lt;alias&gt;.password=&lt;storePassword&gt;   # only when includeKeyPasswords is true
+     * </pre>
+     * For PKCS12 keystores the key password equals the store password, so
+     * {@code includeKeyPasswords} should be {@code true} for key stores and
+     * {@code false} for trust stores (which hold only certificates, not keys).</p>
+     *
+     * <p>The file is created with POSIX permissions 0600 (owner read/write only) and
+     * registered for deletion on JVM exit.</p>
+     *
+     * @param ks                  the keystore whose aliases should be listed
+     * @param storePassword       the store (and key) password to write
+     * @param includeKeyPasswords whether to write per-alias {@code <alias>.password} lines
+     * @return the absolute path of the temp file
+     * @throws Exception if the file cannot be created or written
+     */
+    private static String writePasswordFile(KeyStore ks, String storePassword,
+            boolean includeKeyPasswords) throws Exception
+    {
+        // Collect all aliases into a sorted list for deterministic output.
+        List<String> aliases = new ArrayList<>();
+        Enumeration<String> en = ks.aliases();
+        while (en.hasMoreElements())
+        {
+            aliases.add(en.nextElement());
+        }
+        Collections.sort(aliases);
+
+        // Build the properties content expected by AlfrescoKeyStoreImpl.loadKeyMetaData.
+        Properties props = new Properties();
+        props.setProperty("aliases", String.join(",", aliases));
+        props.setProperty("keystore.password", storePassword);
+        if (includeKeyPasswords)
+        {
+            for (String alias : aliases)
+            {
+                props.setProperty(alias + ".password", storePassword);
+            }
+        }
+
+        // Write to a temp file with restricted permissions.
+        Path tmp = Files.createTempFile("alf-ks-meta-", ".properties");
+        tmp.toFile().deleteOnExit();
+        setOwnerOnlyPermissions(tmp);
+        try (OutputStream out = new FileOutputStream(tmp.toFile()))
+        {
+            props.store(out, null);
+        }
+        return tmp.toAbsolutePath().toString();
+    }
+
+    /**
+     * Restricts {@code path} to owner read/write (POSIX 0600) when the underlying
+     * filesystem supports POSIX permissions.  On non-POSIX filesystems this is a no-op.
+     */
+    private static void setOwnerOnlyPermissions(Path path)
+    {
+        try
+        {
+            Set<PosixFilePermission> perms = new HashSet<>();
+            perms.add(PosixFilePermission.OWNER_READ);
+            perms.add(PosixFilePermission.OWNER_WRITE);
+            Files.setPosixFilePermissions(path, perms);
+        }
+        catch (UnsupportedOperationException | IOException ignored)
+        {
+            // Non-POSIX filesystem: skip permission setting, best effort only.
+        }
     }
 
     /**

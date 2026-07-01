@@ -23,11 +23,16 @@
 package org.alfresco.indexing.config;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 class FileKeyResourceLoaderTest
@@ -56,5 +61,49 @@ class FileKeyResourceLoaderTest
         FileKeyResourceLoader loader = new FileKeyResourceLoader();
         assertThrows(FileNotFoundException.class,
             () -> loader.getKeyStore("/nonexistent/path/nope.p12"));
+    }
+
+    @Test
+    void loadsKeyMetaDataFromPropertiesFile() throws Exception
+    {
+        // Write a minimal password-properties file to a temp location.
+        Properties written = new Properties();
+        written.setProperty("aliases", "myalias");
+        written.setProperty("keystore.password", "secret");
+        written.setProperty("myalias.password", "secret");
+
+        File tmp = Files.createTempFile("ksmeta", ".properties").toFile();
+        tmp.deleteOnExit();
+        try (FileOutputStream fos = new FileOutputStream(tmp))
+        {
+            written.store(fos, null);
+        }
+
+        // Load via the FileKeyResourceLoader and verify the content is preserved.
+        FileKeyResourceLoader loader = new FileKeyResourceLoader();
+        Properties loaded = loader.loadKeyMetaData(tmp.getAbsolutePath());
+
+        assertNotNull(loaded);
+        assertEquals("myalias", loaded.getProperty("aliases"));
+        assertEquals("secret", loaded.getProperty("keystore.password"));
+        assertEquals("secret", loaded.getProperty("myalias.password"));
+    }
+
+    @Test
+    void returnsEmptyPropertiesForNullLocation() throws Exception
+    {
+        FileKeyResourceLoader loader = new FileKeyResourceLoader();
+        Properties result = loader.loadKeyMetaData(null);
+        assertNotNull(result);
+        assertTrue(result.isEmpty(), "Expected empty Properties for null location");
+    }
+
+    @Test
+    void returnsEmptyPropertiesForBlankLocation() throws Exception
+    {
+        FileKeyResourceLoader loader = new FileKeyResourceLoader();
+        Properties result = loader.loadKeyMetaData("   ");
+        assertNotNull(result);
+        assertTrue(result.isEmpty(), "Expected empty Properties for blank location");
     }
 }

@@ -22,7 +22,15 @@
  */
 package org.alfresco.indexing.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.FileInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Properties;
 
 import javax.net.ssl.SSLContext;
 
@@ -50,9 +58,10 @@ class SslParametersFactoryTest
     @Test
     void buildsAlfrescoParamsFromPkcs12() throws Exception
     {
-        // toAlfrescoParams produces a data-holder for HttpClientFactory (L3, Task 2.3).
-        // Passwords are surfaced via JVM system properties so AlfrescoKeyStoreImpl can
-        // load them without a metadata side-car file (FileKeyResourceLoader returns empty props).
+        // Ensure the JVM properties are absent before the call so we can prove they stay absent.
+        System.clearProperty("ssl-keystore.password");
+        System.clearProperty("ssl-truststore.password");
+
         TrackerProperties.SslConfig ssl = new TrackerProperties.SslConfig();
         ssl.setKeyStore(getClass().getResource("/ssl/tracker.p12").getPath());
         ssl.setKeyStorePassword("storepass");
@@ -61,15 +70,52 @@ class SslParametersFactoryTest
 
         SSLEncryptionParameters params = SslParametersFactory.toAlfrescoParams(ssl);
         assertNotNull(params);
+
         KeyStoreParameters ksp = params.getKeyStoreParameters();
         KeyStoreParameters tsp = params.getTrustStoreParameters();
         assertNotNull(ksp);
         assertNotNull(tsp);
-        // Keystore location is set correctly
+
+        // Keystore file location must be set.
         assertNotNull(ksp.getLocation());
         assertNotNull(tsp.getLocation());
-        // Password is accessible via the JVM-property key the factory published
-        assertNotNull(System.getProperty(ksp.getId() + ".password"));
-        assertNotNull(System.getProperty(tsp.getId() + ".password"));
+
+        // NO JVM system properties must be set — passwords go through the file mechanism.
+        assertNull(System.getProperty("ssl-keystore.password"),
+                "toAlfrescoParams must NOT set ssl-keystore.password as a JVM system property");
+        assertNull(System.getProperty("ssl-truststore.password"),
+                "toAlfrescoParams must NOT set ssl-truststore.password as a JVM system property");
+
+        // keyMetaDataFileLocation must point to an existing temp file.
+        String keyMetaPath = ksp.getKeyMetaDataFileLocation();
+        String trustMetaPath = tsp.getKeyMetaDataFileLocation();
+        assertNotNull(keyMetaPath, "keyMetaDataFileLocation must be set for keystore");
+        assertNotNull(trustMetaPath, "keyMetaDataFileLocation must be set for truststore");
+        assertTrue(Files.exists(Path.of(keyMetaPath)),
+                "keystore password file must exist at " + keyMetaPath);
+        assertTrue(Files.exists(Path.of(trustMetaPath)),
+                "truststore password file must exist at " + trustMetaPath);
+
+        // The keystore password file must contain the expected keys/values.
+        Properties keyProps = new Properties();
+        try (FileInputStream fis = new FileInputStream(keyMetaPath))
+        {
+            keyProps.load(fis);
+        }
+        assertNotNull(keyProps.getProperty("aliases"),
+                "keystore password file must contain 'aliases' key");
+        assertEquals("storepass", keyProps.getProperty("keystore.password"),
+                "keystore.password must equal the configured store password");
+
+        // The truststore password file must contain aliases and keystore.password.
+        Properties trustProps = new Properties();
+        try (FileInputStream fis2 = new FileInputStream(trustMetaPath))
+        {
+            trustProps.load(fis2);
+        }
+        assertNotNull(trustProps.getProperty("aliases"),
+                "truststore password file must contain 'aliases' key");
+        assertEquals("storepass", trustProps.getProperty("keystore.password"),
+                "truststore keystore.password must equal the configured trust store password");
     }
 }

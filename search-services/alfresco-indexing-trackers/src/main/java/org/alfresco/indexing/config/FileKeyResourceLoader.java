@@ -53,19 +53,32 @@ public class FileKeyResourceLoader implements KeyResourceLoader
     }
 
     /**
-     * Returns an empty {@link Properties} object.
+     * Loads keystore/truststore password metadata from a properties file on the filesystem.
      *
-     * <p>The standalone trackers process does not use metadata side-car files;
-     * all SSL parameters are supplied via Spring Boot configuration properties.
-     * This stub satisfies the interface contract and allows the caller to
-     * operate without null-checking the return value.</p>
+     * <p>When {@code location} is a non-blank path, the file is opened, its contents are
+     * parsed as a {@link Properties} object, and the result is returned.  This enables
+     * {@code AlfrescoKeyStoreImpl} to read passwords from a temp file written by
+     * {@link SslParametersFactory} rather than from JVM system properties.</p>
      *
-     * @param location path to the metadata file (ignored)
-     * @return an empty, non-null {@link Properties} instance
+     * <p>When {@code location} is {@code null} or blank, an empty {@link Properties} is
+     * returned so that callers need not null-check the result.</p>
+     *
+     * @param location path to the metadata properties file, or {@code null}/blank to skip
+     * @return the loaded properties, or an empty {@link Properties} when location is absent
+     * @throws IOException if the file exists but cannot be read
      */
     @Override
     public Properties loadKeyMetaData(String location) throws IOException
     {
-        return new Properties();
+        if (location == null || location.isBlank())
+        {
+            return new Properties();
+        }
+        Properties props = new Properties();
+        try (FileInputStream fis = new FileInputStream(location))
+        {
+            props.load(fis);
+        }
+        return props;
     }
 }
