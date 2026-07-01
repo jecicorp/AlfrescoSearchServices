@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import org.alfresco.encryption.ssl.SSLEncryptionParameters;
 import org.alfresco.httpclient.AlfrescoHttpClient;
 import org.alfresco.httpclient.HttpClientFactory;
 import org.alfresco.httpclient.HttpClientFactory.SecureCommsType;
@@ -92,34 +93,58 @@ public class RepositoryClientConfig
     /**
      * Creates an {@link AlfrescoHttpClient} that handles HTTP communication
      * (plain, shared-secret, or mTLS) with the Alfresco Repository.
+     *
+     * <p>When {@code secureComms=https}, an {@link SSLEncryptionParameters} is built from
+     * the configured keystores via {@link SslParametersFactory#toAlfrescoParams} and the
+     * 13-argument {@link HttpClientFactory} constructor is used (mirroring
+     * {@code SOLRAPIClientFactory#getRepoClient}).  A {@link FileKeyResourceLoader} is
+     * passed so the factory can load both keystore files and the password-metadata files
+     * written by {@code SslParametersFactory}.</p>
+     *
+     * <p>For {@code none} and {@code secret} the existing setter-based path is preserved
+     * unchanged; for {@code secret} the shared-secret header value is also set.</p>
      */
     @Bean
-    public AlfrescoHttpClient alfrescoHttpClient(TrackerProperties props)
+    public AlfrescoHttpClient alfrescoHttpClient(TrackerProperties props) throws Exception
     {
         TrackerProperties.RepositoryConfig repo = props.getRepository();
         URI repoUri = URI.create(repo.getUrl());
-
         String host = repoUri.getHost();
         int port = repoUri.getPort() != -1 ? repoUri.getPort() : 8080;
         String secureComms = repo.getSecureComms();
+        SecureCommsType type = SecureCommsType.getType(secureComms);
 
-        HttpClientFactory httpClientFactory = new HttpClientFactory();
-        httpClientFactory.setSecureCommsType(secureComms);
-        httpClientFactory.setHost(host);
-        httpClientFactory.setPort(port);
-        httpClientFactory.setMaxTotalConnections(40);
-        httpClientFactory.setMaxHostConnections(40);
-        httpClientFactory.setSocketTimeout(120000);
-
-        if (SecureCommsType.getType(secureComms) == SecureCommsType.SECRET)
+        HttpClientFactory httpClientFactory;
+        if (type == SecureCommsType.HTTPS)
         {
-            httpClientFactory.setSharedSecret(repo.getSharedSecret());
+            // Build mTLS parameters from the configured keystores/truststores.
+            // SslParametersFactory writes password-metadata files and sets keyMetaDataFileLocation
+            // on each KeyStoreParameters so that AlfrescoKeyStoreImpl reads them via
+            // FileKeyResourceLoader rather than JVM system properties.
+            SSLEncryptionParameters sslParams = SslParametersFactory.toAlfrescoParams(repo.getSsl());
+            httpClientFactory = new HttpClientFactory(SecureCommsType.HTTPS, sslParams,
+                    new FileKeyResourceLoader(), null, null, null, null,
+                    host, port, port, 40, 40, 120000);
+        }
+        else
+        {
+            // Plain (none) or shared-secret path: use setter-based factory.
+            httpClientFactory = new HttpClientFactory();
+            httpClientFactory.setSecureCommsType(secureComms);
+            httpClientFactory.setHost(host);
+            httpClientFactory.setPort(port);
+            httpClientFactory.setMaxTotalConnections(40);
+            httpClientFactory.setMaxHostConnections(40);
+            httpClientFactory.setSocketTimeout(120000);
+            if (type == SecureCommsType.SECRET)
+            {
+                httpClientFactory.setSharedSecret(repo.getSharedSecret());
+            }
         }
 
         AlfrescoHttpClient client = httpClientFactory.getRepoClient(host, port);
         String baseUrl = repoUri.getPath().isEmpty() ? "/alfresco" : repoUri.getPath();
         client.setBaseUrl(baseUrl);
-
         return client;
     }
 
