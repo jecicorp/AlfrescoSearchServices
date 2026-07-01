@@ -228,6 +228,29 @@ public class TrackerProperties
         this.repairMaxRetries = repairMaxRetries;
     }
 
+    public static class SslConfig
+    {
+        private String keyStore = "";
+        private String keyStorePassword = "";
+        private String keyStoreType = "PKCS12";
+        private String trustStore = "";
+        private String trustStorePassword = "";
+        private String trustStoreType = "PKCS12";
+
+        public String getKeyStore() { return keyStore; }
+        public void setKeyStore(String keyStore) { this.keyStore = keyStore; }
+        public String getKeyStorePassword() { return keyStorePassword; }
+        public void setKeyStorePassword(String keyStorePassword) { this.keyStorePassword = keyStorePassword; }
+        public String getKeyStoreType() { return keyStoreType; }
+        public void setKeyStoreType(String keyStoreType) { this.keyStoreType = keyStoreType; }
+        public String getTrustStore() { return trustStore; }
+        public void setTrustStore(String trustStore) { this.trustStore = trustStore; }
+        public String getTrustStorePassword() { return trustStorePassword; }
+        public void setTrustStorePassword(String trustStorePassword) { this.trustStorePassword = trustStorePassword; }
+        public String getTrustStoreType() { return trustStoreType; }
+        public void setTrustStoreType(String trustStoreType) { this.trustStoreType = trustStoreType; }
+    }
+
     public static class SolrConfig
     {
         private String url = "http://localhost:8983/solr";
@@ -269,6 +292,17 @@ public class TrackerProperties
         {
             this.collections = collections;
         }
+
+        private String secureComms = "none"; // none, secret, https
+        private String sharedSecret = "";
+        private SslConfig ssl = new SslConfig();
+
+        public String getSecureComms() { return secureComms; }
+        public void setSecureComms(String secureComms) { this.secureComms = secureComms; }
+        public String getSharedSecret() { return sharedSecret; }
+        public void setSharedSecret(String sharedSecret) { this.sharedSecret = sharedSecret; }
+        public SslConfig getSsl() { return ssl; }
+        public void setSsl(SslConfig ssl) { this.ssl = ssl; }
     }
 
     public static class RepositoryConfig
@@ -306,6 +340,11 @@ public class TrackerProperties
         {
             this.sharedSecret = sharedSecret;
         }
+
+        private SslConfig ssl = new SslConfig();
+
+        public SslConfig getSsl() { return ssl; }
+        public void setSsl(SslConfig ssl) { this.ssl = ssl; }
     }
 
     /**
