@@ -36,3 +36,13 @@ _DEFAULT_
 /packaging/src/docker/alfresco-solr-distribution*.zip
 /packaging/src/docker/alfresco-search-services*.zip
 /packaging/src/docker/banana/banana-dist/
+
+#############
+# mTLS keys #
+#############
+keystore/*.p12
+keystore/*.key
+keystore/*.crt
+keystore/*.csr
+keystore/*.srl
+keystore/out/
