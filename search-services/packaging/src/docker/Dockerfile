@@ -55,8 +55,19 @@ WORKDIR $DIST_DIR
 
 VOLUME $DIST_DIR/data
 VOLUME $DIST_DIR/solrhome
-# Expose a folder to mount keystores in the host (required for Mutual TLS Auth)
-VOLUME $DIST_DIR/keystores
+# TLS / mTLS (secureComms=https). Solr's launcher reads these natively.
+# Keystores are NOT baked into the image — mount them at runtime into this dir
+# (bind mount in dev/compose, orchestrator secret in prod) and set at runtime:
+#   SOLR_SSL_KEY_STORE=/opt/alfresco-search-services/keystore/solr.p12
+#   SOLR_SSL_KEY_STORE_PASSWORD=..., SOLR_SSL_KEY_STORE_TYPE=PKCS12
+#   SOLR_SSL_TRUST_STORE=/opt/alfresco-search-services/keystore/truststore.p12
+#   SOLR_SSL_TRUST_STORE_PASSWORD=..., SOLR_SSL_TRUST_STORE_TYPE=PKCS12
+#   SOLR_SSL_NEED_CLIENT_AUTH=true
+RUN mkdir -p /opt/alfresco-search-services/keystore
+VOLUME ["/opt/alfresco-search-services/keystore"]
+# Only the non-secret store TYPE is defaulted here; paths/passwords come at runtime.
+ENV SOLR_SSL_KEY_STORE_TYPE=PKCS12 \
+    SOLR_SSL_TRUST_STORE_TYPE=PKCS12
 
 # SOLR Service Port
 EXPOSE 8983
