@@ -23,6 +23,8 @@
 
 package org.alfresco.test.search.functional.searchServices.solr.admin;
 
+import javax.net.ssl.SSLException;
+
 import io.restassured.RestAssured;
 import io.restassured.config.RestAssuredConfig;
 import io.restassured.config.SSLConfig;
@@ -72,7 +74,7 @@ public class TrackerAdminMtlsTest
     public void setUp()
     {
         trackerScheme   = System.getProperty("tracker.scheme", "https");
-        trackerServer   = System.getProperty("tracker.server", "localhost");
+        trackerServer   = System.getProperty("tracker.server", "trackers");
         trackerPort     = Integer.parseInt(System.getProperty("tracker.port", "8085"));
         trustStorePath  = System.getProperty("tracker.ssl.trustStorePath", "/tmp/mtls-out/truststore.p12");
         trustStorePass  = System.getProperty("tracker.ssl.trustStorePass", "changeit");
@@ -116,11 +118,25 @@ public class TrackerAdminMtlsTest
                     statusCode == 401 || statusCode == 403,
                     "Expected 401 or 403 when no client cert is presented, got: " + statusCode);
         }
-        catch (Exception e)
+        catch (RuntimeException e)
         {
-            // An SSLHandshakeException or similar is the expected outcome when the server
-            // enforces client-auth=need and no client cert is presented.
-            // Nothing to do — the test passes by reaching this branch.
+            // Walk the cause chain looking for an SSLException, which is the expected
+            // outcome when the server enforces clientAuth=need and no client cert is presented.
+            // A plain connection failure (e.g. java.net.ConnectException) must NOT be silently
+            // swallowed — it means the stack is down or misconfigured and would give a false pass.
+            Throwable cause = e;
+            while (cause != null)
+            {
+                if (cause instanceof SSLException)
+                {
+                    // TLS handshake rejection: this is the expected pass condition.
+                    return;
+                }
+                cause = cause.getCause();
+            }
+            // Not an SSL failure — re-throw so the test fails with a meaningful message
+            // (connection refused, wrong host, etc.) rather than silently passing.
+            throw e;
         }
     }
 }
