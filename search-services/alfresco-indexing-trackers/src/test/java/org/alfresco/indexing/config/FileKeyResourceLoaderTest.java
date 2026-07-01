@@ -22,8 +22,10 @@
  */
 package org.alfresco.indexing.config;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
@@ -31,14 +33,28 @@ import org.junit.jupiter.api.Test;
 class FileKeyResourceLoaderTest
 {
     @Test
-    void opensKeyStoreFromFilesystem() throws Exception
+    void readsKeyStoreFromFilesystem() throws Exception
     {
+        // Write known bytes to a temporary file
+        byte[] expected = {1, 2, 3, 4, 5};
         File tmp = Files.createTempFile("ks", ".p12").toFile();
         tmp.deleteOnExit();
+        Files.write(tmp.toPath(), expected);
+
+        // Read the file via the loader and verify bytes match
         FileKeyResourceLoader loader = new FileKeyResourceLoader();
         try (InputStream in = loader.getKeyStore(tmp.getAbsolutePath()))
         {
-            assertNotNull(in);
+            byte[] actual = in.readAllBytes();
+            assertArrayEquals(expected, actual);
         }
+    }
+
+    @Test
+    void throwsFileNotFoundForMissingFile()
+    {
+        FileKeyResourceLoader loader = new FileKeyResourceLoader();
+        assertThrows(FileNotFoundException.class,
+            () -> loader.getKeyStore("/nonexistent/path/nope.p12"));
     }
 }
