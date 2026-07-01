@@ -454,6 +454,7 @@
                                 <exclude>**/org/alfresco/solr/query/BitSetQuery.java</exclude>
                                 <exclude>**/org/alfresco/solr/SolrDocTypeConstants.java</exclude>
                                 <exclude>**/org/apache/solr/handler/component/AlfrescoSolrHighlighterTest.java</exclude>
+                                <exclude>**/org/alfresco/solr/security/SecretSharedAuthPluginHttpsTest.java</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -486,6 +487,7 @@
                                 <include>**/org/alfresco/solr/query/BitSetQuery.java</include>
                                 <include>**/org/alfresco/solr/SolrDocTypeConstants.java</include>
                                 <include>**/org/apache/solr/handler/component/AlfrescoSolrHighlighterTest.java</include>
+                                <include>**/org/alfresco/solr/security/SecretSharedAuthPluginHttpsTest.java</include>
                             </includes>
                         </configuration>
                     </execution>
