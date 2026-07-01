@@ -177,6 +177,8 @@
                             <exclude>**/org/alfresco/indexing/config/TrackerBootstrapTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/TrackerProperties.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/TrackerPropertiesSslTest.java</exclude>
+                            <exclude>**/org/alfresco/indexing/config/SslParametersFactory.java</exclude>
+                            <exclude>**/org/alfresco/indexing/config/SslParametersFactoryTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/health/RepositoryHealthIndicator.java</exclude>
                             <exclude>**/org/alfresco/indexing/health/SolrHealthIndicator.java</exclude>
                             <exclude>**/org/alfresco/indexing/server/solrj/JavaBitSetAdapter.java</exclude>
@@ -245,6 +247,8 @@
                             <include>**/org/alfresco/indexing/config/TrackerBootstrapTest.java</include>
                             <include>**/org/alfresco/indexing/config/TrackerProperties.java</include>
                             <include>**/org/alfresco/indexing/config/TrackerPropertiesSslTest.java</include>
+                            <include>**/org/alfresco/indexing/config/SslParametersFactory.java</include>
+                            <include>**/org/alfresco/indexing/config/SslParametersFactoryTest.java</include>
                             <include>**/org/alfresco/indexing/health/RepositoryHealthIndicator.java</include>
                             <include>**/org/alfresco/indexing/health/SolrHealthIndicator.java</include>
                             <include>**/org/alfresco/indexing/server/solrj/JavaBitSetAdapter.java</include>
