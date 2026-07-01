@@ -12,6 +12,7 @@ standalone indexing trackers) running on Alfresco Community Edition.
 | [tracker-configuration.md](tracker-configuration.md) | Configuration and tuning of the standalone `alfresco-indexing-trackers` Spring Boot service (cron, commit interval, batch size, latency/throughput trade-offs), including **per-core overrides and store selection** for the `alfresco`/`archive` cores. |
 | [tracker-admin-endpoints.md](tracker-admin-endpoints.md) | Operational REST API of the trackers service (`:8085`): index reports (`summary`, `report`, `node-report`), on-demand reindex of a node/transaction/query, error-node retry, and the Solr-compat `/solr/admin/cores?action=…` alias. |
 | [debugging.md](debugging.md) | Debugging guide — ACL deny filtering (`processedDenies`) and how to enable the relevant diagnostic logs, plus tracker startup issues (full re-index on restart, `ModelTracker` namespace errors). |
+| [secure-comms-https.md](secure-comms-https.md) | Operator guide for `secureComms=https` (mTLS): the four TLS links, certificate generation with `keystore/generate-keystores.sh`, exact env vars for Solr / trackers / Alfresco, and the Caddy `:8984` dev-proxy caveat. |
 
 ## About this fork
 

@@ -110,9 +110,39 @@ services:
     environment:
       ALFRESCO_TRACKER_SOLR_URL: http://solr:8983/solr
       ALFRESCO_TRACKER_SOLR_COLLECTION: alfresco
+      # L2 (tracker → Solr): secret channel — decoupled from the repo channel (Task 2.4)
+      ALFRESCO_TRACKER_SOLR_SECURECOMMS: secret
+      ALFRESCO_TRACKER_SOLR_SHAREDSECRET: secret
       ALFRESCO_TRACKER_REPOSITORY_URL: http://alfresco:8080/alfresco
+      # L3 (tracker → repo): secret channel
       ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS: secret
       ALFRESCO_TRACKER_REPOSITORY_SHAREDSECRET: secret
+      # --- https/mTLS variant (commented out — keep secret above for default dev stack) ---
+      # To switch to mTLS, comment out the secret vars above and uncomment the block below.
+      # First generate keystores: STORE_PASS=changeit ./keystore/generate-keystores.sh ./keystore/out/
+      # Then mount them (e.g. as read-only bind mounts) and set TRACKER_SERVER_SSL_ENABLED=true.
+      #
+      # ALFRESCO_TRACKER_SOLR_URL: https://solr:8983/solr
+      # ALFRESCO_TRACKER_SOLR_SECURECOMMS: https
+      # ALFRESCO_TRACKER_SOLR_SSL_KEY_STORE: /run/secrets/trackers.p12
+      # ALFRESCO_TRACKER_SOLR_SSL_KEY_STORE_PASSWORD: changeit
+      # ALFRESCO_TRACKER_SOLR_SSL_KEY_STORE_TYPE: PKCS12
+      # ALFRESCO_TRACKER_SOLR_SSL_TRUST_STORE: /run/secrets/truststore.p12
+      # ALFRESCO_TRACKER_SOLR_SSL_TRUST_STORE_PASSWORD: changeit
+      # ALFRESCO_TRACKER_SOLR_SSL_TRUST_STORE_TYPE: PKCS12
+      # ALFRESCO_TRACKER_REPOSITORY_URL: https://alfresco:8080/alfresco
+      # ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS: https
+      # ALFRESCO_TRACKER_REPOSITORY_SSL_KEY_STORE: /run/secrets/trackers.p12
+      # ALFRESCO_TRACKER_REPOSITORY_SSL_KEY_STORE_PASSWORD: changeit
+      # ALFRESCO_TRACKER_REPOSITORY_SSL_KEY_STORE_TYPE: PKCS12
+      # ALFRESCO_TRACKER_REPOSITORY_SSL_TRUST_STORE: /run/secrets/truststore.p12
+      # ALFRESCO_TRACKER_REPOSITORY_SSL_TRUST_STORE_PASSWORD: changeit
+      # ALFRESCO_TRACKER_REPOSITORY_SSL_TRUST_STORE_TYPE: PKCS12
+      # TRACKER_SERVER_SSL_ENABLED: "true"
+      # TRACKER_SERVER_SSL_KEY_STORE: /run/secrets/trackers.p12
+      # TRACKER_SERVER_SSL_KEY_STORE_PASSWORD: changeit
+      # TRACKER_SERVER_SSL_TRUST_STORE: /run/secrets/truststore.p12
+      # TRACKER_SERVER_SSL_TRUST_STORE_PASSWORD: changeit
     ports:
       - "8085:8085"
     depends_on:

@@ -18,7 +18,14 @@
 	reverse_proxy /espaces/* pristy-espaces:80
 }
 
-# Solr admin UI with automatic secret header injection
+# Solr admin UI with automatic secret header injection.
+# NOTE: this block does NOT work in secureComms=https (mTLS) mode.
+# Solr's Jetty is configured with SOLR_SSL_NEED_CLIENT_AUTH=true, so every
+# inbound connection — including this Caddy proxy — must present a valid
+# client certificate.  In https mode, either disable this block and access
+# the Solr UI directly (with a client cert installed in your browser), or
+# add a "tls_client_auth" directive pointing to a certificate signed by the
+# same CA (see docs/secure-comms-https.md §6).
 :8984 {
 	reverse_proxy solr:8983 {
 		header_up X-Alfresco-Search-Secret "secret"
