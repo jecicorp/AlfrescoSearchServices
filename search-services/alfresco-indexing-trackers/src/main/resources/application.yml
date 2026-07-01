@@ -40,6 +40,15 @@ alfresco:
 
 server:
   port: 8085
+  ssl:
+    enabled: ${TRACKER_SERVER_SSL_ENABLED:false}
+    client-auth: need
+    key-store: ${TRACKER_SERVER_SSL_KEY_STORE:}
+    key-store-password: ${TRACKER_SERVER_SSL_KEY_STORE_PASSWORD:}
+    key-store-type: PKCS12
+    trust-store: ${TRACKER_SERVER_SSL_TRUST_STORE:}
+    trust-store-password: ${TRACKER_SERVER_SSL_TRUST_STORE_PASSWORD:}
+    trust-store-type: PKCS12
 
 management:
   endpoints:
