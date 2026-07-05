@@ -22,11 +22,15 @@
  */
 package org.alfresco.indexing.health;
 
+import org.alfresco.indexing.config.SslParametersFactory;
 import org.alfresco.indexing.config.TrackerProperties;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.stereotype.Component;
 
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
@@ -36,12 +40,28 @@ public class RepositoryHealthIndicator implements HealthIndicator
     private final String repositoryUrl;
     private final int connectTimeout;
     private final int readTimeout;
+    /** Socket factory for the repository mTLS channel, or {@code null} when not https. */
+    private final SSLSocketFactory sslSocketFactory;
 
-    public RepositoryHealthIndicator(TrackerProperties props)
+    public RepositoryHealthIndicator(TrackerProperties props) throws Exception
     {
-        this.repositoryUrl = props.getRepository().getUrl();
+        TrackerProperties.RepositoryConfig repo = props.getRepository();
+        this.repositoryUrl = repo.getUrl();
         this.connectTimeout = props.getHealth().getConnectTimeout();
         this.readTimeout = props.getHealth().getReadTimeout();
+        // When the repository channel is mTLS, the probe must present our client
+        // cert and trust our CA. A plain HttpURLConnection uses the JVM default
+        // truststore, which fails PKIX validation against our dev CA even though
+        // the real tracking client (same keystores) talks to the repo fine.
+        if ("https".equals(repo.getSecureComms()))
+        {
+            SSLContext ctx = SslParametersFactory.toSslContext(repo.getSsl());
+            this.sslSocketFactory = ctx.getSocketFactory();
+        }
+        else
+        {
+            this.sslSocketFactory = null;
+        }
     }
 
     @Override
@@ -51,6 +71,10 @@ public class RepositoryHealthIndicator implements HealthIndicator
         {
             URL url = new URL(repositoryUrl);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            if (sslSocketFactory != null && connection instanceof HttpsURLConnection)
+            {
+                ((HttpsURLConnection) connection).setSSLSocketFactory(sslSocketFactory);
+            }
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(connectTimeout);
             connection.setReadTimeout(readTimeout);
