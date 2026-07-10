@@ -17,6 +17,7 @@
         <module>alfresco-solrclient-lib</module>
         <module>alfresco-indexing-trackers</module>
         <module>alfresco-search</module>
+        <module>alfresco-search-subsystem-solr9</module>
         <module>packaging</module>
     </modules>
 

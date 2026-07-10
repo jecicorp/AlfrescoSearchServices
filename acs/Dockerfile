@@ -19,5 +19,11 @@ USER alfresco
 COPY ./assets/alfresco-keystore.jar ${TOMCAT_HOME}/webapps/alfresco/WEB-INF/lib/
 COPY ./assets/keystore-context.xml ${TOMCAT_HOME}/shared/classes/alfresco/extension/
 
+# "solr9" Search subsystem: routes Alfresco admin actions (SUMMARY/REPORT/...) to the
+# trackers service while keeping search queries on vanilla Solr. Enabled via
+# -Dindex.subsystem.name=solr9 (see docker-compose.dev.yml). Stage the JAR into
+# ./acs/assets/ first — see `mise run dev:acs-build`.
+COPY ./assets/alfresco-search-subsystem-solr9.jar ${TOMCAT_HOME}/webapps/alfresco/WEB-INF/lib/
+
 # Reduce log noise (healthcheck probes, repo admin)
 COPY ./assets/dev-log4j2.properties ${TOMCAT_HOME}/shared/classes/alfresco/extension/

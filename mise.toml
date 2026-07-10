@@ -118,15 +118,45 @@ echo "Start with: docker compose -f target/e2e-stack-https/docker-compose.yml up
 
 [tasks."trackers:build"]
 description = "Build trackers Spring Boot JAR"
-run = "cd search-services && mvn package -pl alfresco-indexing-trackers -am -Dmaven.test.skip=true"
+# Run from the repo root (no `cd`): the license-maven-plugin resolves
+# license-headers via ${maven.multiModuleProjectDirectory}, and with no .mvn/
+# dir that property is the invocation dir. `cd search-services` would point it
+# at search-services/license-headers (nonexistent) and break the build.
+run = "mvn $MAVEN_CLI_OPTS package -pl search-services/alfresco-indexing-trackers -am -Dmaven.test.skip=true"
+
+[tasks."trackers:build-image"]
+description = "Construit l'image Docker des trackers depuis le JAR"
+depends = ["trackers:build"]
+# The Dockerfile lives outside the build context (packaging/src/docker), and the
+# context is the module's target/ dir where the repackaged Spring Boot JAR sits
+# (COPY alfresco-indexing-trackers-*.jar). Mirrors the compose `trackers` service.
+run = """
+docker build -t alfresco/alfresco-indexing-trackers:local \
+  -f search-services/packaging/src/docker/Dockerfile.trackers \
+  search-services/alfresco-indexing-trackers/target
+echo "Image Docker construite : alfresco/alfresco-indexing-trackers:local"
+"""
 
 [tasks."trackers:run"]
 description = "Run trackers locally"
-run = "cd search-services && mvn spring-boot:run -pl alfresco-indexing-trackers"
+# Run from the repo root — see trackers:build for why (license-headers path).
+run = "mvn spring-boot:run -pl search-services/alfresco-indexing-trackers"
+
+[tasks."dev:acs-build"]
+description = "Build the solr9 subsystem JAR and stage it into acs/assets for the ACS image"
+# The ACS image build context is ./acs, so the freshly built subsystem JAR must be
+# copied into acs/assets/ before `docker compose build`. The JAR is a git-ignored
+# build artifact (see acs/assets/.gitignore).
+run = """
+mvn $MAVEN_CLI_OPTS package -pl search-services/alfresco-search-subsystem-solr9 -am -Dmaven.test.skip=true
+cp search-services/alfresco-search-subsystem-solr9/target/alfresco-search-subsystem-solr9.jar acs/assets/
+echo "Staged alfresco-search-subsystem-solr9.jar into acs/assets/"
+"""
 
 [tasks."dev:up"]
 description = "Start development stack (Alfresco + Solr + Trackers)"
-run = "docker compose -f docker-compose.dev.yml up -d"
+depends = ["dev:acs-build"]
+run = "docker compose -f docker-compose.dev.yml up --build -d"
 
 [tasks."dev:down"]
 description = "Stop development stack"

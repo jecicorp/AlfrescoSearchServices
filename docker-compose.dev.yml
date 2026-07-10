@@ -52,11 +52,13 @@ services:
         -Ddb.username=alfresco
         -Ddb.password=alfresco
         -Ddb.url=jdbc:postgresql://postgres:5432/alfresco
-        -Dindex.subsystem.name=solr6
+        -Dindex.subsystem.name=solr9
         -Dsolr.secureComms=secret
         -Dsolr.sharedSecret=secret
         -Dsolr.host=solr
         -Dsolr.port=8983
+        -Dsolr.tracker.host=trackers
+        -Dsolr.tracker.port=8085
         -Dalfresco.host=alfresco
         -Dalfresco.port=8080
         -Dtransform.service.enabled=true

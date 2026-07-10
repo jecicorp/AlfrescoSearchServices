@@ -1,0 +1,58 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <!--
+        Registers the "solr9" Search subsystem type.
+
+        The Search subsystem is switchable (see core-services-context.xml, bean "Search":
+        sourceBeanName = ${index.subsystem.name}). Declaring a factory bean whose id equals
+        the desired subsystem name makes "solr9" selectable via -Dindex.subsystem.name=solr9.
+
+        typeName=solr9 makes the factory load its child application context from
+        classpath*:alfresco/subsystems/Search/solr9/*-context.xml (+ *.properties), which
+        this same JAR ships. The child context is a near-copy of the stock "solr6" subsystem;
+        the only functional change is that the admin HTTP client (SUMMARY/REPORT/...) is
+        pointed at the trackers service instead of vanilla Solr.
+
+        compositePropertyTypes uses the key "solr9.store.mappings" so the store-mappings
+        composite property is namespaced to this subsystem (mirrors solr6.store.mappings).
+
+        The port early-checker beans (solr4PortEarlyChecker / solr4SSLPortEarlyChecker) are
+        defined in the main context by core-services-context.xml and reused here as-is.
+    -->
+    <bean id="solr9" class="org.alfresco.repo.search.impl.solr.SolrChildApplicationContextFactory"
+          parent="abstractPropertyBackedBean">
+        <property name="autoStart">
+            <value>false</value>
+        </property>
+        <property name="compositePropertyTypes">
+            <map>
+                <entry key="solr9.store.mappings">
+                    <value>org.alfresco.repo.search.impl.solr.SolrStoreMapping</value>
+                </entry>
+            </map>
+        </property>
+        <property name="category">
+            <value>Search</value>
+        </property>
+        <property name="typeName">
+            <value>solr9</value>
+        </property>
+        <property name="instancePath">
+            <list>
+                <value>managed</value>
+                <value>solr9</value>
+            </list>
+        </property>
+        <property name="earlyPropertyCheckers">
+            <map>
+                <entry key="solr.port" value-ref="solr4PortEarlyChecker" />
+                <entry key="solr.port.ssl" value-ref="solr4SSLPortEarlyChecker" />
+            </map>
+        </property>
+    </bean>
+
+</beans>
