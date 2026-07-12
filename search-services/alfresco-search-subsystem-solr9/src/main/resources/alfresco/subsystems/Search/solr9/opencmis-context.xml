@@ -2,7 +2,7 @@
 <!DOCTYPE beans PUBLIC '-//SPRING//DTD BEAN//EN' 'http://www.springframework.org/dtd/spring-beans.dtd'>
 
 <beans>
-   <import resource="../common-opencmis-context.xml" />
+   <import resource="classpath:alfresco/subsystems/Search/common-opencmis-context.xml" />
 
     <bean id="search.cmis.alfresco.switching" parent="base.search.cmis.alfresco.switching" >
         <property name="subsystemName" value="solr9"/>

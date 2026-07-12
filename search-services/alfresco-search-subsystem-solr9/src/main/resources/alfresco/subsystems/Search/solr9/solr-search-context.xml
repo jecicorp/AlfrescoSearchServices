@@ -21,7 +21,7 @@
           - admin actions       (search.solrAdminHTTPCLient) -> Trackers via solrTrackerHttpClientFactory
     -->
 
-    <import resource="../common-search-context.xml" />
+    <import resource="classpath:alfresco/subsystems/Search/common-search-context.xml" />
 
     <bean id="search.indexerComponent" class="org.alfresco.repo.search.IndexerComponent">
         <property name="storeRedirectorProxyFactory">
