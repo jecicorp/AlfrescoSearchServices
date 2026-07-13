@@ -17,8 +17,16 @@
         the only functional change is that the admin HTTP client (SUMMARY/REPORT/...) is
         pointed at the trackers service instead of vanilla Solr.
 
-        compositePropertyTypes uses the key "solr9.store.mappings" so the store-mappings
-        composite property is namespaced to this subsystem (mirrors solr6.store.mappings).
+        NOTE — no compositePropertyTypes for solr9.store.mappings (unlike stock solr6).
+        When store.mappings is declared composite, the framework REBUILDS the
+        solr9.store.mappings ListFactoryBean from *global* properties
+        (repository.properties / alfresco-global.properties) and IGNORES both the bean's
+        inline sourceList and the subsystem's own *.properties — an empty composite then
+        yields "No solr query support for store workspace://SpacesStore". Dropping the
+        composite declaration keeps the module self-contained: the store mappings are taken
+        directly from the ListFactoryBean sourceList in solr-search-context.xml. The
+        trade-off (no JMX/admin-console editing of mappings) is irrelevant for the fixed
+        alfresco+archive layout.
 
         The port early-checker beans (solr4PortEarlyChecker / solr4SSLPortEarlyChecker) are
         defined in the main context by core-services-context.xml and reused here as-is.
@@ -27,13 +35,6 @@
           parent="abstractPropertyBackedBean">
         <property name="autoStart">
             <value>false</value>
-        </property>
-        <property name="compositePropertyTypes">
-            <map>
-                <entry key="solr9.store.mappings">
-                    <value>org.alfresco.repo.search.impl.solr.SolrStoreMapping</value>
-                </entry>
-            </map>
         </property>
         <property name="category">
             <value>Search</value>
