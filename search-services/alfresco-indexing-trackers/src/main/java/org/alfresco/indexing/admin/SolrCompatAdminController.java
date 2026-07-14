@@ -106,6 +106,7 @@ public class SolrCompatAdminController
         return switch (upperAction)
         {
             case "SUMMARY" -> adminService.summary(effectiveCore, cores, metrics);
+            case "STATUS" -> adminService.status(effectiveCore);
             case "REPORT" -> adminService.report(effectiveCore, fromTime, toTime);
             case "NODEREPORT" -> adminService.nodeReport(effectiveNodeId, effectiveCore);
             case "ACLREPORT" -> adminService.aclReport(aclid, effectiveCore);
@@ -131,6 +132,7 @@ public class SolrCompatAdminController
         return switch (upperAction)
         {
             case "SUMMARY" -> "Summary";
+            case "STATUS" -> "status";
             case "NODEREPORT", "ACLREPORT", "TXREPORT", "ACLTXREPORT", "REPORT" -> "report";
             default -> "action";
         };

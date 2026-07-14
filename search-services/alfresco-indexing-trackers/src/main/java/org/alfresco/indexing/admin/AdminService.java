@@ -45,7 +45,9 @@ import org.alfresco.solr.tracker.IndexHealthReport;
 import org.alfresco.solr.tracker.TrackerStats;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CoreAdminRequest;
+import org.apache.solr.client.solrj.response.CoreAdminResponse;
 import org.apache.solr.common.params.CoreAdminParams;
+import org.apache.solr.common.util.NamedList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -647,6 +649,76 @@ public class AdminService
         }
 
         return result;
+    }
+
+    /**
+     * Solr-compat STATUS action. STATUS is a NATIVE Solr core-admin action (per-core
+     * index doc counts and size), not an Alfresco control-plane action, so its data
+     * lives in Solr, not in the trackers. It is served by proxying to the real Solr
+     * core admin via SolrJ and returning a per-core map shaped like Solr's own
+     * {@code status} object ({@code <core>.index.{numDocs,maxDoc,deletedDocs,...}}),
+     * which is what tools such as the OOTBee Support Tools "Solr Tracking" page expect.
+     *
+     * @param core optional core name; when null/blank, all cores are returned
+     */
+    public Map<String, Object> status(String core)
+    {
+        Map<String, Object> result = new LinkedHashMap<>();
+        try
+        {
+            CoreAdminRequest statusRequest = new CoreAdminRequest();
+            statusRequest.setAction(CoreAdminParams.CoreAdminAction.STATUS);
+            if (core != null && !core.isBlank())
+            {
+                statusRequest.setCoreName(core);
+            }
+            CoreAdminResponse response = statusRequest.process(solrClient);
+            for (int i = 0; i < response.getCoreStatus().size(); i++)
+            {
+                String name = response.getCoreStatus().getName(i);
+                NamedList<Object> coreData = response.getCoreStatus(name);
+                if (name == null || coreData == null)
+                {
+                    continue;
+                }
+                result.put(name, buildCoreStatus(coreData));
+            }
+        }
+        catch (Exception e)
+        {
+            LOGGER.error("Failed to retrieve Solr core STATUS", e);
+            throw new RuntimeException("Failed to retrieve Solr core STATUS: " + e.getMessage(), e);
+        }
+        return result;
+    }
+
+    /**
+     * Flattens a single core's STATUS NamedList into a Map and guarantees the numeric
+     * index fields the admin UI renders are present (defaulting to 0 when Solr omits
+     * one, e.g. indexHeapUsageBytes on some Solr 9 builds), so the FreeMarker template
+     * never hits a missing value.
+     */
+    private Map<String, Object> buildCoreStatus(NamedList<Object> coreData)
+    {
+        Map<String, Object> core = new LinkedHashMap<>();
+        Map<String, Object> index = new LinkedHashMap<>();
+
+        Object indexObj = coreData.get("index");
+        if (indexObj instanceof NamedList<?> indexList)
+        {
+            for (int i = 0; i < indexList.size(); i++)
+            {
+                index.put(indexList.getName(i), indexList.getVal(i));
+            }
+        }
+        index.putIfAbsent("numDocs", 0);
+        index.putIfAbsent("maxDoc", 0);
+        index.putIfAbsent("deletedDocs", 0);
+        index.putIfAbsent("sizeInBytes", 0L);
+        index.putIfAbsent("indexHeapUsageBytes", 0L);
+
+        core.put("index", index);
+        return core;
     }
 
     /**
