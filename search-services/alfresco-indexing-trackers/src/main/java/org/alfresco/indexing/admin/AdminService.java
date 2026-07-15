@@ -34,6 +34,7 @@ import java.util.Set;
 import org.alfresco.indexing.config.TrackerBootstrap;
 import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.indexing.tracker.AclTracker;
+import org.alfresco.indexing.tracker.ContentTracker;
 import org.alfresco.indexing.tracker.MetadataTracker;
 import org.alfresco.indexing.tracker.Tracker;
 import org.alfresco.indexing.tracker.TrackerRegistry;
@@ -356,6 +357,44 @@ public class AdminService
                     statsReport.put("MeanAclElapsedIndexTimeMs", trackerStats.getMeanAclElapsedIndexTime());
                     statsReport.put("MeanContentElapsedIndexTimeMs", trackerStats.getMeanContentElapsedIndexTime());
                     coreReport.put("TrackerStats", statsReport);
+                }
+
+                // Stock-Alfresco-compatible SUMMARY fields. Tools that predate the fork's
+                // restructured report (notably the OOTBee Support Tools "Solr Tracking"
+                // page) read these classic AlfrescoCoreAdminHandler field names. Emitted
+                // alongside the structured keys above so the report is a superset.
+                ContentTracker contentTracker = registry.getTrackerForCore(coreName, ContentTracker.class);
+                coreReport.put("MetadataTracker Active", metadataTracker != null && metadataTracker.isEnabled());
+                coreReport.put("AclTracker Active", aclTracker != null && aclTracker.isEnabled());
+                coreReport.put("ContentTracker Active", contentTracker != null && contentTracker.isEnabled());
+
+                if (metadataTracker != null && metadataTracker.getTrackerState() != null)
+                {
+                    TrackerState s = metadataTracker.getTrackerState();
+                    long txRemaining = Math.max(0, s.getLastTxIdOnServer() - s.getLastIndexedTxId());
+                    long txMsLag = Math.max(0, s.getLastTxCommitTimeOnServer() - s.getLastIndexedTxCommitTime());
+                    coreReport.put("Id for last TX in index", s.getLastIndexedTxId());
+                    coreReport.put("Approx transactions remaining", txRemaining);
+                    coreReport.put("TX Lag", (txMsLag / 1000) + " s");
+                    coreReport.put("Approx transaction indexing time remaining", txRemaining == 0 ? "0 s" : "N/A");
+                }
+                else
+                {
+                    coreReport.put("Id for last TX in index", 0L);
+                    coreReport.put("Approx transactions remaining", 0L);
+                    coreReport.put("TX Lag", "0 s");
+                    coreReport.put("Approx transaction indexing time remaining", "0 s");
+                }
+
+                if (aclTracker != null && aclTracker.getTrackerState() != null)
+                {
+                    TrackerState s = aclTracker.getTrackerState();
+                    coreReport.put("Approx change sets remaining",
+                            Math.max(0, s.getLastChangeSetIdOnServer() - s.getLastIndexedChangeSetId()));
+                }
+                else
+                {
+                    coreReport.put("Approx change sets remaining", 0L);
                 }
             }
             catch (Exception e)
