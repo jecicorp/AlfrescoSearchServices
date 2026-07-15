@@ -103,6 +103,35 @@ know about them if you build a custom image or override the startup:
 
 `solr.allowPaths` (file-access allow-list) is also configured for you in the image.
 
+### Repository side: the `solr9` search subsystem
+
+Because Solr is now vanilla and the admin control plane lives in the trackers, the
+**Alfresco Repository** must use a matching search subsystem. This project ships a
+`solr9` Search subsystem as the `alfresco-search-subsystem-solr9` module — a
+resources-only JAR that just needs to be on the Repository classpath (`WEB-INF/lib`).
+It behaves like the stock `solr6` subsystem except that Alfresco's **admin** HTTP
+client (the `SUMMARY`/`REPORT`/`STATUS`/… actions) is pointed at the trackers service,
+while search queries and the internal health ping stay on Solr.
+
+Enable and configure it in `alfresco-global.properties` (or `-D`):
+
+| Property | Value | Notes |
+|----------|-------|-------|
+| `index.subsystem.name` | `solr9` | Selects the subsystem. |
+| `solr.host` / `solr.port` | Solr host / `8983` | Query + ping channel (unchanged). |
+| `solr.tracker.host` | trackers host | **Required.** Defaults to `localhost`; if unset, admin calls fail with `Connection refused`. Must be reachable from the ACS container. |
+| `solr.tracker.port` | `8085` | Trackers admin port (`none`/`secret` mode). |
+| `solr.tracker.port.ssl` | `8085` | Trackers admin TLS port (`https`/mTLS mode). |
+
+In `https`/mTLS mode the trackers admin server must have TLS enabled
+(`TRACKER_SERVER_SSL_ENABLED=true`); `solr.tracker.secureComms` / `solr.tracker.sharedSecret`
+default to the Solr channel's values, so a single-secret stack needs no extra config.
+
+The **OOTBee Support Tools → "Solr Tracking"** admin page works against `solr9`
+provided the addon recognises the `solr9` subsystem name (older builds only know
+`solr`/`solr4`/`solr6`); the trackers serve `SUMMARY` (with stock-compatible field
+names) and proxy `STATUS` to Solr.
+
 ### Things that moved or were renamed
 
 If you previously customised Solr config files, note these:
@@ -145,6 +174,8 @@ You do **not** need to relearn day-to-day search administration:
 | Index count stuck at 0 | Trackers service not running or not pointed at the right cores (`ALFRESCO_TRACKER_SOLR_COLLECTIONS`). |
 | `alfresco` and `archive` cores show identical document counts | The `archive` core is indexing the live store instead of the trashcan. Check the trackers startup log for `[core 'archive'] store=archive://SpacesStore`; if it shows `workspace://…`, the store was misconfigured. Fixed in current versions (store resolved per core). After fixing, rebuild the archive index in place (see the *Full re-index* section below). |
 | ACL deny filtering questions | See [debugging.md](debugging.md) (`processedDenies`). |
+| Admin page / admin action fails with `ConnectException: Connection refused` | `solr.tracker.host` not set (defaults to `localhost`) or the trackers admin port unreachable from ACS. In `https` mode also check `solr.tracker.port.ssl` and that the trackers admin server has TLS enabled. See *Repository side: the `solr9` search subsystem*. |
+| OOTBee "Solr Tracking" page shows *Web Script Status 500* / `coreNames`/`… Active` null | Repository not on the `solr9` subsystem, or an `ootbee-support-tools` build that predates `solr9` support. Set `index.subsystem.name=solr9` and deploy an addon build with `solr9` support. |
 
 ## Operations: reports & on-demand reindex
 

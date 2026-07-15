@@ -28,14 +28,15 @@ and the response is keyed by core name. Pass `core=alfresco` to target one core.
 
 The clean API returns plain JSON keyed by core. The Solr-compat alias wraps it as
 `{ "responseHeader": { "status", "QTime" }, "<key>": { … } }` where `<key>` is
-`Summary` for `SUMMARY`, `report` for the `*REPORT` actions, and `action`
-otherwise.
+`Summary` for `SUMMARY`, `status` for `STATUS`, `report` for the `*REPORT` actions,
+and `action` otherwise.
 
 ## Reports (read-only, `GET`)
 
 | Endpoint | Solr-compat `action` | Params | Returns |
 |----------|----------------------|--------|---------|
-| `/api/admin/summary` | `SUMMARY` | `core?`, `cores?`, `metrics?` | Per-core stats: index doc counts, `FTS` (content outdated/updated), tracker states `TX`/`AclTX` with `…Lag` and `…DurationLag` (repo vs index), `ModelErrors`, `TrackerStats`. `cores` is a comma-separated list of cores to display (defaults to all). `metrics` is a comma-separated filter on the displayed keys, matched case-insensitively as a **substring** (e.g. `tx` → TX/TXLag/AclTX…, `nodes` → the node counts, `trackerstats` → TrackerStats). |
+| `/api/admin/summary` | `SUMMARY` | `core?`, `cores?`, `metrics?` | Per-core stats: index doc counts, `FTS` (content outdated/updated), tracker states `TX`/`AclTX` with `…Lag` and `…DurationLag` (repo vs index), `ModelErrors`, `TrackerStats`. Also emits **stock-Alfresco-compatible** aliases for tools expecting the classic `AlfrescoCoreAdminHandler` field names (`MetadataTracker Active`, `AclTracker Active`, `ContentTracker Active`, `Id for last TX in index`, `Approx transactions remaining`, `TX Lag`, `Approx transaction indexing time remaining`, `Approx change sets remaining`). `cores` is a comma-separated list of cores to display (defaults to all). `metrics` is a comma-separated filter on the displayed keys, matched case-insensitively as a **substring** (e.g. `tx` → TX/TXLag/AclTX…, `nodes` → the node counts, `trackerstats` → TrackerStats). |
+| _(Solr-compat alias only — no clean `/api/admin` route)_ | `STATUS` | `core?` | Per-core **native Solr** index stats — `index.{numDocs, maxDoc, deletedDocs, sizeInBytes, indexHeapUsageBytes}`. STATUS is not an Alfresco control-plane action; the trackers **proxy it to Solr's own CoreAdmin STATUS** and return Solr's `status` object. Present so tools that call the classic `/solr/admin/cores?action=STATUS` (e.g. the OOTBee Solr Tracking page) keep working. |
 | `/api/admin/report` | `REPORT` | `core?`, `fromTime?`, `toTime?` (epoch ms) | Index consistency: DB vs index transaction counts, leaf/aux/error/unindexed doc counts, and counts of **missing**, **duplicated**, and **in-index-but-not-DB** transactions (tx and acl-tx). |
 | `/api/admin/node-report` | `NODEREPORT` | `nodeid`, `core?` | Status of one node by **DBID**: `dbNodeStatus`, `dbTx`, `indexLeafDoc`/`indexAuxDoc`, `indexLeafTx`/`indexAuxTx`, `indexedNodeDocCount`. The go-to for "is node X indexed?". |
 | `/api/admin/tx-report` | `TXREPORT` | `txid`, `core?` | Per-transaction indexing detail. |
