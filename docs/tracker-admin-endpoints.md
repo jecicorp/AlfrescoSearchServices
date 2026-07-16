@@ -14,9 +14,11 @@ kept vanilla** and these actions live in the trackers service instead.
   - **Solr-compat alias** — `GET /solr/admin/cores?action=<ACTION>&…`, same response envelope as the old Solr admin, for tools/scripts that still target it.
 - The actuator endpoint `GET /actuator/repairreport` complements these (see [RepairTracker](#error-nodes--repairtracker)).
 
-> These endpoints are **not** served by Solr (`:8983`). Calling `action=SUMMARY`
-> on Solr returns `Unsupported operation: SUMMARY` — Solr is vanilla; the admin
-> surface moved here.
+> The Alfresco control-plane actions (`SUMMARY`, `REPORT`, `REINDEX`, …) are **not**
+> served by Solr (`:8983`): Solr is vanilla and calling e.g. `action=SUMMARY` on it
+> returns `Unsupported operation: SUMMARY`. The admin surface moved here. The one
+> exception is `STATUS`, which is a *native* Solr action — the trackers still expose
+> it (see below) but answer it by proxying to Solr's own CoreAdmin STATUS.
 
 ### The `core` parameter
 

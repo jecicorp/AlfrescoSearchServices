@@ -92,6 +92,9 @@ to recognise `solr9` (`solr-tracking.lib.js` regex) and to provide a
 without `solr9` support renders the page as “disabled” (the FreeMarker template
 fails on a missing `coreNames`).
 
+> That `solr9` support is **not yet merged upstream** — build/deploy the addon from
+> the **`feature/solr9`** branch of `ootbee-support-tools` (pull request pending).
+
 ## Design notes
 
 - **Absolute `classpath:` imports.** The subsystem's context files import the shared

@@ -132,6 +132,10 @@ provided the addon recognises the `solr9` subsystem name (older builds only know
 `solr`/`solr4`/`solr6`); the trackers serve `SUMMARY` (with stock-compatible field
 names) and proxy `STATUS` to Solr.
 
+> The `solr9` support for the addon is **not yet merged upstream**: build and deploy
+> `ootbee-support-tools` from the **`feature/solr9`** branch (pull request pending on
+> the upstream project). A stock/released OOTBee addon does not recognise `solr9`.
+
 ### Things that moved or were renamed
 
 If you previously customised Solr config files, note these:
