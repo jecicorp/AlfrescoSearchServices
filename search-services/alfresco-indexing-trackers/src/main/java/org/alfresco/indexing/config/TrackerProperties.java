@@ -409,6 +409,13 @@ public class TrackerProperties
         private String cron = "0 0 2 1 * ?";
         private String location = "/backup/solr";
         private int numberToKeep = 2;
+        /** Poll cadence while waiting for the async ReplicationHandler outcome. */
+        private long pollIntervalMillis = 2000;
+        /**
+         * Max time to wait for the async backup/restore outcome before reporting
+         * {@code inProgress}. The Solr-side operation keeps running regardless.
+         */
+        private long pollTimeoutSeconds = 600;
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -418,6 +425,10 @@ public class TrackerProperties
         public void setLocation(String location) { this.location = location; }
         public int getNumberToKeep() { return numberToKeep; }
         public void setNumberToKeep(int numberToKeep) { this.numberToKeep = numberToKeep; }
+        public long getPollIntervalMillis() { return pollIntervalMillis; }
+        public void setPollIntervalMillis(long pollIntervalMillis) { this.pollIntervalMillis = pollIntervalMillis; }
+        public long getPollTimeoutSeconds() { return pollTimeoutSeconds; }
+        public void setPollTimeoutSeconds(long pollTimeoutSeconds) { this.pollTimeoutSeconds = pollTimeoutSeconds; }
     }
 
     /** Per-core backup overrides; null fields inherit {@link BackupConfig}. */

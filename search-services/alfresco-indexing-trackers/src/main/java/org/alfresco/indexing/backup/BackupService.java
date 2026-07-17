@@ -30,6 +30,7 @@ import org.alfresco.indexing.config.TrackerProperties.ResolvedCoreConfig;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.QueryRequest;
 import org.apache.solr.common.params.ModifiableSolrParams;
+import org.apache.solr.common.util.NamedList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -38,6 +39,12 @@ import org.springframework.stereotype.Service;
  * Triggers Solr index backup/restore through the standalone ReplicationHandler
  * ({@code /<core>/replication?command=backup|restore}). Solr writes the snapshot
  * to its own filesystem; the path must be inside {@code solr.allowPaths}.
+ *
+ * <p>Both commands are ASYNCHRONOUS in Solr: the trigger response only means the
+ * command was accepted. This service therefore polls the ReplicationHandler
+ * ({@code command=details} for backup, {@code command=restorestatus} for
+ * restore) until the operation succeeds, fails, or the configured poll timeout
+ * elapses — a returned {@code status: ok} means the operation COMPLETED.</p>
  *
  * <p>This service is strictly per-core: multi-core fan-out and core-name
  * resolution belong to the callers ({@code AdminService} iterates the tracker
@@ -74,7 +81,17 @@ public class BackupService
         {
             params.set("numberToKeep", String.valueOf(keep));
         }
-        return execute(coreName, params, "backup");
+
+        // The ReplicationHandler only publishes the "backup" details section
+        // when a snapshot attempt COMPLETES (successfully or not), so capture
+        // the pre-trigger entry to tell a fresh outcome from a stale one.
+        NamedList<?> baseline = fetchBackupDetails(coreName);
+        Map<String, Object> result = execute(coreName, params, "backup");
+        if (!"ok".equals(result.get("status")))
+        {
+            return result;
+        }
+        return awaitBackupOutcome(coreName, baseline, result);
     }
 
     /**
@@ -92,7 +109,13 @@ public class BackupService
         {
             params.set("name", name);
         }
-        return execute(coreName, params, "restore");
+
+        Map<String, Object> result = execute(coreName, params, "restore");
+        if (!"ok".equals(result.get("status")))
+        {
+            return result;
+        }
+        return awaitRestoreOutcome(coreName, result);
     }
 
     private Map<String, Object> execute(String coreName, ModifiableSolrParams params, String op)
@@ -114,5 +137,144 @@ public class BackupService
             coreResult.put("errorMessage", e.getMessage());
         }
         return coreResult;
+    }
+
+    /**
+     * Polls {@code command=details} until the "backup" section differs from the
+     * pre-trigger baseline: the SnapShooter publishes it only when the snapshot
+     * attempt completes (with {@code status=success} or an {@code exception}).
+     */
+    private Map<String, Object> awaitBackupOutcome(String coreName, NamedList<?> baseline, Map<String, Object> result)
+    {
+        String baselineKey = String.valueOf(baseline);
+        long deadline = System.currentTimeMillis() + props.getBackup().getPollTimeoutSeconds() * 1000L;
+
+        while (System.currentTimeMillis() < deadline)
+        {
+            NamedList<?> details = fetchBackupDetails(coreName);
+            if (details != null && !String.valueOf(details).equals(baselineKey))
+            {
+                Object exception = details.get("exception");
+                Object status = details.get("status");
+                if (exception != null || "failed".equals(status))
+                {
+                    Object cause = exception != null ? exception : status;
+                    LOGGER.error("Solr backup failed for core '{}': {}", coreName, cause);
+                    result.put("status", "error");
+                    result.put("errorMessage", String.valueOf(cause));
+                    return result;
+                }
+                if ("success".equals(status))
+                {
+                    result.put("snapshotName", details.get("snapshotName"));
+                    LOGGER.info("Solr backup completed for core '{}': snapshot '{}'",
+                            coreName, details.get("snapshotName"));
+                    return result;
+                }
+            }
+            if (!sleep(props.getBackup().getPollIntervalMillis()))
+            {
+                break;
+            }
+        }
+        return timedOut(coreName, result, "backup", "command=details");
+    }
+
+    /**
+     * Polls {@code command=restorestatus} until the restore triggered above is
+     * done. The status reliably tracks OUR restore: triggering replaced the
+     * handler's restore future before the trigger response returned.
+     */
+    private Map<String, Object> awaitRestoreOutcome(String coreName, Map<String, Object> result)
+    {
+        long deadline = System.currentTimeMillis() + props.getBackup().getPollTimeoutSeconds() * 1000L;
+
+        while (System.currentTimeMillis() < deadline)
+        {
+            NamedList<?> status = fetchRestoreStatus(coreName);
+            Object state = status != null ? status.get("status") : null;
+            if ("success".equals(state))
+            {
+                result.put("snapshotName", status.get("snapshotName"));
+                LOGGER.info("Solr restore completed for core '{}': snapshot '{}'",
+                        coreName, status.get("snapshotName"));
+                return result;
+            }
+            if ("failed".equals(state))
+            {
+                Object exception = status.get("exception");
+                Object cause = exception != null ? exception : "restore failed";
+                LOGGER.error("Solr restore failed for core '{}': {}", coreName, cause);
+                result.put("status", "error");
+                result.put("errorMessage", String.valueOf(cause));
+                return result;
+            }
+            // "In Progress" (or not published yet): keep polling.
+            if (!sleep(props.getBackup().getPollIntervalMillis()))
+            {
+                break;
+            }
+        }
+        return timedOut(coreName, result, "restore", "command=restorestatus");
+    }
+
+    private NamedList<?> fetchBackupDetails(String coreName)
+    {
+        NamedList<?> details = fetchReplicationSection(coreName, "details");
+        if (details != null && details.get("backup") instanceof NamedList<?> backup)
+        {
+            return backup;
+        }
+        return null;
+    }
+
+    private NamedList<?> fetchRestoreStatus(String coreName)
+    {
+        return fetchReplicationSection(coreName, "restorestatus");
+    }
+
+    private NamedList<?> fetchReplicationSection(String coreName, String command)
+    {
+        try
+        {
+            ModifiableSolrParams params = new ModifiableSolrParams();
+            params.set("command", command);
+            QueryRequest request = new QueryRequest(params);
+            request.setPath("/" + coreName + "/replication");
+            NamedList<Object> response = solrClient.request(request);
+            if (response != null && response.get(command) instanceof NamedList<?> section)
+            {
+                return section;
+            }
+        }
+        catch (Exception e)
+        {
+            LOGGER.debug("Could not read replication '{}' for core '{}'", command, coreName, e);
+        }
+        return null;
+    }
+
+    private Map<String, Object> timedOut(String coreName, Map<String, Object> result, String op, String statusCommand)
+    {
+        LOGGER.warn("Solr {} for core '{}' still running after {}s; check /{}/replication?{}",
+                op, coreName, props.getBackup().getPollTimeoutSeconds(), coreName, statusCommand);
+        result.put("status", "inProgress");
+        result.put("message", op + " still running after " + props.getBackup().getPollTimeoutSeconds()
+                + "s; check /" + coreName + "/replication?" + statusCommand);
+        return result;
+    }
+
+    private boolean sleep(long millis)
+    {
+        try
+        {
+            Thread.sleep(millis);
+            return true;
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 }

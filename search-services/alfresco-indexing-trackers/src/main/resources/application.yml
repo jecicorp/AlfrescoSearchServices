@@ -44,6 +44,8 @@ alfresco:
                                      # index data dir, and listed in solr.allowPaths
                                      # (see Dockerfile / deployment env)
       number-to-keep: 2             # ~2 full copies of the index kept on the backup volume
+      poll-interval-millis: 2000    # cadence of the async outcome polling (details/restorestatus)
+      poll-timeout-seconds: 600     # report inProgress past this delay; Solr keeps running the operation
 
 server:
   port: 8085
