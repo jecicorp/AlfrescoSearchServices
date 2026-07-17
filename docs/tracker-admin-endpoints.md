@@ -72,7 +72,7 @@ curl -s "http://localhost:8085/solr/admin/cores?action=NODEREPORT&nodeid=15695&c
 | `/api/admin/purge` | `PURGE` | `nodeid?`, `txid?`, `acltxid?`, `aclid?`, `core?` | Removes the given item(s) from the index. |
 | `/api/admin/retry` | `RETRY` | `core?` | Re-schedules **all recorded error nodes** (`HAS_INDEXING_ERROR`) for reindexing. |
 | `/api/admin/backup` | `BACKUP` | `core?` | Triggers a Solr backup of the core(s) via the ReplicationHandler, into the configured `location`, keeping `number-to-keep` snapshots. |
-| `/api/admin/restore` | `RESTORE` | `core?`, `location?`, `name?` | Restores a core from a snapshot (`location` omitted → the configured per-core location; `name` omitted → the latest snapshot at that location). |
+| `/api/admin/restore` | `RESTORE` | `core` (**required**), `location?`, `name?` | Restores ONE core from a snapshot (`location` omitted → the configured per-core location; `name` omitted → the latest snapshot at that location). Restore is destructive — it reverts the live index to the snapshot — so it never fans out to all cores. |
 
 ```bash
 # Reindex a single node (by DBID)

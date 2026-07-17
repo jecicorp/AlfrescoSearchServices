@@ -89,20 +89,21 @@ public class AdminService
     }
 
     /**
-     * Restores the given core (all registered cores when {@code core} is null)
-     * from a snapshot. A null {@code location} falls back to the resolved
-     * per-core backup location, and a null {@code name} restores the latest
-     * snapshot.
+     * Restores one core from a snapshot. Unlike every other admin action,
+     * {@code core} is REQUIRED: restore is destructive (it reverts the live
+     * index to an older snapshot), so it must never silently fan out to all
+     * cores. A null {@code location} falls back to the resolved per-core backup
+     * location, and a null {@code name} restores the latest snapshot.
      */
     public Map<String, Object> restore(String core, String location, String name)
     {
-        Map<String, Object> result = new LinkedHashMap<>();
-        TrackerRegistry registry = trackerBootstrap.getRegistry();
-
-        for (String coreName : coresToProcess(registry, core))
+        if (core == null || core.isBlank())
         {
-            result.put(coreName, backupService.restoreCore(coreName, location, name));
+            throw new IllegalArgumentException(
+                    "restore requires an explicit 'core' parameter: refusing to revert every core to an older snapshot");
         }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put(core, backupService.restoreCore(core, location, name));
         return result;
     }
 

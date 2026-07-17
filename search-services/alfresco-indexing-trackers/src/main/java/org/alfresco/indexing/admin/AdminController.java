@@ -158,7 +158,7 @@ public class AdminController
 
     @PostMapping("/restore")
     public Map<String, Object> restore(
-            @RequestParam(value = "core", required = false) String core,
+            @RequestParam(value = "core") String core,
             @RequestParam(value = "location", required = false) String location,
             @RequestParam(value = "name", required = false) String name)
     {
