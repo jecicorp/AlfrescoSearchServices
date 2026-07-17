@@ -35,6 +35,7 @@ import org.alfresco.indexing.backup.BackupService;
 import org.alfresco.indexing.config.TrackerBootstrap;
 import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.indexing.tracker.AclTracker;
+import org.alfresco.indexing.tracker.ActivatableTracker;
 import org.alfresco.indexing.tracker.ContentTracker;
 import org.alfresco.indexing.tracker.MetadataTracker;
 import org.alfresco.indexing.tracker.Tracker;
@@ -102,8 +103,40 @@ public class AdminService
             throw new IllegalArgumentException(
                     "restore requires an explicit 'core' parameter: refusing to revert every core to an older snapshot");
         }
+
+        Collection<Tracker> trackers = trackerBootstrap.getRegistry().getTrackersForCore(core);
+
+        // Pause tracking while Solr swaps the index directory: a tracker batch
+        // committed mid-restore can fail the swap or corrupt the restored index.
+        List<ActivatableTracker> paused = new ArrayList<>();
+        for (Tracker tracker : trackers)
+        {
+            if (tracker instanceof ActivatableTracker activatable && activatable.isEnabled())
+            {
+                activatable.disable();
+                paused.add(activatable);
+            }
+        }
+
+        Map<String, Object> coreResult;
+        try
+        {
+            coreResult = backupService.restoreCore(core, location, name);
+            if ("ok".equals(coreResult.get("status")))
+            {
+                // The trackers' in-memory state still reflects the pre-restore
+                // head; drop it so the next cycle re-derives its resume point
+                // from the restored (older) index and re-indexes the delta.
+                trackers.forEach(Tracker::invalidateState);
+            }
+        }
+        finally
+        {
+            paused.forEach(ActivatableTracker::enable);
+        }
+
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put(core, backupService.restoreCore(core, location, name));
+        result.put(core, coreResult);
         return result;
     }
 
