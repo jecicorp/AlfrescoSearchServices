@@ -252,6 +252,14 @@ Scheduled backups are opt-in — enable and tune them per core with
 2. **Disable the legacy repository-driven backup.** On the Alfresco side, stop the
    repository from driving the (now-400ing) Solr backup — see below.
 
+> **Warning — do these as a pair.** The trackers-side backup is **opt-in**
+> (`alfresco.tracker.backup.enabled` defaults to `false`). If you neutralise the
+> legacy repository jobs without setting `ALFRESCO_TRACKER_BACKUP_ENABLED=true`
+> on the trackers, **no index backup runs at all**: the old job at least failed
+> loudly with HTTP 400 on every run, the new situation is silent. The trackers
+> log a `WARN` at startup when zero backup jobs are registered — treat it as an
+> action item.
+
 ### Restore → resume (partial re-index)
 
 After `restore`, Solr swaps in the restored index and the tracker derives its

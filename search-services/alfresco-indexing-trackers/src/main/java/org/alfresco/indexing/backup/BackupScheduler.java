@@ -52,6 +52,7 @@ public class BackupScheduler implements SchedulingConfigurer
     @Override
     public void configureTasks(ScheduledTaskRegistrar registrar)
     {
+        int registered = 0;
         for (String core : props.getSolr().getCollections())
         {
             ResolvedCoreConfig cfg = props.resolvedCore(core);
@@ -65,6 +66,17 @@ public class BackupScheduler implements SchedulingConfigurer
             registrar.addCronTask(
                     () -> backupService.backupCore(core, cfg.getBackupLocation(), cfg.getBackupNumberToKeep()),
                     cfg.getBackupCron());
+            registered++;
+        }
+        if (registered == 0)
+        {
+            // The migration guide tells admins to neutralise the legacy
+            // repository-driven backup jobs; without this trackers-side opt-in
+            // NO index backup runs at all, and nothing else ever complains.
+            LOGGER.warn("No scheduled Solr backup is registered: alfresco.tracker.backup.enabled is false "
+                    + "for every core. If the legacy repository-driven backup was disabled, the index "
+                    + "currently has NO scheduled backup at all -- set ALFRESCO_TRACKER_BACKUP_ENABLED=true "
+                    + "(or the per-core override) to enable it.");
         }
     }
 }
