@@ -23,7 +23,6 @@
 package org.alfresco.indexing.backup;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.alfresco.indexing.config.TrackerProperties;
@@ -39,6 +38,10 @@ import org.springframework.stereotype.Service;
  * Triggers Solr index backup/restore through the standalone ReplicationHandler
  * ({@code /<core>/replication?command=backup|restore}). Solr writes the snapshot
  * to its own filesystem; the path must be inside {@code solr.allowPaths}.
+ *
+ * <p>This service is strictly per-core: multi-core fan-out and core-name
+ * resolution belong to the callers ({@code AdminService} iterates the tracker
+ * registry, {@code BackupScheduler} iterates the configured collections).</p>
  */
 @Service
 public class BackupService
@@ -54,51 +57,42 @@ public class BackupService
         this.props = props;
     }
 
-    /** Backs up one core (or all configured collections when {@code core} is null). */
-    public Map<String, Object> backup(String core)
-    {
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (String coreName : coresToProcess(core))
-        {
-            ResolvedCoreConfig cfg = props.resolvedCore(coreName);
-            result.put(coreName, backupCore(coreName, cfg.getBackupLocation(), cfg.getBackupNumberToKeep()));
-        }
-        return result;
-    }
-
+    /**
+     * Backs up one core. Null {@code location}/{@code numberToKeep} fall back to
+     * the resolved per-core backup configuration.
+     */
     public Map<String, Object> backupCore(String coreName, String location, Integer numberToKeep)
     {
+        ResolvedCoreConfig cfg = props.resolvedCore(coreName);
+        String loc = location != null ? location : cfg.getBackupLocation();
+        Integer keep = numberToKeep != null ? numberToKeep : cfg.getBackupNumberToKeep();
+
         ModifiableSolrParams params = new ModifiableSolrParams();
         params.set("command", "backup");
-        params.set("location", location + "/" + coreName);
-        if (numberToKeep != null)
+        params.set("location", loc + "/" + coreName);
+        if (keep != null)
         {
-            params.set("numberToKeep", String.valueOf(numberToKeep));
+            params.set("numberToKeep", String.valueOf(keep));
         }
         return execute(coreName, params, "backup");
     }
 
     /**
-     * Restores one core (or all configured collections when {@code core} is null)
-     * from a snapshot. When {@code location} is null it falls back to the resolved
-     * per-core backup location; {@code name} omitted restores the latest snapshot.
+     * Restores one core from a snapshot. When {@code location} is null it falls
+     * back to the resolved per-core backup location; {@code name} omitted
+     * restores the latest snapshot.
      */
-    public Map<String, Object> restore(String core, String location, String name)
+    public Map<String, Object> restoreCore(String coreName, String location, String name)
     {
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (String coreName : coresToProcess(core))
+        String loc = location != null ? location : props.resolvedCore(coreName).getBackupLocation();
+        ModifiableSolrParams params = new ModifiableSolrParams();
+        params.set("command", "restore");
+        params.set("location", loc + "/" + coreName);
+        if (name != null)
         {
-            String loc = location != null ? location : props.resolvedCore(coreName).getBackupLocation();
-            ModifiableSolrParams params = new ModifiableSolrParams();
-            params.set("command", "restore");
-            params.set("location", loc + "/" + coreName);
-            if (name != null)
-            {
-                params.set("name", name);
-            }
-            result.put(coreName, execute(coreName, params, "restore"));
+            params.set("name", name);
         }
-        return result;
+        return execute(coreName, params, "restore");
     }
 
     private Map<String, Object> execute(String coreName, ModifiableSolrParams params, String op)
@@ -120,14 +114,5 @@ public class BackupService
             coreResult.put("errorMessage", e.getMessage());
         }
         return coreResult;
-    }
-
-    private List<String> coresToProcess(String core)
-    {
-        if (core != null && !core.isEmpty())
-        {
-            return List.of(core);
-        }
-        return props.getSolr().getCollections();
     }
 }

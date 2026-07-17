@@ -71,7 +71,7 @@ public class BackupServiceTest
     @Test
     public void restore_issuesReplicationRestoreRequest() throws Exception
     {
-        service.restore("alfresco", "/data/backup", "snapshot.20260625");
+        service.restoreCore("alfresco", "/data/backup", "snapshot.20260625");
 
         ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
         org.mockito.Mockito.verify(solrClient).request(captor.capture(), isNull());
@@ -86,7 +86,7 @@ public class BackupServiceTest
     public void restore_nullLocation_fallsBackToResolvedCoreLocation() throws Exception
     {
         // location omitted -> resolved from per-core (here: global) backup config
-        service.restore("alfresco", null, null);
+        service.restoreCore("alfresco", null, null);
 
         ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
         org.mockito.Mockito.verify(solrClient).request(captor.capture(), isNull());

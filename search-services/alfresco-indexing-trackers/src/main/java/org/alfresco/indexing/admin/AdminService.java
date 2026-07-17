@@ -75,20 +75,35 @@ public class AdminService
         this.backupService = backupService;
     }
 
-    /** Triggers a Solr backup of the given core (all cores when {@code core} is null). */
+    /** Triggers a Solr backup of the given core (all registered cores when {@code core} is null). */
     public Map<String, Object> backup(String core)
     {
-        return backupService.backup(core);
+        Map<String, Object> result = new LinkedHashMap<>();
+        TrackerRegistry registry = trackerBootstrap.getRegistry();
+
+        for (String coreName : coresToProcess(registry, core))
+        {
+            result.put(coreName, backupService.backupCore(coreName, null, null));
+        }
+        return result;
     }
 
     /**
-     * Restores the given core (all cores when {@code core} is null) from a snapshot.
-     * A null {@code location} falls back to the resolved per-core backup location,
-     * and a null {@code name} restores the latest snapshot.
+     * Restores the given core (all registered cores when {@code core} is null)
+     * from a snapshot. A null {@code location} falls back to the resolved
+     * per-core backup location, and a null {@code name} restores the latest
+     * snapshot.
      */
     public Map<String, Object> restore(String core, String location, String name)
     {
-        return backupService.restore(core, location, name);
+        Map<String, Object> result = new LinkedHashMap<>();
+        TrackerRegistry registry = trackerBootstrap.getRegistry();
+
+        for (String coreName : coresToProcess(registry, core))
+        {
+            result.put(coreName, backupService.restoreCore(coreName, location, name));
+        }
+        return result;
     }
 
     // ----------------------------------------------------------------
