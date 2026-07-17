@@ -92,14 +92,23 @@ curl -s -X POST "http://localhost:8085/api/admin/backup"
 
 # Restore the alfresco core from the latest snapshot
 curl -s -X POST "http://localhost:8085/api/admin/restore?core=alfresco"
+
+# Restore from an explicit location: pass the PARENT directory (the same value
+# as the backup 'location'), NOT the per-core subdirectory. The service appends
+# /<core> itself — the snapshot below is read from /mnt/adhoc/alfresco.
+curl -s -X POST "http://localhost:8085/api/admin/restore?core=alfresco&location=/mnt/adhoc"
 ```
 
-Backup writes each core under `<location>/<core>` (e.g. `/backup/solr/alfresco`).
-The backup runs on Solr's own filesystem through the ReplicationHandler, so the
-`location` **must** be inside Solr's `solr.allowPaths`. After a `restore`, the
-core swaps in the restored index and the tracker resumes from the last
-transaction present in that index — only the delta since the backup is
-re-indexed, not the whole repository.
+For both `backup` and `restore`, `location` is the **parent** directory: the
+service appends `/<core>` itself, so each core ends up under `<location>/<core>`
+(e.g. `location=/backup/solr` → snapshots of the `alfresco` core in
+`/backup/solr/alfresco`). Never pass the per-core subdirectory as `location` —
+`location=/backup/solr/alfresco` would be resolved to
+`/backup/solr/alfresco/alfresco`. The backup runs on Solr's own filesystem
+through the ReplicationHandler, so the `location` **must** be inside Solr's
+`solr.allowPaths`. After a `restore`, the core swaps in the restored index and
+the tracker resumes from the last transaction present in that index — only the
+delta since the backup is re-indexed, not the whole repository.
 
 `reindex` returns `{"<core>": {"status": "scheduled"}}` when the relevant tracker
 is enabled (`notScheduled` otherwise). The work runs on the tracker's next cycle —

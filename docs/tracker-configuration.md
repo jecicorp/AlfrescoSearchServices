@@ -114,6 +114,8 @@ of re-tracking the whole repository (which can take days on a large index).
 | `alfresco.tracker.backup.cron` | `ALFRESCO_TRACKER_BACKUP_CRON` | `0 0 2 1 * ?` | Spring cron expression. Default: monthly, 1st of the month at 02:00. |
 | `alfresco.tracker.backup.location` | `ALFRESCO_TRACKER_BACKUP_LOCATION` | `/backup/solr` | Backup root on **Solr's** filesystem. Each core is written under `<location>/<core>`. **Must** be inside Solr's `solr.allowPaths`, and for disaster recovery it should be a **dedicated volume separate from the index data dir** (so a full or lost data disk does not take the backup with it). |
 | `alfresco.tracker.backup.number-to-keep` | `ALFRESCO_TRACKER_BACKUP_NUMBER_TO_KEEP` | `2` | Snapshots retained per core. Each snapshot is a full copy of the index when the backup volume is on a different filesystem (no hardlinks across filesystems), so size the volume as `index size × number-to-keep`. |
+| `alfresco.tracker.backup.poll-interval-millis` | `ALFRESCO_TRACKER_BACKUP_POLL_INTERVAL_MILLIS` | `2000` | Backup/restore are asynchronous in Solr; the service polls the ReplicationHandler (`command=details` / `command=restorestatus`) at this cadence until the operation completes. Global (not per-core). |
+| `alfresco.tracker.backup.poll-timeout-seconds` | `ALFRESCO_TRACKER_BACKUP_POLL_TIMEOUT_SECONDS` | `600` | Give up **reporting** after this delay: the result switches to `status: inProgress` and the Solr-side operation keeps running. Raise it for indexes whose full copy takes longer. Global (not per-core). |
 
 > **`solr.allowPaths` is a Solr-side setting**, not a tracker one: the Solr 9
 > image lists the backup dir in `-Dsolr.allowPaths` (see the Solr image
