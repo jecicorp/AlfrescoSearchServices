@@ -25,6 +25,7 @@ package org.alfresco.indexing;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import org.alfresco.indexing.config.TrackerProperties;
 
@@ -35,6 +36,7 @@ import org.alfresco.indexing.config.TrackerProperties;
     org.springframework.boot.autoconfigure.quartz.QuartzAutoConfiguration.class
 })
 @EnableConfigurationProperties(TrackerProperties.class)
+@EnableScheduling
 public class TrackerApplication
 {
     public static void main(String[] args)
