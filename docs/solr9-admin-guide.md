@@ -209,6 +209,67 @@ curl -s -X POST "http://<trackers>:8085/api/admin/retry?core=alfresco"
 Full action list, parameters and the Solr-compat alias:
 [tracker-admin-endpoints.md](tracker-admin-endpoints.md).
 
+## Backup & restore
+
+Index backup is now driven by the **trackers** service, not the repository. Under
+Solr 9 the old repository-driven backup (`SolrBackupJob` → Solr ReplicationHandler)
+fails with **HTTP 400** because the backup `location` is outside Solr's
+`solr.allowPaths`. The trackers drive the same ReplicationHandler, but the backup
+directory is added to `allowPaths` in the Solr image (`SOLR_BACKUP_DIR`,
+default `/backup/solr`).
+
+Why bother, since the index can always be rebuilt from the repository? Because on
+a large index a full re-index can take **days**. A backup lets you restore the
+last snapshot and re-index only the **delta** since it was taken.
+
+```bash
+# On-demand backup of all cores (into the configured location)
+curl -s -X POST "http://<trackers>:8085/api/admin/backup"
+
+# Restore a core from the latest snapshot, then let the tracker catch up the delta
+curl -s -X POST "http://<trackers>:8085/api/admin/restore?core=alfresco"
+```
+
+Scheduled backups are opt-in — enable and tune them per core with
+`alfresco.tracker.backup.*` (default: monthly, keep 2). See
+[tracker-configuration.md](tracker-configuration.md#backup--alfrescotrackerbackup).
+
+**Two operational requirements:**
+
+1. **Dedicated backup volume.** `location` must be inside `solr.allowPaths` (done
+   in the image) **and** should point at a volume on a *separate physical disk*
+   from the index data dir — otherwise a saturated or lost data disk takes the
+   backup down with it. Mount that volume at `SOLR_BACKUP_DIR` on the Solr
+   container. Each snapshot is a full copy of the index, so size the volume as
+   `index size × number-to-keep`.
+2. **Disable the legacy repository-driven backup.** On the Alfresco side, stop the
+   repository from driving the (now-400ing) Solr backup — see below.
+
+### Restore → resume (partial re-index)
+
+After `restore`, Solr swaps in the restored index and the tracker derives its
+resume point from the highest transaction present in that index, so it re-indexes
+only what changed since the backup — not the whole repository. The larger the
+backup interval, the larger that delta, so pick the schedule accordingly
+(monthly keeps copy I/O low; weekly shortens recovery).
+
+### Disable the legacy repository-driven backup
+
+This is an **Alfresco-side** change (not in this repository). In
+`alfresco-global.properties`, neutralise the repository's Solr backup jobs so they
+stop firing (and stop 400ing) — the trackers own backups now:
+
+```properties
+# Backups are driven by the trackers service; disable the repo-driven jobs.
+solr.backup.alfresco.cronExpression=* * * * * ? 2099
+solr.backup.archive.cronExpression=* * * * * ? 2099
+solr.backup.alfresco.numberToKeep=0
+solr.backup.archive.numberToKeep=0
+```
+
+(A cron pinned to year 2099 effectively never fires. Confirm the exact property
+names against your deployed ACS version.)
+
 ## Full re-index: in-place vs blue/green (near-zero downtime)
 
 The on-demand actions above target a **single** node/transaction/query. Sometimes you

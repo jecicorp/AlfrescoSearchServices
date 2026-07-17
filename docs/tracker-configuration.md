@@ -99,6 +99,27 @@ tracker wakes up*; it does not by itself guarantee a commit (see commit settings
 | `alfresco.tracker.health.read-timeout` | `5000` ms | Read timeout for the repository health probe. Raise both on a slow/loaded repository to avoid the health endpoint reporting `DOWN` under transient latency. |
 | `alfresco.tracker.solr.collections` | `alfresco,archive` | Cores/collections to track. Must match the cores created in the Solr image. The **store** each core tracks is resolved separately — see [Per-core configuration & store selection](#per-core-configuration--store-selection). |
 
+### Backup — `alfresco.tracker.backup.*`
+
+The trackers can drive Solr index backup (and restore) through Solr's
+ReplicationHandler on a cron schedule, one job per tracked core. The index is a
+*derived* store — it can always be rebuilt from the repository — so a backup is
+purely a **recovery-time** optimisation: after a crash or a lost data volume you
+restore the last backup and the tracker re-indexes only the delta since, instead
+of re-tracking the whole repository (which can take days on a large index).
+
+| Property | Env var | Default | Impact |
+|----------|---------|---------|--------|
+| `alfresco.tracker.backup.enabled` | `ALFRESCO_TRACKER_BACKUP_ENABLED` | `false` | Opt-in. When `true`, one cron backup job is registered per enabled core at startup. |
+| `alfresco.tracker.backup.cron` | `ALFRESCO_TRACKER_BACKUP_CRON` | `0 0 2 1 * ?` | Spring cron expression. Default: monthly, 1st of the month at 02:00. |
+| `alfresco.tracker.backup.location` | `ALFRESCO_TRACKER_BACKUP_LOCATION` | `/backup/solr` | Backup root on **Solr's** filesystem. Each core is written under `<location>/<core>`. **Must** be inside Solr's `solr.allowPaths`, and for disaster recovery it should be a **dedicated volume separate from the index data dir** (so a full or lost data disk does not take the backup with it). |
+| `alfresco.tracker.backup.number-to-keep` | `ALFRESCO_TRACKER_BACKUP_NUMBER_TO_KEEP` | `2` | Snapshots retained per core. Each snapshot is a full copy of the index when the backup volume is on a different filesystem (no hardlinks across filesystems), so size the volume as `index size × number-to-keep`. |
+
+> **`solr.allowPaths` is a Solr-side setting**, not a tracker one: the Solr 9
+> image lists the backup dir in `-Dsolr.allowPaths` (see the Solr image
+> Dockerfile / `SOLR_BACKUP_DIR`). A `location` outside `allowPaths` makes Solr
+> reject the backup with HTTP 400.
+
 ### Internal content settings (not externally configurable today)
 
 The ContentTracker reads two extra knobs, but they are **not currently wired to
@@ -161,6 +182,7 @@ Overridable per core:
 | `cores.<name>.commit-interval` | `commit-interval` |
 | `cores.<name>.new-searcher-interval` | `new-searcher-interval` |
 | `cores.<name>.cron.{metadata,acl,content,commit,cascade,repair}` | `cron.*` |
+| `cores.<name>.backup.{enabled,cron,location,number-to-keep}` | `backup.*` |
 
 > `cron.model` is **not** per-core: the ModelTracker is a single repo-global
 > instance (initialised on the first core), so the model schedule always comes

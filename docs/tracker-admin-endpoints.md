@@ -71,6 +71,8 @@ curl -s "http://localhost:8085/solr/admin/cores?action=NODEREPORT&nodeid=15695&c
 | `/api/admin/index` | `INDEX` | `nodeid?`, `txid?`, `acltxid?`, `aclid?`, `core?` | Indexes a node/tx/acl that was **never** indexed (no purge step). |
 | `/api/admin/purge` | `PURGE` | `nodeid?`, `txid?`, `acltxid?`, `aclid?`, `core?` | Removes the given item(s) from the index. |
 | `/api/admin/retry` | `RETRY` | `core?` | Re-schedules **all recorded error nodes** (`HAS_INDEXING_ERROR`) for reindexing. |
+| `/api/admin/backup` | `BACKUP` | `core?` | Triggers a Solr backup of the core(s) via the ReplicationHandler, into the configured `location`, keeping `number-to-keep` snapshots. |
+| `/api/admin/restore` | `RESTORE` | `core?`, `location?`, `name?` | Restores a core from a snapshot (`location` omitted → the configured per-core location; `name` omitted → the latest snapshot at that location). |
 
 ```bash
 # Reindex a single node (by DBID)
@@ -84,7 +86,20 @@ curl -s -X POST "http://localhost:8085/api/admin/reindex?query=TYPE:%22cm:conten
 
 # Retry everything currently flagged as an error node
 curl -s -X POST "http://localhost:8085/api/admin/retry?core=alfresco"
+
+# On-demand backup of all cores into the configured location
+curl -s -X POST "http://localhost:8085/api/admin/backup"
+
+# Restore the alfresco core from the latest snapshot
+curl -s -X POST "http://localhost:8085/api/admin/restore?core=alfresco"
 ```
+
+Backup writes each core under `<location>/<core>` (e.g. `/backup/solr/alfresco`).
+The backup runs on Solr's own filesystem through the ReplicationHandler, so the
+`location` **must** be inside Solr's `solr.allowPaths`. After a `restore`, the
+core swaps in the restored index and the tracker resumes from the last
+transaction present in that index — only the delta since the backup is
+re-indexed, not the whole repository.
 
 `reindex` returns `{"<core>": {"status": "scheduled"}}` when the relevant tracker
 is enabled (`notScheduled` otherwise). The work runs on the tracker's next cycle —
