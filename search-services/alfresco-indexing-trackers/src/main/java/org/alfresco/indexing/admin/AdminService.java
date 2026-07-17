@@ -76,15 +76,19 @@ public class AdminService
         this.backupService = backupService;
     }
 
-    /** Triggers a Solr backup of the given core (all registered cores when {@code core} is null). */
-    public Map<String, Object> backup(String core)
+    /**
+     * Triggers a Solr backup of the given core (all registered cores when
+     * {@code core} is null). Null {@code location}/{@code numberToKeep} fall
+     * back to the per-core backup configuration.
+     */
+    public Map<String, Object> backup(String core, String location, Integer numberToKeep)
     {
         Map<String, Object> result = new LinkedHashMap<>();
         TrackerRegistry registry = trackerBootstrap.getRegistry();
 
         for (String coreName : coresToProcess(registry, core))
         {
-            result.put(coreName, backupService.backupCore(coreName, null, null));
+            result.put(coreName, backupService.backupCore(coreName, location, numberToKeep));
         }
         return result;
     }

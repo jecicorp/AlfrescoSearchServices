@@ -67,6 +67,7 @@ public class SolrCompatAdminController
             @RequestParam(value = "toTime", required = false) Long toTime,
             @RequestParam(value = "location", required = false) String location,
             @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "numberToKeep", required = false) Integer numberToKeep,
             @RequestParam(value = "wt", required = false) String wt)
     {
         long startTime = System.currentTimeMillis();
@@ -76,7 +77,7 @@ public class SolrCompatAdminController
             String upperAction = action.toUpperCase();
             Map<String, Object> data = executeAction(upperAction, core, coreName, cores, metrics,
                     txid, acltxid, nodeid, nodeId, aclid, query,
-                    storeRef, template, resource, fromTime, toTime, location, name);
+                    storeRef, template, resource, fromTime, toTime, location, name, numberToKeep);
 
             String responseKey = resolveResponseKey(upperAction);
             long qTime = System.currentTimeMillis() - startTime;
@@ -100,7 +101,7 @@ public class SolrCompatAdminController
             String core, String coreName, String cores, String metrics,
             Long txid, Long acltxid, Long nodeid, Long nodeId, Long aclid,
             String query, String storeRef, String template, String resource,
-            Long fromTime, Long toTime, String location, String name)
+            Long fromTime, Long toTime, String location, String name, Integer numberToKeep)
     {
         String effectiveCore = core != null ? core : coreName;
         Long effectiveNodeId = nodeid != null ? nodeid : nodeId;
@@ -119,7 +120,7 @@ public class SolrCompatAdminController
             case "REINDEX" -> adminService.reindex(txid, acltxid, effectiveNodeId, aclid, query, effectiveCore);
             case "RETRY" -> adminService.retry(effectiveCore);
             case "INDEX" -> adminService.index(txid, acltxid, effectiveNodeId, aclid, effectiveCore);
-            case "BACKUP" -> adminService.backup(effectiveCore);
+            case "BACKUP" -> adminService.backup(effectiveCore, location, numberToKeep);
             case "RESTORE" -> adminService.restore(effectiveCore, location, name);
             case "LOG4J" -> adminService.log4j(resource);
             case "NEWCORE", "NEWINDEX" -> adminService.newCore(coreName, storeRef, template);

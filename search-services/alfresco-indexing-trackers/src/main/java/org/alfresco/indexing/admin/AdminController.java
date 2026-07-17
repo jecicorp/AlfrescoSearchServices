@@ -151,9 +151,11 @@ public class AdminController
 
     @PostMapping("/backup")
     public Map<String, Object> backup(
-            @RequestParam(value = "core", required = false) String core)
+            @RequestParam(value = "core", required = false) String core,
+            @RequestParam(value = "location", required = false) String location,
+            @RequestParam(value = "numberToKeep", required = false) Integer numberToKeep)
     {
-        return adminService.backup(core);
+        return adminService.backup(core, location, numberToKeep);
     }
 
     @PostMapping("/restore")
