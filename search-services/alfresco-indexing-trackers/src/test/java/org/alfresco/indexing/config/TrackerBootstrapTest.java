@@ -194,4 +194,32 @@ public class TrackerBootstrapTest
         assertNotNull(bootstrap.getTrackers());
         assertTrue(bootstrap.getTrackers().isEmpty());
     }
+
+    @Test
+    public void resolvedCore_backupDefaultsAndOverride()
+    {
+        // Global backup config
+        props.getBackup().setEnabled(true);
+        props.getBackup().setCron("0 0 2 * * ?");
+        props.getBackup().setLocation("/data/backup");
+        props.getBackup().setNumberToKeep(4);
+
+        // archive overrides cron + retention, inherits enabled + location
+        TrackerProperties.CoreConfig archive = new TrackerProperties.CoreConfig();
+        archive.getBackup().setCron("0 0 4 * * SUN");
+        archive.getBackup().setNumberToKeep(1);
+        props.getCores().put("archive", archive);
+
+        TrackerProperties.ResolvedCoreConfig main = props.resolvedCore("alfresco");
+        assertTrue(main.isBackupEnabled());
+        assertEquals("0 0 2 * * ?", main.getBackupCron());
+        assertEquals("/data/backup", main.getBackupLocation());
+        assertEquals(4, main.getBackupNumberToKeep());
+
+        TrackerProperties.ResolvedCoreConfig arch = props.resolvedCore("archive");
+        assertTrue(arch.isBackupEnabled());            // inherited
+        assertEquals("0 0 4 * * SUN", arch.getBackupCron());   // overridden
+        assertEquals("/data/backup", arch.getBackupLocation()); // inherited
+        assertEquals(1, arch.getBackupNumberToKeep());          // overridden
+    }
 }

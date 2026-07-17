@@ -59,6 +59,7 @@ public class TrackerProperties
      */
     private Map<String, CoreConfig> cores = new LinkedHashMap<>();
     private HealthConfig health = new HealthConfig();
+    private BackupConfig backup = new BackupConfig();
 
     public SolrConfig getSolr()
     {
@@ -170,6 +171,16 @@ public class TrackerProperties
         this.health = health;
     }
 
+    public BackupConfig getBackup()
+    {
+        return backup;
+    }
+
+    public void setBackup(BackupConfig backup)
+    {
+        this.backup = backup;
+    }
+
     /**
      * Default store reference for a core when no explicit {@code store} override
      * is configured. By convention the core named {@code archive} tracks the
@@ -205,6 +216,12 @@ public class TrackerProperties
         r.cronModel = oc.getModel() != null ? oc.getModel() : cron.getModel();
         r.cronCascade = oc.getCascade() != null ? oc.getCascade() : cron.getCascade();
         r.cronRepair = oc.getRepair() != null ? oc.getRepair() : cron.getRepair();
+
+        BackupOverride ob = o.getBackup();
+        r.backupEnabled = ob.getEnabled() != null ? ob.getEnabled() : backup.isEnabled();
+        r.backupCron = ob.getCron() != null ? ob.getCron() : backup.getCron();
+        r.backupLocation = ob.getLocation() != null ? ob.getLocation() : backup.getLocation();
+        r.backupNumberToKeep = ob.getNumberToKeep() != null ? ob.getNumberToKeep() : backup.getNumberToKeep();
         return r;
     }
 
@@ -379,6 +396,48 @@ public class TrackerProperties
         }
     }
 
+    /**
+     * Global Solr backup settings. The backup is triggered by the trackers
+     * service against Solr's ReplicationHandler. {@code location} MUST be inside
+     * Solr's {@code solr.allowPaths}, and for disaster recovery it should point
+     * at a dedicated volume separate from the index data directory (so a full
+     * data disk or a lost data volume does not take the backup down with it).
+     */
+    public static class BackupConfig
+    {
+        private boolean enabled = false;
+        private String cron = "0 0 2 1 * ?";
+        private String location = "/backup/solr";
+        private int numberToKeep = 2;
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getCron() { return cron; }
+        public void setCron(String cron) { this.cron = cron; }
+        public String getLocation() { return location; }
+        public void setLocation(String location) { this.location = location; }
+        public int getNumberToKeep() { return numberToKeep; }
+        public void setNumberToKeep(int numberToKeep) { this.numberToKeep = numberToKeep; }
+    }
+
+    /** Per-core backup overrides; null fields inherit {@link BackupConfig}. */
+    public static class BackupOverride
+    {
+        private Boolean enabled;
+        private String cron;
+        private String location;
+        private Integer numberToKeep;
+
+        public Boolean getEnabled() { return enabled; }
+        public void setEnabled(Boolean enabled) { this.enabled = enabled; }
+        public String getCron() { return cron; }
+        public void setCron(String cron) { this.cron = cron; }
+        public String getLocation() { return location; }
+        public void setLocation(String location) { this.location = location; }
+        public Integer getNumberToKeep() { return numberToKeep; }
+        public void setNumberToKeep(Integer numberToKeep) { this.numberToKeep = numberToKeep; }
+    }
+
     public static class CronConfig
     {
         private String metadata = "0/10 * * * * ?";
@@ -475,6 +534,7 @@ public class TrackerProperties
         private Long commitInterval;
         private Long newSearcherInterval;
         private CronOverride cron = new CronOverride();
+        private BackupOverride backup = new BackupOverride();
 
         public String getStore() { return store; }
         public void setStore(String store) { this.store = store; }
@@ -499,6 +559,9 @@ public class TrackerProperties
 
         public CronOverride getCron() { return cron; }
         public void setCron(CronOverride cron) { this.cron = cron; }
+
+        public BackupOverride getBackup() { return backup; }
+        public void setBackup(BackupOverride backup) { this.backup = backup; }
     }
 
     /**
@@ -557,6 +620,10 @@ public class TrackerProperties
         private String cronModel;
         private String cronCascade;
         private String cronRepair;
+        private boolean backupEnabled;
+        private String backupCron;
+        private String backupLocation;
+        private int backupNumberToKeep;
 
         public String getStore() { return store; }
         public int getBatchCount() { return batchCount; }
@@ -572,5 +639,9 @@ public class TrackerProperties
         public String getCronModel() { return cronModel; }
         public String getCronCascade() { return cronCascade; }
         public String getCronRepair() { return cronRepair; }
+        public boolean isBackupEnabled() { return backupEnabled; }
+        public String getBackupCron() { return backupCron; }
+        public String getBackupLocation() { return backupLocation; }
+        public int getBackupNumberToKeep() { return backupNumberToKeep; }
     }
 }
