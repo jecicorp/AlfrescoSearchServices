@@ -123,4 +123,18 @@ if [[ "${SEARCH_LOG_LEVEL}" != "" ]]; then
    sed -i "s/rootLogger.level = WARN/rootLogger.level = ${SEARCH_LOG_LEVEL}/" ${LOG_PROPERTIES}
 fi
 
+# Since SOLR-7374 (Solr 6.2) the SnapShooter refuses to create the snapshot
+# directory itself: a ReplicationHandler backup targeting a missing directory
+# fails with "Directory does not exist". The trackers back up each core under
+# $SOLR_BACKUP_DIR/<core>, and a freshly mounted backup volume starts empty,
+# so create the per-core directories here at every start. Override
+# SOLR_BACKUP_CORES when tracking custom cores.
+if [[ ! -z "$SOLR_BACKUP_DIR" ]]; then
+   for backup_core in ${SOLR_BACKUP_CORES:-alfresco archive}; do
+      if ! mkdir -p "$SOLR_BACKUP_DIR/$backup_core" 2>/dev/null; then
+         LOG_WARN=1 log_warn "could not create backup directory $SOLR_BACKUP_DIR/$backup_core;\nbackups of core '$backup_core' will fail until it exists and is writable"
+      fi
+   done
+fi
+
 bash -c "$@"

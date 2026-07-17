@@ -242,6 +242,13 @@ Scheduled backups are opt-in — enable and tune them per core with
    backup down with it. Mount that volume at `SOLR_BACKUP_DIR` on the Solr
    container. Each snapshot is a full copy of the index, so size the volume as
    `index size × number-to-keep`.
+
+   Snapshots are written under `<location>/<core>` and Solr **refuses to create
+   that directory itself** (since SOLR-7374 / Solr 6.2). The image entrypoint
+   creates `$SOLR_BACKUP_DIR/<core>` for the default cores (`alfresco archive`)
+   at every start; when tracking custom cores, list them in the
+   `SOLR_BACKUP_CORES` environment variable of the Solr container (space
+   separated), or create the directories on the backup volume yourself.
 2. **Disable the legacy repository-driven backup.** On the Alfresco side, stop the
    repository from driving the (now-400ing) Solr backup — see below.
 
