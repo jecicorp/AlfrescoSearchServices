@@ -11,6 +11,11 @@ ENV LANG=C.UTF-8
 # Get values from ENV VARS or use default values if ENV VARS are not specified
 ENV SOLR_DATA_DIR_ROOT=$DIST_DIR/data
 ENV SOLR_SOLR_MODEL_DIR=$DIST_DIR/data/alfrescoModels
+# Dedicated backup location, kept SEPARATE from the index data dir so a full or
+# lost data volume does not take the backups with it. Mount a dedicated volume
+# here at deploy time. Must be inside solr.allowPaths (set below) for the
+# trackers-driven ReplicationHandler backup/restore to be allowed by Solr 9.
+ENV SOLR_BACKUP_DIR=/backup/solr
 
 ARG USERNAME=solr
 ARG USERID=33007
@@ -31,10 +36,11 @@ RUN set -x \
    && yum clean all \
    && unzip "$SOLR_ZIP" -d /opt/ && rm "$SOLR_ZIP" \
    && mkdir -p $DIST_DIR/data \
+   && mkdir -p $SOLR_BACKUP_DIR \
    && mv $DIST_DIR/solrhome/alfrescoModels $DIST_DIR/data/ \
-   && chown -R ${USERNAME}:${USERNAME} $DIST_DIR \
+   && chown -R ${USERNAME}:${USERNAME} $DIST_DIR $SOLR_BACKUP_DIR \
    && echo '#Docker Setup' >> $DIST_DIR/solr.in.sh \
-   && echo 'SOLR_OPTS="$SOLR_OPTS -Dsolr.data.dir.root=$SOLR_DATA_DIR_ROOT -Dsolr.solr.model.dir=$SOLR_SOLR_MODEL_DIR -Dsolr.allowPaths=$DIST_DIR/solrhome"' >> $DIST_DIR/solr.in.sh \
+   && echo "SOLR_OPTS=\"\$SOLR_OPTS -Dsolr.data.dir.root=\$SOLR_DATA_DIR_ROOT -Dsolr.solr.model.dir=\$SOLR_SOLR_MODEL_DIR -Dsolr.allowPaths=\$DIST_DIR/solrhome,$SOLR_BACKUP_DIR\"" >> $DIST_DIR/solr.in.sh \
    && echo '# Solr 9 ships ICU analysis (used by the Alfresco schema) in the analysis-extras module, not on the default classpath' >> $DIST_DIR/solr.in.sh \
    && echo 'SOLR_MODULES=analysis-extras' >> $DIST_DIR/solr.in.sh \
    && echo '# Solr 9 binds to 127.0.0.1 by default; bind to all interfaces so the container is reachable' >> $DIST_DIR/solr.in.sh \
@@ -55,6 +61,9 @@ WORKDIR $DIST_DIR
 
 VOLUME $DIST_DIR/data
 VOLUME $DIST_DIR/solrhome
+# Backup target — mount a DEDICATED volume (separate physical disk) here so
+# index backups survive a lost or saturated data volume.
+VOLUME $SOLR_BACKUP_DIR
 # TLS / mTLS (secureComms=https). Solr's launcher reads these natively.
 # Keystores are NOT baked into the image — mount them at runtime into this dir
 # (bind mount in dev/compose, orchestrator secret in prod) and set at runtime:

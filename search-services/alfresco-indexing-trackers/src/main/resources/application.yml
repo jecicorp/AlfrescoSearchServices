@@ -37,6 +37,13 @@ alfresco:
     health:
       connect-timeout: 5000   # ms — repository health probe (/actuator/health)
       read-timeout: 5000      # ms
+    backup:
+      enabled: false                # opt-in; set true to schedule backups
+      cron: "0 0 2 1 * ?"           # monthly, 1st of the month at 02:00
+      location: /backup/solr        # MUST be a dedicated volume, separate from the
+                                     # index data dir, and listed in solr.allowPaths
+                                     # (see Dockerfile / deployment env)
+      number-to-keep: 2             # ~2 full copies of the index kept on the backup volume
 
 server:
   port: 8085
