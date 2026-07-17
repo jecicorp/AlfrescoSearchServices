@@ -31,6 +31,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.alfresco.indexing.backup.BackupService;
 import org.alfresco.indexing.config.TrackerBootstrap;
 import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.indexing.tracker.AclTracker;
@@ -65,11 +66,29 @@ public class AdminService
 
     private final TrackerBootstrap trackerBootstrap;
     private final SolrClient solrClient;
+    private final BackupService backupService;
 
-    public AdminService(TrackerBootstrap trackerBootstrap, SolrClient solrClient)
+    public AdminService(TrackerBootstrap trackerBootstrap, SolrClient solrClient, BackupService backupService)
     {
         this.trackerBootstrap = trackerBootstrap;
         this.solrClient = solrClient;
+        this.backupService = backupService;
+    }
+
+    /** Triggers a Solr backup of the given core (all cores when {@code core} is null). */
+    public Map<String, Object> backup(String core)
+    {
+        return backupService.backup(core);
+    }
+
+    /**
+     * Restores the given core (all cores when {@code core} is null) from a snapshot.
+     * A null {@code location} falls back to the resolved per-core backup location,
+     * and a null {@code name} restores the latest snapshot.
+     */
+    public Map<String, Object> restore(String core, String location, String name)
+    {
+        return backupService.restore(core, location, name);
     }
 
     // ----------------------------------------------------------------

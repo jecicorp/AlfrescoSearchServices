@@ -149,6 +149,22 @@ public class AdminController
         return adminService.index(txid, acltxid, nodeid, aclid, core);
     }
 
+    @PostMapping("/backup")
+    public Map<String, Object> backup(
+            @RequestParam(value = "core", required = false) String core)
+    {
+        return adminService.backup(core);
+    }
+
+    @PostMapping("/restore")
+    public Map<String, Object> restore(
+            @RequestParam(value = "core", required = false) String core,
+            @RequestParam(value = "location", required = false) String location,
+            @RequestParam(value = "name", required = false) String name)
+    {
+        return adminService.restore(core, location, name);
+    }
+
     @PostMapping("/log4j")
     public Map<String, Object> log4j(
             @RequestParam(value = "resource", required = false) String resource)
