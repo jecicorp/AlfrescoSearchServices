@@ -55,8 +55,10 @@ import org.alfresco.solr.client.SOLRAPIClient;
 import org.apache.solr.client.solrj.SolrClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PreDestroy;
@@ -87,6 +89,7 @@ public class TrackerBootstrap implements ApplicationRunner
     private final Properties repositoryProperties;
     private final NamespaceDAO localNamespaceDAO;
     private final LocalDictionaryService localDictionaryService;
+    private final Environment environment;
 
     private TrackerScheduler scheduler;
     private TrackerRegistry registry;
@@ -94,12 +97,14 @@ public class TrackerBootstrap implements ApplicationRunner
     private final Map<String, SolrJInformationServer> informationServers = new LinkedHashMap<>();
     private final List<Tracker> trackers = new ArrayList<>();
 
+    @Autowired
     public TrackerBootstrap(SolrClient solrClient,
                             TrackerProperties props,
                             SOLRAPIClient repoClient,
                             @Qualifier("repositoryProperties") Properties repositoryProperties,
                             NamespaceDAO localNamespaceDAO,
-                            LocalDictionaryService localDictionaryService)
+                            LocalDictionaryService localDictionaryService,
+                            Environment environment)
     {
         this.localNamespaceDAO = localNamespaceDAO;
         this.localDictionaryService = localDictionaryService;
@@ -107,6 +112,17 @@ public class TrackerBootstrap implements ApplicationRunner
         this.props = props;
         this.repoClient = repoClient;
         this.repositoryProperties = repositoryProperties;
+        this.environment = environment;
+    }
+
+    TrackerBootstrap(SolrClient solrClient,
+                     TrackerProperties props,
+                     SOLRAPIClient repoClient,
+                     Properties repositoryProperties,
+                     NamespaceDAO localNamespaceDAO,
+                     LocalDictionaryService localDictionaryService)
+    {
+        this(solrClient, props, repoClient, repositoryProperties, localNamespaceDAO, localDictionaryService, null);
     }
 
     @Override
@@ -198,8 +214,8 @@ public class TrackerBootstrap implements ApplicationRunner
             LOGGER.info("  [core '{}'] commitInterval={} ms, newSearcherInterval={} ms",
                     coreName, c.getCommitInterval(), c.getNewSearcherInterval());
             LOGGER.info("  [core '{}'] content: batchSize={} maxParallelism={} maxDocumentsPerCycle={}",
-                    coreName, c.getContentBatchSize(), c.getContentMaxParallelism(),
-                    c.getContentMaxDocumentsPerCycle());
+                    coreName, resolvedContentBatchSize(coreName, c), resolvedContentMaxParallelism(coreName, c),
+                    resolvedContentMaxDocumentsPerCycle(coreName, c));
             LOGGER.info("  [core '{}'] cron: metadata={} acl={} content={} commit={} cascade={} repair={} (model={}, shared)",
                     coreName, c.getCronMetadata(), c.getCronAcl(), c.getCronContent(),
                     c.getCronCommit(), c.getCronCascade(), c.getCronRepair(), c.getCronModel());
@@ -310,10 +326,11 @@ public class TrackerBootstrap implements ApplicationRunner
         p.setProperty("alfresco.cascade.tracker.enabled", String.valueOf(core.isCascadeTrackingEnabled()));
         p.setProperty("alfresco.commitInterval", String.valueOf(core.getCommitInterval()));
         p.setProperty("alfresco.newSearcherInterval", String.valueOf(core.getNewSearcherInterval()));
-        p.setProperty("alfresco.contentUpdateBatchSize", String.valueOf(core.getContentBatchSize()));
-        p.setProperty("alfresco.content.tracker.maxParallelism", String.valueOf(core.getContentMaxParallelism()));
+        p.setProperty("alfresco.contentUpdateBatchSize", String.valueOf(resolvedContentBatchSize(coreName, core)));
+        p.setProperty("alfresco.content.tracker.maxParallelism",
+                String.valueOf(resolvedContentMaxParallelism(coreName, core)));
         p.setProperty("alfresco.content.tracker.maxDocumentsPerCycle",
-                String.valueOf(core.getContentMaxDocumentsPerCycle()));
+                String.valueOf(resolvedContentMaxDocumentsPerCycle(coreName, core)));
 
         // Cron schedules — keyed as trackers / TrackerScheduler expect them.
         p.setProperty("alfresco.metadata.tracker.cron", core.getCronMetadata());
@@ -325,6 +342,83 @@ public class TrackerBootstrap implements ApplicationRunner
         p.setProperty("alfresco.repair.tracker.cron", core.getCronRepair());
 
         return p;
+    }
+
+    private int resolvedContentBatchSize(String coreName, TrackerProperties.ResolvedCoreConfig core)
+    {
+        return resolveContentLimit(
+                coreName,
+                core.getContentBatchSize(),
+                2000,
+                "alfresco.tracker.content.batch-size",
+                "alfresco.tracker.cores." + coreName + ".content.batch-size",
+                "alfresco.contentUpdateBatchSize",
+                "ALFRESCO_CONTENT_UPDATE_BATCH_SIZE");
+    }
+
+    private int resolvedContentMaxParallelism(String coreName, TrackerProperties.ResolvedCoreConfig core)
+    {
+        return resolveContentLimit(
+                coreName,
+                core.getContentMaxParallelism(),
+                8,
+                "alfresco.tracker.content.max-parallelism",
+                "alfresco.tracker.cores." + coreName + ".content.max-parallelism",
+                "alfresco.content.tracker.maxParallelism",
+                "ALFRESCO_CONTENT_TRACKER_MAX_PARALLELISM");
+    }
+
+    private int resolvedContentMaxDocumentsPerCycle(String coreName, TrackerProperties.ResolvedCoreConfig core)
+    {
+        return resolveContentLimit(
+                coreName,
+                core.getContentMaxDocumentsPerCycle(),
+                2000,
+                "alfresco.tracker.content.max-documents-per-cycle",
+                "alfresco.tracker.cores." + coreName + ".content.max-documents-per-cycle",
+                "alfresco.content.tracker.maxDocumentsPerCycle",
+                "ALFRESCO_CONTENT_TRACKER_MAX_DOCUMENTS_PER_CYCLE");
+    }
+
+    private int resolveContentLimit(String coreName, int resolvedValue, int defaultValue, String globalProperty,
+                                    String perCoreProperty, String... legacyProperties)
+    {
+        if (environment == null || environment.containsProperty(perCoreProperty)
+                || (environment.containsProperty(globalProperty) && resolvedValue != defaultValue))
+        {
+            return resolvedValue;
+        }
+
+        String legacyProperty = firstPresent(legacyProperties);
+        if (legacyProperty == null)
+        {
+            return resolvedValue;
+        }
+
+        Integer legacyValue = environment.getProperty(legacyProperty, Integer.class);
+        if (legacyValue == null)
+        {
+            return resolvedValue;
+        }
+        if (legacyValue <= 0)
+        {
+            throw new IllegalArgumentException(legacyProperty + " must be greater than zero");
+        }
+        LOGGER.warn("Using legacy content tracker property '{}' for core '{}'. Prefer '{}' instead.",
+                legacyProperty, coreName, globalProperty);
+        return legacyValue;
+    }
+
+    private String firstPresent(String... propertyNames)
+    {
+        for (String propertyName : propertyNames)
+        {
+            if (environment.containsProperty(propertyName))
+            {
+                return propertyName;
+            }
+        }
+        return null;
     }
 
     @PreDestroy

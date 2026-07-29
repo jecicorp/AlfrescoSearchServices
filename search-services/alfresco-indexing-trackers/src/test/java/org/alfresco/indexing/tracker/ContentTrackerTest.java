@@ -28,16 +28,20 @@ package org.alfresco.indexing.tracker;
 
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.client.SOLRAPIClient;
+import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.tracker.TrackerStats;
 import org.junit.Assert;
 import org.junit.Before;
@@ -72,6 +76,7 @@ public class ContentTrackerTest
         doReturn("workspace://SpacesStore").when(props).getProperty(eq("alfresco.stores"), anyString());
         doReturn("" + UPDATE_BATCH).when(props).getProperty(eq("alfresco.contentUpdateBatchSize"), anyString());
         when(srv.getTrackerStats()).thenReturn(trackerStats);
+        when(srv.getTrackerInitialState()).thenAnswer(invocation -> new TrackerState());
         this.contentTracker = new ContentTracker(props, repositoryClient, coreName, srv);
 
     }
@@ -202,6 +207,21 @@ public class ContentTrackerTest
     }
 
     @Test
+    public void failedContentUpdatesAreNotCountedAsProcessed() throws Exception
+    {
+        ContentTracker tracker = trackerWithLimits(2, 1, 2);
+        when(srv.getDocsWithUncleanContent(2)).thenReturn(documents(2));
+        doThrow(new IOException("content failed"))
+                .doNothing()
+                .when(srv).updateContent(any(TenantDbId.class));
+
+        tracker.doTrack("partial-failure");
+
+        verify(srv, times(2)).updateContent(any(TenantDbId.class));
+        verify(trackerStats).addElapsedContentTime(eq(1), anyLong());
+    }
+
+    @Test
     public void maxParallelismOneProcessesSequentially() throws Exception
     {
         ContentTracker tracker = trackerWithLimits(6, 1, 6);
@@ -233,6 +253,18 @@ public class ContentTrackerTest
         trackerWithLimits(10, 0, 10);
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void invalidLegacyBatchSizeFailsFast()
+    {
+        trackerWithLimits(0, 1, 10);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void invalidLegacyMaxDocumentsPerCycleFailsFast()
+    {
+        trackerWithLimits(10, 1, -1);
+    }
+
     @Test
     public void trackersForSameCoreKeepTheSameOverlapLocks() throws Exception
     {
@@ -255,14 +287,48 @@ public class ContentTrackerTest
         }
     }
 
+    @Test
+    public void trackSkipsOverlappingCycleForSameCore() throws Exception
+    {
+        ContentTracker tracker = trackerWithLimits("overlapCore", 10, 1, 10);
+        when(srv.getDocsWithUncleanContent(10)).thenReturn(documents(1));
+        CountDownLatch contentUpdateStarted = new CountDownLatch(1);
+        CountDownLatch releaseContentUpdate = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            contentUpdateStarted.countDown();
+            Assert.assertTrue(releaseContentUpdate.await(5, TimeUnit.SECONDS));
+            return null;
+        }).when(srv).updateContent(any(TenantDbId.class));
+
+        Thread firstCycle = new Thread(tracker::track);
+        firstCycle.start();
+        Assert.assertTrue(contentUpdateStarted.await(5, TimeUnit.SECONDS));
+
+        Thread overlappingCycle = new Thread(tracker::track);
+        overlappingCycle.start();
+        overlappingCycle.join(5000);
+
+        releaseContentUpdate.countDown();
+        firstCycle.join(5000);
+
+        verify(srv, times(1)).getDocsWithUncleanContent(10);
+        verify(srv, times(1)).updateContent(any(TenantDbId.class));
+    }
+
     private ContentTracker trackerWithLimits(int batchSize, int maxParallelism, int maxDocumentsPerCycle)
+    {
+        return trackerWithLimits(coreName, batchSize, maxParallelism, maxDocumentsPerCycle);
+    }
+
+    private ContentTracker trackerWithLimits(String trackerCoreName, int batchSize, int maxParallelism,
+                                             int maxDocumentsPerCycle)
     {
         Properties limits = new Properties();
         limits.setProperty("alfresco.stores", "workspace://SpacesStore");
         limits.setProperty("alfresco.contentUpdateBatchSize", String.valueOf(batchSize));
         limits.setProperty("alfresco.content.tracker.maxParallelism", String.valueOf(maxParallelism));
         limits.setProperty("alfresco.content.tracker.maxDocumentsPerCycle", String.valueOf(maxDocumentsPerCycle));
-        return new ContentTracker(limits, repositoryClient, coreName, srv);
+        return new ContentTracker(limits, repositoryClient, trackerCoreName, srv);
     }
 
     private void stubBacklog(List<TenantDbId> backlog) throws Exception

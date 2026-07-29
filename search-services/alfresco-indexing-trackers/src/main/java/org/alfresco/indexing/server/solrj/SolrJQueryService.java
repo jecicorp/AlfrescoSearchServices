@@ -407,6 +407,7 @@ public class SolrJQueryService
 
             QueryResponse response = solrClient.query(collection, query);
             SolrDocumentList docs = response.getResults();
+            long totalOutdatedDocs = docs == null ? 0 : docs.getNumFound();
             if (docs != null)
             {
                 for (SolrDocument doc : docs)
@@ -483,7 +484,8 @@ public class SolrJQueryService
                 }
             }
 
-            LOGGER.debug("Found {} documents with unclean content", result.size());
+            LOGGER.debug("Found {} of {} documents with unclean content (cycle maximum: {})",
+                    result.size(), totalOutdatedDocs, maxDocuments);
         }
         catch (SolrServerException e)
         {

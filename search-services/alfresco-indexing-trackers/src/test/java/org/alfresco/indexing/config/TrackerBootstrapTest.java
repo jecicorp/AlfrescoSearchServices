@@ -26,10 +26,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Map;
 import java.util.Properties;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.StandardEnvironment;
 
 /**
  * Unit tests for {@link TrackerBootstrap}.
@@ -120,6 +123,84 @@ public class TrackerBootstrapTest
         assertEquals("2000", result.getProperty("alfresco.contentUpdateBatchSize"));
         assertEquals("8", result.getProperty("alfresco.content.tracker.maxParallelism"));
         assertEquals("2000", result.getProperty("alfresco.content.tracker.maxDocumentsPerCycle"));
+    }
+
+    @Test
+    public void buildTrackerProperties_usesLegacyContentKeysWhenNewValuesAreDefaults()
+    {
+        StandardEnvironment environment = environment(Map.of(
+                "alfresco.contentUpdateBatchSize", 125,
+                "alfresco.content.tracker.maxParallelism", 2,
+                "alfresco.content.tracker.maxDocumentsPerCycle", 375));
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null, environment);
+
+        Properties result = bootstrap.buildTrackerProperties("alfresco");
+
+        assertEquals("125", result.getProperty("alfresco.contentUpdateBatchSize"));
+        assertEquals("2", result.getProperty("alfresco.content.tracker.maxParallelism"));
+        assertEquals("375", result.getProperty("alfresco.content.tracker.maxDocumentsPerCycle"));
+    }
+
+    @Test
+    public void buildTrackerProperties_acceptsLegacyEnvironmentVariableAliases()
+    {
+        StandardEnvironment environment = environment(Map.of(
+                "ALFRESCO_CONTENT_UPDATE_BATCH_SIZE", 126,
+                "ALFRESCO_CONTENT_TRACKER_MAX_PARALLELISM", 3,
+                "ALFRESCO_CONTENT_TRACKER_MAX_DOCUMENTS_PER_CYCLE", 378));
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null, environment);
+
+        Properties result = bootstrap.buildTrackerProperties("alfresco");
+
+        assertEquals("126", result.getProperty("alfresco.contentUpdateBatchSize"));
+        assertEquals("3", result.getProperty("alfresco.content.tracker.maxParallelism"));
+        assertEquals("378", result.getProperty("alfresco.content.tracker.maxDocumentsPerCycle"));
+    }
+
+    @Test
+    public void buildTrackerProperties_prefersNewContentKeysOverLegacyKeys()
+    {
+        props.getContent().setBatchSize(100);
+        props.getContent().setMaxParallelism(4);
+        props.getContent().setMaxDocumentsPerCycle(500);
+        StandardEnvironment environment = environment(Map.of(
+                "alfresco.tracker.content.batch-size", 100,
+                "alfresco.tracker.content.max-parallelism", 4,
+                "alfresco.tracker.content.max-documents-per-cycle", 500,
+                "alfresco.contentUpdateBatchSize", 125,
+                "alfresco.content.tracker.maxParallelism", 2,
+                "alfresco.content.tracker.maxDocumentsPerCycle", 375));
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null, environment);
+
+        Properties result = bootstrap.buildTrackerProperties("alfresco");
+
+        assertEquals("100", result.getProperty("alfresco.contentUpdateBatchSize"));
+        assertEquals("4", result.getProperty("alfresco.content.tracker.maxParallelism"));
+        assertEquals("500", result.getProperty("alfresco.content.tracker.maxDocumentsPerCycle"));
+    }
+
+    @Test
+    public void buildTrackerProperties_prefersPerCoreContentKeysOverLegacyKeys()
+    {
+        TrackerProperties.CoreConfig archive = new TrackerProperties.CoreConfig();
+        archive.getContent().setBatchSize(25);
+        archive.getContent().setMaxParallelism(1);
+        archive.getContent().setMaxDocumentsPerCycle(75);
+        props.getCores().put("archive", archive);
+        StandardEnvironment environment = environment(Map.of(
+                "alfresco.tracker.cores.archive.content.batch-size", 25,
+                "alfresco.tracker.cores.archive.content.max-parallelism", 1,
+                "alfresco.tracker.cores.archive.content.max-documents-per-cycle", 75,
+                "alfresco.contentUpdateBatchSize", 125,
+                "alfresco.content.tracker.maxParallelism", 2,
+                "alfresco.content.tracker.maxDocumentsPerCycle", 375));
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null, environment);
+
+        Properties result = bootstrap.buildTrackerProperties("archive");
+
+        assertEquals("25", result.getProperty("alfresco.contentUpdateBatchSize"));
+        assertEquals("1", result.getProperty("alfresco.content.tracker.maxParallelism"));
+        assertEquals("75", result.getProperty("alfresco.content.tracker.maxDocumentsPerCycle"));
     }
 
     @Test
@@ -217,5 +298,12 @@ public class TrackerBootstrapTest
 
         assertNotNull(bootstrap.getTrackers());
         assertTrue(bootstrap.getTrackers().isEmpty());
+    }
+
+    private StandardEnvironment environment(Map<String, Object> values)
+    {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("test", values));
+        return environment;
     }
 }

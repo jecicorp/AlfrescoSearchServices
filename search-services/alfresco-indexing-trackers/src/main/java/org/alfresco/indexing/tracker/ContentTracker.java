@@ -118,6 +118,7 @@ public class ContentTracker extends ActivatableTracker
 
             checkShutdown();
             List<TenantDbId> docs;
+            long totalProcessedDocuments = 0L;
             getWriteLock().acquire();
             try
             {
@@ -135,6 +136,7 @@ public class ContentTracker extends ActivatableTracker
                 for (List<TenantDbId> batch : docBatches)
                 {
                     int processedDocuments = processBatch(batch);
+                    totalProcessedDocuments += processedDocuments;
 
                     long endElapsed = System.nanoTime();
                     trackerStats.addElapsedContentTime(processedDocuments, endElapsed - startElapsed);
@@ -156,7 +158,7 @@ public class ContentTracker extends ActivatableTracker
             else
             {
                 LOGGER.info("{}-[CORE {}] Total number of docs with content updated: {}",
-                        Thread.currentThread().getId(), coreName, docs.size());
+                        Thread.currentThread().getId(), coreName, totalProcessedDocuments);
             }
         }
         catch(Exception e)
@@ -171,7 +173,7 @@ public class ContentTracker extends ActivatableTracker
                 .map(doc -> (Callable<Integer>) () -> {
                     ContentIndexWorkerRunnable worker = new ContentIndexWorkerRunnable(doc, infoSrv);
                     worker.run();
-                    return 1;
+                    return worker.wasSuccessful() ? 1 : 0;
                 })
                 .toList();
 
@@ -221,6 +223,7 @@ public class ContentTracker extends ActivatableTracker
     {
         InformationServer infoServer;
         TenantDbId docRef;
+        private boolean successful;
 
         ContentIndexWorkerRunnable(TenantDbId doc, InformationServer infoServer)
         {
@@ -234,6 +237,7 @@ public class ContentTracker extends ActivatableTracker
             checkShutdown();
 
             infoServer.updateContent(docRef);
+            successful = true;
         }
 
         @Override
@@ -241,6 +245,11 @@ public class ContentTracker extends ActivatableTracker
         {
             // This will be redone in future tracking operations
             LOGGER.warn("Content tracker failed due to {}", failCausedBy.getMessage(), failCausedBy);
+        }
+
+        boolean wasSuccessful()
+        {
+            return successful;
         }
     }
 }

@@ -71,12 +71,18 @@ public class TrackerPropertiesBindingTest
         environment.put("ALFRESCO_TRACKER_CORES_ARCHIVE_CONTENT_BATCH_SIZE", "10");
         environment.put("ALFRESCO_TRACKER_CORES_ARCHIVE_CONTENT_MAX_PARALLELISM", "2");
         environment.put("ALFRESCO_TRACKER_CORES_ARCHIVE_CONTENT_MAX_DOCUMENTS_PER_CYCLE", "30");
+        environment.put("ALFRESCO_TRACKER_CORES_ALFRESCO_CONTENT_BATCH_SIZE", "12");
+        environment.put("ALFRESCO_TRACKER_CORES_ALFRESCO_CONTENT_MAX_PARALLELISM", "3");
+        environment.put("ALFRESCO_TRACKER_CORES_ALFRESCO_CONTENT_MAX_DOCUMENTS_PER_CYCLE", "36");
 
         TrackerProperties properties = bind(new SystemEnvironmentPropertySource("test-env", environment));
 
         assertEquals(40, properties.getContent().getBatchSize());
         assertEquals(1, properties.getContent().getMaxParallelism());
         assertEquals(120, properties.getContent().getMaxDocumentsPerCycle());
+        assertEquals(12, properties.resolvedCore("alfresco").getContentBatchSize());
+        assertEquals(3, properties.resolvedCore("alfresco").getContentMaxParallelism());
+        assertEquals(36, properties.resolvedCore("alfresco").getContentMaxDocumentsPerCycle());
         assertEquals(10, properties.resolvedCore("archive").getContentBatchSize());
         assertEquals(2, properties.resolvedCore("archive").getContentMaxParallelism());
         assertEquals(30, properties.resolvedCore("archive").getContentMaxDocumentsPerCycle());

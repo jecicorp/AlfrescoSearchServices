@@ -120,8 +120,14 @@ override, global value, then the default shown above.
 The standalone tracker still consumes the legacy internal keys
 `alfresco.contentUpdateBatchSize` and
 `alfresco.content.tracker.maxParallelism` after Spring configuration is resolved.
-This preserves compatibility for direct tracker construction while exposing the
-new supported Spring properties above.
+For compatibility, the Spring bootstrap also accepts those legacy global keys
+when the corresponding new `alfresco.tracker.content.*` value is still at its
+default and no per-core override is configured. The equivalent legacy environment
+variables are `ALFRESCO_CONTENT_UPDATE_BATCH_SIZE`,
+`ALFRESCO_CONTENT_TRACKER_MAX_PARALLELISM`, and
+`ALFRESCO_CONTENT_TRACKER_MAX_DOCUMENTS_PER_CYCLE`. Prefer the new
+`ALFRESCO_TRACKER_CONTENT_*` variables for new deployments because they follow
+the normal tracker configuration hierarchy and can be overridden per core.
 
 ## Per-core configuration & store selection
 
