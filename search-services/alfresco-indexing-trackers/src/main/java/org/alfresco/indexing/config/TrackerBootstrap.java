@@ -197,6 +197,9 @@ public class TrackerBootstrap implements ApplicationRunner
                     c.getBatchCount(), c.getMaxLiveSearchers());
             LOGGER.info("  [core '{}'] commitInterval={} ms, newSearcherInterval={} ms",
                     coreName, c.getCommitInterval(), c.getNewSearcherInterval());
+            LOGGER.info("  [core '{}'] content: batchSize={} maxParallelism={} maxDocumentsPerCycle={}",
+                    coreName, c.getContentBatchSize(), c.getContentMaxParallelism(),
+                    c.getContentMaxDocumentsPerCycle());
             LOGGER.info("  [core '{}'] cron: metadata={} acl={} content={} commit={} cascade={} repair={} (model={}, shared)",
                     coreName, c.getCronMetadata(), c.getCronAcl(), c.getCronContent(),
                     c.getCronCommit(), c.getCronCascade(), c.getCronRepair(), c.getCronModel());
@@ -307,6 +310,10 @@ public class TrackerBootstrap implements ApplicationRunner
         p.setProperty("alfresco.cascade.tracker.enabled", String.valueOf(core.isCascadeTrackingEnabled()));
         p.setProperty("alfresco.commitInterval", String.valueOf(core.getCommitInterval()));
         p.setProperty("alfresco.newSearcherInterval", String.valueOf(core.getNewSearcherInterval()));
+        p.setProperty("alfresco.contentUpdateBatchSize", String.valueOf(core.getContentBatchSize()));
+        p.setProperty("alfresco.content.tracker.maxParallelism", String.valueOf(core.getContentMaxParallelism()));
+        p.setProperty("alfresco.content.tracker.maxDocumentsPerCycle",
+                String.valueOf(core.getContentMaxDocumentsPerCycle()));
 
         // Cron schedules — keyed as trackers / TrackerScheduler expect them.
         p.setProperty("alfresco.metadata.tracker.cron", core.getCronMetadata());

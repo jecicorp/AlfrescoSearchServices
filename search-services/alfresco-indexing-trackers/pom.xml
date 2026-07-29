@@ -176,6 +176,7 @@
                             <exclude>**/org/alfresco/indexing/config/TrackerBootstrap.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/TrackerBootstrapTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/TrackerProperties.java</exclude>
+                            <exclude>**/org/alfresco/indexing/config/TrackerPropertiesBindingTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/TrackerPropertiesSslTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/SslParametersFactory.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/SslParametersFactoryTest.java</exclude>
@@ -246,6 +247,7 @@
                             <include>**/org/alfresco/indexing/config/TrackerBootstrap.java</include>
                             <include>**/org/alfresco/indexing/config/TrackerBootstrapTest.java</include>
                             <include>**/org/alfresco/indexing/config/TrackerProperties.java</include>
+                            <include>**/org/alfresco/indexing/config/TrackerPropertiesBindingTest.java</include>
                             <include>**/org/alfresco/indexing/config/TrackerPropertiesSslTest.java</include>
                             <include>**/org/alfresco/indexing/config/SslParametersFactory.java</include>
                             <include>**/org/alfresco/indexing/config/SslParametersFactoryTest.java</include>

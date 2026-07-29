@@ -111,6 +111,18 @@ public class TrackerBootstrapTest
     }
 
     @Test
+    public void buildTrackerProperties_bridgesDefaultContentLimits()
+    {
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
+
+        Properties result = bootstrap.buildTrackerProperties("test-core");
+
+        assertEquals("2000", result.getProperty("alfresco.contentUpdateBatchSize"));
+        assertEquals("8", result.getProperty("alfresco.content.tracker.maxParallelism"));
+        assertEquals("2000", result.getProperty("alfresco.content.tracker.maxDocumentsPerCycle"));
+    }
+
+    @Test
     public void buildTrackerProperties_cascadeDisabled()
     {
         props.setCascadeTrackingEnabled(false);
@@ -141,6 +153,9 @@ public class TrackerBootstrapTest
         props.setBatchCount(5000);
         props.setTransformContent(true);
         props.setCommitInterval(2000);
+        props.getContent().setBatchSize(100);
+        props.getContent().setMaxParallelism(4);
+        props.getContent().setMaxDocumentsPerCycle(500);
         props.getCron().setMetadata("0/10 * * * * ?");
 
         // The archive core is secondary: smaller batches, no content extraction,
@@ -149,6 +164,9 @@ public class TrackerBootstrapTest
         archive.setBatchCount(1000);
         archive.setTransformContent(false);
         archive.setCommitInterval(30000L);
+        archive.getContent().setBatchSize(25);
+        archive.getContent().setMaxParallelism(1);
+        archive.getContent().setMaxDocumentsPerCycle(75);
         archive.getCron().setMetadata("0 0/5 * * * ?");
         props.getCores().put("archive", archive);
 
@@ -159,6 +177,9 @@ public class TrackerBootstrapTest
         assertEquals("5000", primary.getProperty("alfresco.batch.count"));
         assertEquals("true", primary.getProperty("alfresco.index.transformContent"));
         assertEquals("2000", primary.getProperty("alfresco.commitInterval"));
+        assertEquals("100", primary.getProperty("alfresco.contentUpdateBatchSize"));
+        assertEquals("4", primary.getProperty("alfresco.content.tracker.maxParallelism"));
+        assertEquals("500", primary.getProperty("alfresco.content.tracker.maxDocumentsPerCycle"));
         assertEquals("0/10 * * * * ?", primary.getProperty("alfresco.metadata.tracker.cron"));
 
         // Archive core applies its overrides but inherits the rest (e.g. acl cron).
@@ -166,6 +187,9 @@ public class TrackerBootstrapTest
         assertEquals("1000", archiveProps.getProperty("alfresco.batch.count"));
         assertEquals("false", archiveProps.getProperty("alfresco.index.transformContent"));
         assertEquals("30000", archiveProps.getProperty("alfresco.commitInterval"));
+        assertEquals("25", archiveProps.getProperty("alfresco.contentUpdateBatchSize"));
+        assertEquals("1", archiveProps.getProperty("alfresco.content.tracker.maxParallelism"));
+        assertEquals("75", archiveProps.getProperty("alfresco.content.tracker.maxDocumentsPerCycle"));
         assertEquals("0 0/5 * * * ?", archiveProps.getProperty("alfresco.metadata.tracker.cron"));
         assertEquals("0/15 * * * * ?", archiveProps.getProperty("alfresco.acl.tracker.cron"));
     }

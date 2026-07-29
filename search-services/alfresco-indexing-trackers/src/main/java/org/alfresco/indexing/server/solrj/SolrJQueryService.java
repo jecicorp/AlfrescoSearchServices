@@ -447,10 +447,14 @@ public class SolrJQueryService
     }
 
     /**
-     * Returns documents with unclean content, with configurable batch size.
+     * Returns at most {@code maxDocuments} documents with unclean content.
      */
-    public List<org.alfresco.solr.client.TenantDbId> getDocsWithUncleanContent(int batchSize) throws IOException
+    public List<org.alfresco.solr.client.TenantDbId> getDocsWithUncleanContent(int maxDocuments) throws IOException
     {
+        if (maxDocuments <= 0)
+        {
+            throw new IllegalArgumentException("maxDocuments must be greater than zero");
+        }
         List<org.alfresco.solr.client.TenantDbId> result = new ArrayList<>();
         try
         {
@@ -459,7 +463,7 @@ public class SolrJQueryService
                     + AND + FIELD_DOC_TYPE + ":" + DOC_TYPE_NODE;
 
             SolrQuery query = luceneQuery(queryStr);
-            query.setRows(batchSize);
+            query.setRows(maxDocuments);
             query.addSort(FIELD_INTXID, SolrQuery.ORDER.asc);
             query.setFields(FIELD_DBID, FIELD_TENANT);
 

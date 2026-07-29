@@ -572,6 +572,12 @@ public class SolrJInformationServer implements InformationServer
     }
 
     @Override
+    public List<TenantDbId> getDocsWithUncleanContent(int maxDocuments) throws IOException
+    {
+        return queryService.getDocsWithUncleanContent(maxDocuments);
+    }
+
+    @Override
     public List<TenantDbId> getDocsWithIndexingError() throws IOException
     {
         return queryService.getDocsWithIndexingError();
