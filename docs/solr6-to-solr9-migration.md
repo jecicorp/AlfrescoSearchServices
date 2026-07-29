@@ -270,6 +270,17 @@ Cascade re-indexing of descendants on rename/move was also repaired: query the
 `long@s_@{sys}cascadeTx` field (not the `int@s_@cascade` flag) and set `maxResults(1)`
 on the metadata lookup.
 
+### Resource-bounded side-by-side rebuild
+
+Solr 6 may remain active for production searches while a separate Solr 9 instance
+builds new, empty cores in the background. Limit the standalone tracker container
+with Docker CPU/memory controls and bound each content cycle with
+`alfresco.tracker.content.batch-size`, `max-parallelism`, and
+`max-documents-per-cycle`. Completed documents remain indexed; the remaining
+outdated documents are picked up by later cron executions, including after a
+tracker restart. See the
+[resource-bounded migration example](tracker-configuration.md#resource-bounded-side-by-side-solr-6-to-solr-9-migration).
+
 ---
 
 ## Upgrade checklist

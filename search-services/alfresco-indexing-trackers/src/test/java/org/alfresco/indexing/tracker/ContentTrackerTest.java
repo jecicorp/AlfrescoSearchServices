@@ -28,13 +28,20 @@ package org.alfresco.indexing.tracker;
 
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.solr.client.SOLRAPIClient;
+import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.tracker.TrackerStats;
 import org.junit.Assert;
 import org.junit.Before;
@@ -69,6 +76,7 @@ public class ContentTrackerTest
         doReturn("workspace://SpacesStore").when(props).getProperty(eq("alfresco.stores"), anyString());
         doReturn("" + UPDATE_BATCH).when(props).getProperty(eq("alfresco.contentUpdateBatchSize"), anyString());
         when(srv.getTrackerStats()).thenReturn(trackerStats);
+        when(srv.getTrackerInitialState()).thenAnswer(invocation -> new TrackerState());
         this.contentTracker = new ContentTracker(props, repositoryClient, coreName, srv);
 
     }
@@ -153,5 +161,203 @@ public class ContentTrackerTest
     public void typeCheck()
     {
         Assert.assertEquals(contentTracker.getType(), Tracker.Type.CONTENT);
+    }
+
+    @Test
+    public void cycleProcessesNoMoreThanConfiguredMaximum() throws Exception
+    {
+        ContentTracker tracker = trackerWithLimits(2, 1, 3);
+        when(srv.getDocsWithUncleanContent(3)).thenReturn(documents(5));
+
+        tracker.doTrack("bounded-cycle");
+
+        verify(srv).getDocsWithUncleanContent(3);
+        verify(srv, times(3)).updateContent(any(TenantDbId.class));
+    }
+
+    @Test
+    public void repeatedBoundedCyclesEventuallyProcessCompleteBacklog() throws Exception
+    {
+        ContentTracker tracker = trackerWithLimits(2, 1, 3);
+        List<TenantDbId> backlog = new CopyOnWriteArrayList<>(documents(8));
+        stubBacklog(backlog);
+
+        tracker.doTrack("cycle-1");
+        Assert.assertEquals(5, backlog.size());
+
+        tracker.doTrack("cycle-2");
+        Assert.assertEquals(2, backlog.size());
+
+        tracker.doTrack("cycle-3");
+        Assert.assertTrue(backlog.isEmpty());
+        verify(srv, times(3)).getDocsWithUncleanContent(3);
+        verify(srv, times(8)).updateContent(any(TenantDbId.class));
+    }
+
+    @Test
+    public void smallerBatchSizeCreatesMultipleInternalBatchesWithoutExceedingCycleMaximum() throws Exception
+    {
+        ContentTracker tracker = trackerWithLimits(2, 1, 5);
+        when(srv.getDocsWithUncleanContent(5)).thenReturn(documents(5));
+
+        tracker.doTrack("multiple-batches");
+
+        verify(srv, times(5)).updateContent(any(TenantDbId.class));
+        verify(trackerStats, times(3)).addElapsedContentTime(anyInt(), anyLong());
+    }
+
+    @Test
+    public void failedContentUpdatesAreNotCountedAsProcessed() throws Exception
+    {
+        ContentTracker tracker = trackerWithLimits(2, 1, 2);
+        when(srv.getDocsWithUncleanContent(2)).thenReturn(documents(2));
+        doThrow(new IOException("content failed"))
+                .doNothing()
+                .when(srv).updateContent(any(TenantDbId.class));
+
+        tracker.doTrack("partial-failure");
+
+        verify(srv, times(2)).updateContent(any(TenantDbId.class));
+        verify(trackerStats).addElapsedContentTime(eq(1), anyLong());
+    }
+
+    @Test
+    public void maxParallelismOneProcessesSequentially() throws Exception
+    {
+        ContentTracker tracker = trackerWithLimits(6, 1, 6);
+        when(srv.getDocsWithUncleanContent(6)).thenReturn(documents(6));
+        AtomicInteger activeWorkers = new AtomicInteger();
+        AtomicInteger maximumWorkers = new AtomicInteger();
+        doAnswer(invocation -> {
+            int active = activeWorkers.incrementAndGet();
+            maximumWorkers.accumulateAndGet(active, Math::max);
+            try
+            {
+                Thread.sleep(10);
+            }
+            finally
+            {
+                activeWorkers.decrementAndGet();
+            }
+            return null;
+        }).when(srv).updateContent(any(TenantDbId.class));
+
+        tracker.doTrack("sequential");
+
+        Assert.assertEquals(1, maximumWorkers.get());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void invalidLegacyParallelismFailsFast()
+    {
+        trackerWithLimits(10, 0, 10);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void invalidLegacyBatchSizeFailsFast()
+    {
+        trackerWithLimits(0, 1, 10);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void invalidLegacyMaxDocumentsPerCycleFailsFast()
+    {
+        trackerWithLimits(10, 1, -1);
+    }
+
+    @Test
+    public void trackersForSameCoreKeepTheSameOverlapLocks() throws Exception
+    {
+        ContentTracker first = trackerWithLimits(10, 1, 10);
+        java.util.concurrent.Semaphore originalRunLock = first.getRunLock();
+        java.util.concurrent.Semaphore originalWriteLock = first.getWriteLock();
+        originalRunLock.acquire();
+        originalWriteLock.acquire();
+        try
+        {
+            ContentTracker second = trackerWithLimits(10, 1, 10);
+
+            Assert.assertSame(originalRunLock, second.getRunLock());
+            Assert.assertSame(originalWriteLock, second.getWriteLock());
+        }
+        finally
+        {
+            originalRunLock.release();
+            originalWriteLock.release();
+        }
+    }
+
+    @Test
+    public void trackSkipsOverlappingCycleForSameCore() throws Exception
+    {
+        ContentTracker tracker = trackerWithLimits("overlapCore", 10, 1, 10);
+        when(srv.getDocsWithUncleanContent(10)).thenReturn(documents(1));
+        CountDownLatch contentUpdateStarted = new CountDownLatch(1);
+        CountDownLatch releaseContentUpdate = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            contentUpdateStarted.countDown();
+            Assert.assertTrue(releaseContentUpdate.await(5, TimeUnit.SECONDS));
+            return null;
+        }).when(srv).updateContent(any(TenantDbId.class));
+
+        Thread firstCycle = new Thread(tracker::track);
+        firstCycle.start();
+        Assert.assertTrue(contentUpdateStarted.await(5, TimeUnit.SECONDS));
+
+        Thread overlappingCycle = new Thread(tracker::track);
+        overlappingCycle.start();
+        overlappingCycle.join(5000);
+
+        releaseContentUpdate.countDown();
+        firstCycle.join(5000);
+
+        verify(srv, times(1)).getDocsWithUncleanContent(10);
+        verify(srv, times(1)).updateContent(any(TenantDbId.class));
+    }
+
+    private ContentTracker trackerWithLimits(int batchSize, int maxParallelism, int maxDocumentsPerCycle)
+    {
+        return trackerWithLimits(coreName, batchSize, maxParallelism, maxDocumentsPerCycle);
+    }
+
+    private ContentTracker trackerWithLimits(String trackerCoreName, int batchSize, int maxParallelism,
+                                             int maxDocumentsPerCycle)
+    {
+        Properties limits = new Properties();
+        limits.setProperty("alfresco.stores", "workspace://SpacesStore");
+        limits.setProperty("alfresco.contentUpdateBatchSize", String.valueOf(batchSize));
+        limits.setProperty("alfresco.content.tracker.maxParallelism", String.valueOf(maxParallelism));
+        limits.setProperty("alfresco.content.tracker.maxDocumentsPerCycle", String.valueOf(maxDocumentsPerCycle));
+        return new ContentTracker(limits, repositoryClient, trackerCoreName, srv);
+    }
+
+    private void stubBacklog(List<TenantDbId> backlog) throws Exception
+    {
+        when(srv.getDocsWithUncleanContent(anyInt())).thenAnswer(invocation -> {
+            int limit = invocation.getArgument(0);
+            return new ArrayList<>(backlog.subList(0, Math.min(limit, backlog.size())));
+        });
+        doAnswer(invocation -> {
+            TenantDbId processed = invocation.getArgument(0);
+            backlog.removeIf(candidate -> candidate.dbId == processed.dbId);
+            return null;
+        }).when(srv).updateContent(any(TenantDbId.class));
+    }
+
+    private List<TenantDbId> documents(int count)
+    {
+        if (count == 0)
+        {
+            return Collections.emptyList();
+        }
+        List<TenantDbId> documents = new ArrayList<>();
+        for (int i = 1; i <= count; i++)
+        {
+            TenantDbId document = new TenantDbId();
+            document.dbId = (long) i;
+            document.tenant = "";
+            documents.add(document);
+        }
+        return documents;
     }
 }

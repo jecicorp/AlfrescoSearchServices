@@ -37,6 +37,7 @@ public class TrackerProperties
     private SolrConfig solr = new SolrConfig();
     private RepositoryConfig repository = new RepositoryConfig();
     private CronConfig cron = new CronConfig();
+    private ContentConfig content = new ContentConfig();
     private int batchCount = 5000;
     private boolean cascadeTrackingEnabled = true;
     // Upstream solrcore.properties defaults: alfresco.commitInterval=2000,
@@ -88,6 +89,16 @@ public class TrackerProperties
     public void setCron(CronConfig cron)
     {
         this.cron = cron;
+    }
+
+    public ContentConfig getContent()
+    {
+        return content;
+    }
+
+    public void setContent(ContentConfig content)
+    {
+        this.content = content;
     }
 
     public int getBatchCount()
@@ -189,6 +200,7 @@ public class TrackerProperties
     {
         CoreConfig o = cores.getOrDefault(coreName, new CoreConfig());
         CronOverride oc = o.getCron();
+        ContentOverride contentOverride = o.getContent();
 
         ResolvedCoreConfig r = new ResolvedCoreConfig();
         r.store = o.getStore() != null ? o.getStore() : defaultStoreFor(coreName);
@@ -198,6 +210,11 @@ public class TrackerProperties
         r.cascadeTrackingEnabled = o.getCascadeTrackingEnabled() != null ? o.getCascadeTrackingEnabled() : cascadeTrackingEnabled;
         r.commitInterval = o.getCommitInterval() != null ? o.getCommitInterval() : commitInterval;
         r.newSearcherInterval = o.getNewSearcherInterval() != null ? o.getNewSearcherInterval() : newSearcherInterval;
+        r.contentBatchSize = contentOverride.getBatchSize() != null ? contentOverride.getBatchSize() : content.getBatchSize();
+        r.contentMaxParallelism = contentOverride.getMaxParallelism() != null ? contentOverride.getMaxParallelism() : content.getMaxParallelism();
+        r.contentMaxDocumentsPerCycle = contentOverride.getMaxDocumentsPerCycle() != null
+                ? contentOverride.getMaxDocumentsPerCycle()
+                : content.getMaxDocumentsPerCycle();
         r.cronMetadata = oc.getMetadata() != null ? oc.getMetadata() : cron.getMetadata();
         r.cronAcl = oc.getAcl() != null ? oc.getAcl() : cron.getAcl();
         r.cronContent = oc.getContent() != null ? oc.getContent() : cron.getContent();
@@ -460,6 +477,44 @@ public class TrackerProperties
         }
     }
 
+    public static class ContentConfig
+    {
+        private int batchSize = 2000;
+        private int maxParallelism = 8;
+        private int maxDocumentsPerCycle = 2000;
+
+        public int getBatchSize()
+        {
+            return batchSize;
+        }
+
+        public void setBatchSize(int batchSize)
+        {
+            this.batchSize = requirePositive("alfresco.tracker.content.batch-size", batchSize);
+        }
+
+        public int getMaxParallelism()
+        {
+            return maxParallelism;
+        }
+
+        public void setMaxParallelism(int maxParallelism)
+        {
+            this.maxParallelism = requirePositive("alfresco.tracker.content.max-parallelism", maxParallelism);
+        }
+
+        public int getMaxDocumentsPerCycle()
+        {
+            return maxDocumentsPerCycle;
+        }
+
+        public void setMaxDocumentsPerCycle(int maxDocumentsPerCycle)
+        {
+            this.maxDocumentsPerCycle = requirePositive(
+                    "alfresco.tracker.content.max-documents-per-cycle", maxDocumentsPerCycle);
+        }
+    }
+
     /**
      * Per-core overrides. Every field is a nullable wrapper: {@code null} means
      * "not overridden — inherit the global default". Bound from
@@ -475,6 +530,7 @@ public class TrackerProperties
         private Long commitInterval;
         private Long newSearcherInterval;
         private CronOverride cron = new CronOverride();
+        private ContentOverride content = new ContentOverride();
 
         public String getStore() { return store; }
         public void setStore(String store) { this.store = store; }
@@ -499,6 +555,37 @@ public class TrackerProperties
 
         public CronOverride getCron() { return cron; }
         public void setCron(CronOverride cron) { this.cron = cron; }
+
+        public ContentOverride getContent() { return content; }
+        public void setContent(ContentOverride content) { this.content = content; }
+    }
+
+    public static class ContentOverride
+    {
+        private Integer batchSize;
+        private Integer maxParallelism;
+        private Integer maxDocumentsPerCycle;
+
+        public Integer getBatchSize() { return batchSize; }
+        public void setBatchSize(Integer batchSize)
+        {
+            this.batchSize = requirePositiveIfPresent(
+                    "alfresco.tracker.cores.<core>.content.batch-size", batchSize);
+        }
+
+        public Integer getMaxParallelism() { return maxParallelism; }
+        public void setMaxParallelism(Integer maxParallelism)
+        {
+            this.maxParallelism = requirePositiveIfPresent(
+                    "alfresco.tracker.cores.<core>.content.max-parallelism", maxParallelism);
+        }
+
+        public Integer getMaxDocumentsPerCycle() { return maxDocumentsPerCycle; }
+        public void setMaxDocumentsPerCycle(Integer maxDocumentsPerCycle)
+        {
+            this.maxDocumentsPerCycle = requirePositiveIfPresent(
+                    "alfresco.tracker.cores.<core>.content.max-documents-per-cycle", maxDocumentsPerCycle);
+        }
     }
 
     /**
@@ -550,6 +637,9 @@ public class TrackerProperties
         private boolean cascadeTrackingEnabled;
         private long commitInterval;
         private long newSearcherInterval;
+        private int contentBatchSize;
+        private int contentMaxParallelism;
+        private int contentMaxDocumentsPerCycle;
         private String cronMetadata;
         private String cronAcl;
         private String cronContent;
@@ -565,6 +655,9 @@ public class TrackerProperties
         public boolean isCascadeTrackingEnabled() { return cascadeTrackingEnabled; }
         public long getCommitInterval() { return commitInterval; }
         public long getNewSearcherInterval() { return newSearcherInterval; }
+        public int getContentBatchSize() { return contentBatchSize; }
+        public int getContentMaxParallelism() { return contentMaxParallelism; }
+        public int getContentMaxDocumentsPerCycle() { return contentMaxDocumentsPerCycle; }
         public String getCronMetadata() { return cronMetadata; }
         public String getCronAcl() { return cronAcl; }
         public String getCronContent() { return cronContent; }
@@ -572,5 +665,19 @@ public class TrackerProperties
         public String getCronModel() { return cronModel; }
         public String getCronCascade() { return cronCascade; }
         public String getCronRepair() { return cronRepair; }
+    }
+
+    private static int requirePositive(String propertyName, int value)
+    {
+        if (value <= 0)
+        {
+            throw new IllegalArgumentException(propertyName + " must be greater than zero");
+        }
+        return value;
+    }
+
+    private static Integer requirePositiveIfPresent(String propertyName, Integer value)
+    {
+        return value == null ? null : requirePositive(propertyName, value);
     }
 }

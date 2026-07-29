@@ -447,10 +447,14 @@ public class SolrJQueryService
     }
 
     /**
-     * Returns documents with unclean content, with configurable batch size.
+     * Returns at most {@code maxDocuments} documents with unclean content.
      */
-    public List<org.alfresco.solr.client.TenantDbId> getDocsWithUncleanContent(int batchSize) throws IOException
+    public List<org.alfresco.solr.client.TenantDbId> getDocsWithUncleanContent(int maxDocuments) throws IOException
     {
+        if (maxDocuments <= 0)
+        {
+            throw new IllegalArgumentException("maxDocuments must be greater than zero");
+        }
         List<org.alfresco.solr.client.TenantDbId> result = new ArrayList<>();
         try
         {
@@ -459,12 +463,13 @@ public class SolrJQueryService
                     + AND + FIELD_DOC_TYPE + ":" + DOC_TYPE_NODE;
 
             SolrQuery query = luceneQuery(queryStr);
-            query.setRows(batchSize);
+            query.setRows(maxDocuments);
             query.addSort(FIELD_INTXID, SolrQuery.ORDER.asc);
             query.setFields(FIELD_DBID, FIELD_TENANT);
 
             QueryResponse response = solrClient.query(collection, query);
             SolrDocumentList docs = response.getResults();
+            long totalOutdatedDocs = docs == null ? 0 : docs.getNumFound();
             if (docs != null)
             {
                 for (SolrDocument doc : docs)
@@ -479,7 +484,8 @@ public class SolrJQueryService
                 }
             }
 
-            LOGGER.debug("Found {} documents with unclean content", result.size());
+            LOGGER.debug("Found {} of {} documents with unclean content (cycle maximum: {})",
+                    result.size(), totalOutdatedDocs, maxDocuments);
         }
         catch (SolrServerException e)
         {

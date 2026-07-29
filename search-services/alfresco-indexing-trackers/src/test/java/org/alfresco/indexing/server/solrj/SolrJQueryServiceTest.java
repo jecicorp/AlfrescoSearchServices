@@ -713,6 +713,27 @@ public class SolrJQueryServiceTest
                 q.contains(FIELD_CASCADE_FLAG));
     }
 
+    @Test
+    public void getDocsWithUncleanContentUsesConfiguredMaximum() throws Exception
+    {
+        SolrDocumentList docs = new SolrDocumentList();
+        docs.setNumFound(0);
+        QueryResponse response = mockQueryResponse(docs);
+        when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
+
+        queryService.getDocsWithUncleanContent(37);
+
+        ArgumentCaptor<SolrQuery> captor = ArgumentCaptor.forClass(SolrQuery.class);
+        verify(solrClient).query(eq(COLLECTION), captor.capture());
+        assertEquals(Integer.valueOf(37), captor.getValue().getRows());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void getDocsWithUncleanContentRejectsNonPositiveMaximum() throws Exception
+    {
+        queryService.getDocsWithUncleanContent(0);
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------

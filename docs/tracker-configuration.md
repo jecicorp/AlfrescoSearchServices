@@ -17,6 +17,9 @@ environment variable by upper-casing it and replacing `.` / `-` with `_`:
 | `alfresco.tracker.cron.content`                 | `ALFRESCO_TRACKER_CRON_CONTENT`                        |
 | `alfresco.tracker.commit-interval`              | `ALFRESCO_TRACKER_COMMIT_INTERVAL`                     |
 | `alfresco.tracker.batch-count`                  | `ALFRESCO_TRACKER_BATCH_COUNT`                         |
+| `alfresco.tracker.content.batch-size`           | `ALFRESCO_TRACKER_CONTENT_BATCH_SIZE`                  |
+| `alfresco.tracker.content.max-parallelism`      | `ALFRESCO_TRACKER_CONTENT_MAX_PARALLELISM`             |
+| `alfresco.tracker.content.max-documents-per-cycle` | `ALFRESCO_TRACKER_CONTENT_MAX_DOCUMENTS_PER_CYCLE`  |
 | `alfresco.tracker.cores.archive.transform-content` | `ALFRESCO_TRACKER_CORES_ARCHIVE_TRANSFORM_CONTENT` |
 
 This means you can re-tune a running stack (e.g. `pristy-demo`) by adding
@@ -99,21 +102,32 @@ tracker wakes up*; it does not by itself guarantee a commit (see commit settings
 | `alfresco.tracker.health.read-timeout` | `5000` ms | Read timeout for the repository health probe. Raise both on a slow/loaded repository to avoid the health endpoint reporting `DOWN` under transient latency. |
 | `alfresco.tracker.solr.collections` | `alfresco,archive` | Cores/collections to track. Must match the cores created in the Solr image. The **store** each core tracks is resolved separately — see [Per-core configuration & store selection](#per-core-configuration--store-selection). |
 
-### Internal content settings (not externally configurable today)
+### Content extraction limits
 
-The ContentTracker reads two extra knobs, but they are **not currently wired to
-Spring properties**, so they always use their compiled defaults. Changing them
-requires a code change (adding them to `TrackerProperties` / `TrackerBootstrap`):
+These settings bound the content extraction work performed by one scheduled
+`ContentTracker` execution for one core:
 
-| Property (legacy `Properties` key) | Default | Impact |
-|------------------------------------|---------|--------|
-| `alfresco.contentUpdateBatchSize` | `2000` | Partition size for parallel content extraction within one cycle. |
-| `alfresco.content.tracker.maxParallelism` | `8` | Size of the `ForkJoinPool` extracting content in parallel. Higher = faster bulk extraction, more concurrent load on the transform service. |
+| Property | Environment variable | Default | Impact |
+|----------|----------------------|---------|--------|
+| `alfresco.tracker.content.batch-size` | `ALFRESCO_TRACKER_CONTENT_BATCH_SIZE` | `2000` | Partition size used inside a cycle. A cycle budget of 250 with a batch size of 50 runs up to five internal batches. This is not the total cycle limit. |
+| `alfresco.tracker.content.max-parallelism` | `ALFRESCO_TRACKER_CONTENT_MAX_PARALLELISM` | `8` | Maximum concurrent content extraction workers. Set to `1` for sequential extraction and the lowest transform-service pressure. |
+| `alfresco.tracker.content.max-documents-per-cycle` | `ALFRESCO_TRACKER_CONTENT_MAX_DOCUMENTS_PER_CYCLE` | `2000` | Hard upper bound on outdated content documents selected and processed by one scheduled cycle for one core. Remaining documents stay marked as outdated and are eligible for the next cycle. |
 
-In addition, each ContentTracker cycle pulls at most **2000** outdated documents
-from Solr (hardcoded in `SolrJQueryService#getDocsWithUncleanContent`). With a
-large backlog, full re-indexing therefore progresses 2000 documents per
-`cron.content` tick.
+All three values must be greater than zero. Invalid values fail application
+startup with a configuration binding error. The resolution order is per-core
+override, global value, then the default shown above.
+
+The standalone tracker still consumes the legacy internal keys
+`alfresco.contentUpdateBatchSize` and
+`alfresco.content.tracker.maxParallelism` after Spring configuration is resolved.
+For compatibility, the Spring bootstrap also accepts those legacy global keys
+when the corresponding new `alfresco.tracker.content.*` value is still at its
+default and no per-core override is configured. The equivalent legacy environment
+variables are `ALFRESCO_CONTENT_UPDATE_BATCH_SIZE`,
+`ALFRESCO_CONTENT_TRACKER_MAX_PARALLELISM`, and
+`ALFRESCO_CONTENT_TRACKER_MAX_DOCUMENTS_PER_CYCLE`. Prefer the new
+`ALFRESCO_TRACKER_CONTENT_*` variables for new deployments because they follow
+the normal tracker configuration hierarchy and can be overridden per core.
 
 ## Per-core configuration & store selection
 
@@ -160,6 +174,9 @@ Overridable per core:
 | `cores.<name>.cascade-tracking-enabled` | `cascade-tracking-enabled` |
 | `cores.<name>.commit-interval` | `commit-interval` |
 | `cores.<name>.new-searcher-interval` | `new-searcher-interval` |
+| `cores.<name>.content.batch-size` | `content.batch-size` |
+| `cores.<name>.content.max-parallelism` | `content.max-parallelism` |
+| `cores.<name>.content.max-documents-per-cycle` | `content.max-documents-per-cycle` |
 | `cores.<name>.cron.{metadata,acl,content,commit,cascade,repair}` | `cron.*` |
 
 > `cron.model` is **not** per-core: the ModelTracker is a single repo-global
@@ -182,6 +199,10 @@ alfresco:
         commit-interval: 30000
         new-searcher-interval: 60000
         cascade-tracking-enabled: false
+        content:
+          batch-size: 100
+          max-parallelism: 1
+          max-documents-per-cycle: 500
         cron:
           metadata: "0 0/5 * * * ?"      # every 5 min instead of every 5 s
           content:  "0 0/30 * * * ?"
@@ -196,10 +217,46 @@ environment:
   ALFRESCO_TRACKER_CORES_ARCHIVE_TRANSFORM_CONTENT: "false"
   ALFRESCO_TRACKER_CORES_ARCHIVE_CRON_METADATA: "0 0/5 * * * ?"
   ALFRESCO_TRACKER_CORES_ARCHIVE_CRON_CONTENT: "0 0/30 * * * ?"
+  ALFRESCO_TRACKER_CORES_ARCHIVE_CONTENT_BATCH_SIZE: "100"
+  ALFRESCO_TRACKER_CORES_ARCHIVE_CONTENT_MAX_PARALLELISM: "1"
+  ALFRESCO_TRACKER_CORES_ARCHIVE_CONTENT_MAX_DOCUMENTS_PER_CYCLE: "500"
 ```
 
 The implementation is described in
 [`doc/architecture/trackers/00002-per-core-configuration.md`](../search-services/alfresco-search/doc/architecture/trackers/00002-per-core-configuration.md).
+
+## Resource-bounded side-by-side Solr 6 to Solr 9 migration
+
+Solr 6 can continue serving production searches while an independent Solr 9
+instance builds its index in the background. Docker CPU and memory limits bound
+the tracker container itself; the tracker content settings separately bound
+extraction concurrency and the amount of work started by each cron execution.
+
+```yaml
+services:
+  trackers:
+    cpus: "0.50"
+    mem_limit: 768m
+    environment:
+      ALFRESCO_TRACKER_CRON_CONTENT: "0 0 2 * * ?"
+      ALFRESCO_TRACKER_CONTENT_BATCH_SIZE: "50"
+      ALFRESCO_TRACKER_CONTENT_MAX_PARALLELISM: "1"
+      ALFRESCO_TRACKER_CONTENT_MAX_DOCUMENTS_PER_CYCLE: "250"
+```
+
+In this example, each 02:00 content cycle selects no more than 250 outdated
+documents, processes them sequentially in batches of 50, and then returns.
+Successfully updated documents remain in the partially constructed Solr 9
+index. Documents not selected remain outdated and resume normally during later
+cycles, including after a tracker container restart; clearing the Solr 9 index
+is not required. The existing CommitTracker remains responsible for persisting
+and publishing completed changes.
+Quartz disallows concurrent execution of the same scheduled tracker job, and the
+per-core tracker semaphore provides an additional overlap safeguard if a cycle is
+still active when another trigger fires.
+
+These controls make background migration predictable, but they do not change
+any project statement about Solr 9 production readiness.
 
 ## Reducing full-text indexing delay
 
@@ -245,6 +302,10 @@ alfresco:
       commit:   "0/5 * * * * ?"
       model:    "0/10 * * * * ?"
       cascade:  "0/10 * * * * ?"
+    content:
+      batch-size: 2000
+      max-parallelism: 8
+      max-documents-per-cycle: 2000
     batch-count: 5000
     cascade-tracking-enabled: true
 ```

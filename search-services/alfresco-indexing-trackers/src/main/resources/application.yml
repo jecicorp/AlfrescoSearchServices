@@ -31,6 +31,10 @@ alfresco:
       commit: "0/5 * * * * ?"
       model: "0/10 * * * * ?"
       cascade: "0/10 * * * * ?"
+    content:
+      batch-size: 2000
+      max-parallelism: 8
+      max-documents-per-cycle: 2000
     batch-count: 5000
     cascade-tracking-enabled: true
     solr-home: /opt/solr/data

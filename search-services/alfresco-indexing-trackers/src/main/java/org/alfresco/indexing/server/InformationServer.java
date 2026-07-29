@@ -168,6 +168,19 @@ public interface InformationServer extends InformationServerCollectionProvider
 
     List<TenantDbId> getDocsWithUncleanContent() throws IOException;
 
+    default List<TenantDbId> getDocsWithUncleanContent(int maxDocuments) throws IOException
+    {
+        if (maxDocuments <= 0)
+        {
+            throw new IllegalArgumentException("maxDocuments must be greater than zero");
+        }
+
+        List<TenantDbId> documents = getDocsWithUncleanContent();
+        return documents == null || documents.size() <= maxDocuments
+                ? documents
+                : documents.subList(0, maxDocuments);
+    }
+
     /** Returns nodes marked with HAS_INDEXING_ERROR:true */
     List<TenantDbId> getDocsWithIndexingError() throws IOException;
 
