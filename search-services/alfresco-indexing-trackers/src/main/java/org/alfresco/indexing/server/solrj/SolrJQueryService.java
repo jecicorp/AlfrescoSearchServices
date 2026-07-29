@@ -407,7 +407,6 @@ public class SolrJQueryService
 
             QueryResponse response = solrClient.query(collection, query);
             SolrDocumentList docs = response.getResults();
-            long totalOutdatedDocs = docs == null ? 0 : docs.getNumFound();
             if (docs != null)
             {
                 for (SolrDocument doc : docs)
@@ -470,6 +469,7 @@ public class SolrJQueryService
 
             QueryResponse response = solrClient.query(collection, query);
             SolrDocumentList docs = response.getResults();
+            long totalOutdatedDocs = docs == null ? 0 : docs.getNumFound();
             if (docs != null)
             {
                 for (SolrDocument doc : docs)

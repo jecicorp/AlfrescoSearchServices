@@ -354,7 +354,7 @@ public class ContentTrackerTest
         for (int i = 1; i <= count; i++)
         {
             TenantDbId document = new TenantDbId();
-            document.dbId = i;
+            document.dbId = (long) i;
             document.tenant = "";
             documents.add(document);
         }
