@@ -45,7 +45,7 @@ maven-build:
 .kaniko:
   stage: docker
   image:
-    name: gcr.io/kaniko-project/executor:debug
+    name: rg.fr-par.scw.cloud/public/ghcr.io/osscontainertools/kaniko:v1.28.2-debug
     entrypoint: [""]
   variables:
     REGISTRY_URI: rg.fr-par.scw.cloud/pristy
