@@ -75,6 +75,25 @@
            </releases>
        </repository>
    </repositories>
+
+   <!-- Plugin dependencies are resolved from <pluginRepositories>, never from
+        <repositories>. The license-maven-plugin pulls org.alfresco:alfresco-license-headers
+        as an extra dependency (the Alfresco community header template), which only
+        exists in the Alfresco public group. Without this block the build resolves it
+        from Maven Central and fails; it used to work only because the private
+        nexus.jeci.tech mirror proxied every repository, central included. -->
+   <pluginRepositories>
+      <pluginRepository>
+         <id>alfresco-plugin-public</id>
+         <url>https://artifacts.alfresco.com/nexus/content/groups/public</url>
+         <releases>
+            <enabled>true</enabled>
+         </releases>
+         <snapshots>
+            <enabled>false</enabled>
+         </snapshots>
+      </pluginRepository>
+   </pluginRepositories>
    <properties>
       <gitlab.api.url>https://gitlab.com/api/v4</gitlab.api.url>
       <!-- Numeric id of gitlab.com/pristy-oss/pristy-search-services. The Maven
