@@ -1,67 +1,76 @@
 # Contributing
 
-Thanks for your interest in contributing to this project!
+Thanks for your interest in contributing to Pristy Search Services.
 
-The following is a set of guidelines for contributing to this library. Most of them will
-make the life of the reviewer easier and therefore decrease the time required for the
-patch be included in the next version.
-
-Alfresco has an [active forum](http://community.alfresco.com/community/ecm) to support
-community users of our products. If you have any questions then this is the fastest method
-of getting an answer.
+This is a community fork of Alfresco Search Services, maintained by
+[Jeci](https://jeci.fr) as the search tier of Pristy ECM. It is **not** affiliated
+with Hyland or Alfresco: please do not raise issues about this fork on Alfresco's
+issue tracker, and do not expect Alfresco support to cover it.
 
 ## Raising issues
 
-If you want to raise an issue then please use the [issue tracker on GitHub](https://github.com/Alfresco/SearchServices/issues).
-We may convert these to Jira tickets before working on them, as this is the system we use
-internally for tracking development.  The Jira project for this codebase is [SEARCH](https://issues.alfresco.com/jira/projects/SEARCH/issues)
-and you may want to look here first to see if your issue has previously been encountered.[^jiraaccess] 
-There are some guidelines for raising a good issue [here](https://hub.alfresco.com/t5/alfresco-content-services-hub/reporting-an-issue/ba-p/289727).
+Use the issue tracker of this project:
+<https://gitlab.com/pristy-oss/pristy-search-services/-/issues>.
 
-[^jiraaccess]: Note that while we try to keep our Jira issues visible to everyone, some
-are restricted as they relate to specific customers or security issues. Some older issues
-are also restricted simply because we have not been through to check if they contain
-sensitive information or not.
-
-## Submitting changes
-
-We have a [coding standards guidelines page](https://hub.alfresco.com/t5/alfresco-content-services-hub/coding-standards-for-alfresco-content-services/ba-p/290457)
-although you will find numerous examples where we have not adhered to them.  Please try to
-maintain consistency with the guidelines for new code, but avoid reformatting large
-blocks of code if these are not related to your change.
+A useful report includes the Solr and Alfresco versions, whether the trackers run in
+`none` / `secret` / `https` secureComms mode, and the relevant excerpt of both the
+Solr and the trackers logs. Query problems are almost always visible in the Solr log
+even when the symptom appears elsewhere.
 
 ## Branches
 
-Our codebase consists of long-lived release branches and short-lived feature branches. The
-code that we expect to include in the next minor version is stored on `master`.  All other
-release branches have the prefix `release/`. Feature branches may have any other prefix,
-but we usually use `feature/` or `fix/`. We expect code on release branches to be ready
-to release, and in the rare occasion when a release branch is broken then we try to revert
-changes to fix the branch as soon as possible.
+- `develop` — active development. Target your merge requests here.
+- `stable` — released code. Only release commits and hotfixes land on it.
 
-As bug fixes often also need a change to ACS then we use a cherry-pick strategy to get the
-fix to all necessary release branches.  The fix should initially be merged to `master` and
-it can then be cherry-picked back by using:
+Feature branches use a `feature/` or `fix/` prefix. Releases are cut from `stable`
+and tagged with the plain version number, no `v` prefix — see
+[docs/release.md](docs/release.md).
 
-```git cherry-pick -x -m 1 [mergeCommitId]```
+## Building and testing
 
-## Community Mirror
+```bash
+mise run build     # build, no tests
+mise run test      # unit tests: solrclient-lib, search, indexing-trackers
+```
 
-Pull requests to our community mirror will be accepted in our enterprise codebase and then
-mirrored back to the community.  You will always be credited with your commits, although if
-you [sign your commits](https://git-scm.com/book/en/v2/Git-Tools-Signing-Your-Work) then the
-signature will be stripped by the mirroring process.[^dependabot]
+Or with Maven directly, excluding the end-to-end module:
 
-[^dependabot]: This is the reason that pull requests submitted by Dependabot appear closed
-rather than merged.
+```bash
+mvn verify -pl '!e2e-test'
+```
 
-## Builds
+The **end-to-end tests** need a full ACS + Solr + Postgres stack and therefore do not
+run in CI. Bring the stack up and run them locally before proposing anything that
+touches indexing or query parsing:
 
-Our builds are currently in our internal Bamboo instance.  If you have access to the
-internal code then you can find some more links in the [insight engine module](insight-engine/CONTRIBUTING.md).
+```bash
+mise run e2e:rebuild
+mise run e2e:test
+```
 
-Although the build results are not visible externally, it should be possible to run most of
-the tests locally.  We have divided our tests into unit tests, integration tests and
-end-to-end tests.  The unit and integration tests can be run using the maven `test` and
-`verify` goals respectively.  The end-to-end tests cannot currently be run externally as
-they require some dependencies stored in our internal Nexus.
+The CI pipeline runs the unit tests, produces two CycloneDX SBOMs and scans them with
+Trivy. A CRITICAL vulnerability in a dependency we actually ship fails the pipeline.
+
+## Coding conventions
+
+- Match the surrounding code. Much of this codebase is inherited from Alfresco and
+  does not follow a single style; consistency with the file you are editing beats
+  consistency with any style guide. Avoid reformatting blocks unrelated to your change.
+- **License headers are enforced at build time** by `license-maven-plugin`, and it
+  only recognises headers framed by its own process tags. Never hand-write a plain
+  `/* Copyright … */` header — the build will fail with `There are N file(s) with no
+  header`. Files created in this fork carry the Pristy LGPL v3 header; files derived
+  from Alfresco keep the Alfresco community header. When you add a new file, register
+  it in the right `check-licenses-pristy` `<includes>` list and stamp it with:
+
+  ```bash
+  mvn license:update-file-header -Dlicense.update.dryrun=false
+  ```
+
+- Java packages stay under `org.alfresco.*`. They are referenced by name from
+  `schema.xml` and `solrconfig.xml`, so renaming them breaks existing cores.
+
+## Licensing of contributions
+
+The project is distributed under the **LGPL v3**. By submitting a merge request you
+agree that your contribution is licensed under the same terms.
