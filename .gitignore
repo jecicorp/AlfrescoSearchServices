@@ -14,7 +14,6 @@ overlays
 alf_data_dev
 alfresco.log*
 solr.log*
-alfresco-insight-engine/bin/
 packaging/bin/
 # OS generated files #
 ######################
@@ -33,9 +32,9 @@ Thumbs.db
 tlog
 _DEFAULT_
 .recommenders/
-/packaging/src/docker/alfresco-solr-distribution*.zip
-/packaging/src/docker/alfresco-search-services*.zip
-/packaging/src/docker/banana/banana-dist/
+/search-services/packaging/src/docker/alfresco-solr-distribution*.zip
+/search-services/packaging/src/docker/pristy-search-services*.zip
+/search-services/packaging/src/docker/banana/banana-dist/
 
 #############
 # mTLS keys #

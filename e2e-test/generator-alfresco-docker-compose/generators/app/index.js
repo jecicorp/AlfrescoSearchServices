@@ -189,7 +189,7 @@ module.exports = class extends Generator {
     const searchImageName = 'quay.io/alfresco/search-services';
 
     // Search Docker Image installation base path
-    const searchBasePath = "alfresco-search-services";
+    const searchBasePath = "pristy-search-services";
 
     // Copy Docker Compose applying configuration
     this.fs.copyTpl(

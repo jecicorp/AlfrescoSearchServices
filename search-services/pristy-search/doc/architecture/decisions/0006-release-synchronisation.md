@@ -30,7 +30,7 @@ packs, etc.) will follow a similar logic based on whether they are pre- or post-
 
 * SS 1.3.0 needs a hotfix
 
-We release from the `release/alfresco-search-services/V1.3.0.x` branch.
+We release from the `release/pristy-search-services/V1.3.0.x` branch.
 
 * IE 1.1.0 needs a hotfix
 

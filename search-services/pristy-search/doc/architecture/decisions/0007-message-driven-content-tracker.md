@@ -37,7 +37,7 @@ We use a URL in the response message rather than an identifier so that the repos
 
 The benefits of this solution gives ability to index content asynchronously. Unlike the current way which is based on a synchronous call to Repo using HTTP. This solution allows Alfresco to scale the transformation and adds the ability to index more content.
 
-![Component Diagram](/search-services/alfresco-search/doc/architecture/decisions/diagrams/AsyncContentTrackerComponentDiagram.png)
+![Component Diagram](/search-services/pristy-search/doc/architecture/decisions/diagrams/AsyncContentTrackerComponentDiagram.png)
 
 The other options have been considered but did not full fill the requirements.
 

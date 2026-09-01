@@ -1,7 +1,7 @@
 # Tracker Admin Endpoints
 
-Operational REST API of the standalone **Alfresco Indexing Trackers** service
-(`alfresco-indexing-trackers`, Spring Boot). It serves the reporting and
+Operational REST API of the standalone **Pristy Indexing Trackers** service
+(`pristy-indexing-trackers`, Spring Boot). It serves the reporting and
 maintenance actions that, in classic Alfresco, were exposed by Solr's core admin
 handler (`SUMMARY`, `REPORT`, `NODEREPORT`, `REINDEX`, …). In this fork **Solr is
 kept vanilla** and these actions live in the trackers service instead.

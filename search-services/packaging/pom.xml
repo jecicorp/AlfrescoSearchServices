@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <artifactId>alfresco-search-services</artifactId>
-    <name>Alfresco Search Services</name>
+    <artifactId>pristy-search-services</artifactId>
+    <name>Pristy Search Services Distribution</name>
     <description>Alfresco Search Services Solr distribution zip</description>
     <packaging>jar</packaging>
     <properties>
@@ -10,20 +10,20 @@
         <project.timestamp>${maven.build.timestamp}</project.timestamp>
     </properties>
     <parent>
-        <groupId>fr.jeci.alfresco</groupId>
-        <artifactId>alfresco-solr-search-parent</artifactId>
-        <version>2.99.0-SNAPSHOT</version>
+        <groupId>fr.pristy</groupId>
+        <artifactId>pristy-solr-search-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <dependencies>
         <dependency>
-            <groupId>fr.jeci.alfresco</groupId>
-            <artifactId>alfresco-search</artifactId>
+            <groupId>fr.pristy</groupId>
+            <artifactId>pristy-search</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>fr.jeci.alfresco</groupId>
-            <artifactId>alfresco-search</artifactId>
+            <groupId>fr.pristy</groupId>
+            <artifactId>pristy-search</artifactId>
             <version>${project.version}</version>
             <classifier>libs</classifier>
         </dependency>
@@ -36,7 +36,7 @@
         </dependency>
     </dependencies>
     <build>
-        <finalName>alfresco-search-services-${project.version}</finalName>
+        <finalName>pristy-search-services-${project.version}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -87,10 +87,10 @@
                         <configuration>
                             <artifactItems>
                                 <artifactItem>
-                                    <groupId>fr.jeci.alfresco</groupId>
-                                    <artifactId>alfresco-search</artifactId>
+                                    <groupId>fr.pristy</groupId>
+                                    <artifactId>pristy-search</artifactId>
                                     <version>${project.version}</version>
-                                    <outputDirectory>${project.build.directory}/alfresco-search</outputDirectory>
+                                    <outputDirectory>${project.build.directory}/pristy-search</outputDirectory>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
@@ -104,8 +104,8 @@
                         <configuration>
                             <artifactItems>
                                 <artifactItem>
-                                    <groupId>fr.jeci.alfresco</groupId>
-                                    <artifactId>alfresco-search</artifactId>
+                                    <groupId>fr.pristy</groupId>
+                                    <artifactId>pristy-search</artifactId>
                                     <version>${project.version}</version>
                                     <classifier>libs</classifier>
                                     <outputDirectory>${project.build.directory}/solr-libs</outputDirectory>
@@ -126,8 +126,8 @@
                         <configuration>
                             <artifactItems>
                                 <artifactItem>
-                                    <groupId>fr.jeci.alfresco</groupId>
-                                    <artifactId>alfresco-search</artifactId>
+                                    <groupId>fr.pristy</groupId>
+                                    <artifactId>pristy-search</artifactId>
                                     <version>${project.version}</version>
                                     <outputDirectory>${project.build.directory}/solr-libs/libs</outputDirectory>
                                 </artifactItem>

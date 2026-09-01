@@ -53,7 +53,7 @@ import org.testng.asserts.SoftAssert;
 import io.restassured.RestAssured;
 
 @Configuration
-@ContextConfiguration("classpath:alfresco-search-e2e-context.xml")
+@ContextConfiguration("classpath:pristy-search-e2e-context.xml")
 public abstract class AbstractBackupE2ETest extends AbstractTestNGSpringContextTests
 {
 	protected SiteModel testSite = new SiteModel("siteForBackupTesting");

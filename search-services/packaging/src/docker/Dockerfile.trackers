@@ -1,13 +1,16 @@
 FROM eclipse-temurin:17-jre-alpine
 
-LABEL org.opencontainers.image.title="Alfresco Indexing Trackers"
-LABEL org.opencontainers.image.description="Alfresco content trackers - polls Repository and indexes via SolrJ"
+LABEL org.opencontainers.image.title="Pristy Indexing Trackers"
+LABEL org.opencontainers.image.description="Pristy ECM indexing trackers - polls the repository and indexes via SolrJ"
+LABEL org.opencontainers.image.vendor="Jeci SARL"
+LABEL org.opencontainers.image.licenses="LGPL-3.0-or-later"
+LABEL org.opencontainers.image.source="https://gitlab.com/pristy-oss/pristy-search-services"
 
 RUN addgroup -g 33007 -S trackers && adduser -u 33007 -S -G trackers trackers
 
 WORKDIR /app
 
-COPY alfresco-indexing-trackers-*.jar /app/alfresco-indexing-trackers.jar
+COPY pristy-indexing-trackers-*.jar /app/pristy-indexing-trackers.jar
 
 # Create model persistence directory
 RUN mkdir -p /opt/solr/data/alfrescoModels
@@ -21,4 +24,4 @@ EXPOSE 8085
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget -q --spider http://localhost:8085/actuator/health || exit 1
 
-ENTRYPOINT ["java", "-jar", "/app/alfresco-indexing-trackers.jar"]
+ENTRYPOINT ["java", "-jar", "/app/pristy-indexing-trackers.jar"]

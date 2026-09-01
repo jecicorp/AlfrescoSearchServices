@@ -1,2 +1,2 @@
 # Staged build artifact — produced by `mise run dev:acs-build`, not committed.
-/alfresco-search-subsystem-solr9.jar
+/pristy-search-subsystem-solr9.jar

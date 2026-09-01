@@ -47,7 +47,7 @@ import org.testng.annotations.BeforeMethod;
  *
  * @author agazzarini
  */
-@ContextConfiguration("classpath:alfresco-search-e2e-context.xml")
+@ContextConfiguration("classpath:pristy-search-e2e-context.xml")
 @Component
 @Scope(value = "prototype")
 public abstract class AbstractCmisE2ETest extends AbstractE2EFunctionalTest

@@ -38,7 +38,7 @@ new repository containing a new root pom file and the search services code benea
 All changes except those within the module called insight-engine will be mirrored.
 
 The root pom file in the community project will include a reference to the insight-engine pom file, so community users
-will have to build from within the alfresco-search-parent directory. 
+will have to build from within the pristy-search-parent directory. 
 
 [1]: https://issues.alfresco.com/jira/browse/SEARCH-1397
 [2]: https://git.alfresco.com/search_discovery/combinerScript/blob/master/combineSearch.sh

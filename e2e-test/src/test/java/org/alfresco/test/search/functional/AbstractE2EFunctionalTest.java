@@ -76,7 +76,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 /**
  * @author meenal bhave
  */
-@ContextConfiguration ("classpath:alfresco-search-e2e-context.xml")
+@ContextConfiguration ("classpath:pristy-search-e2e-context.xml")
 public abstract class AbstractE2EFunctionalTest extends AbstractTestNGSpringContextTests
 {
     /** The number of retries that a query will be tried before giving up. */

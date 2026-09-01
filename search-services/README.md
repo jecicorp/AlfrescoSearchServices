@@ -32,8 +32,8 @@ After the project is successfully built, ZIP can be extracted.
 
 ```bash
 $ cd packaging/target
-$ unzip alfresco-search-services-*.zip
-$ cd alfresco-search-services
+$ unzip pristy-search-services-*.zip
+$ cd pristy-search-services
 ```
 
 From Alfresco *Search Services 1.3.0.5*, distribution ZIP is released with Mutual Authentication TLS (SSL) by default. So before starting the service, generating secure keys for SSL communication is required. You can find detailed information for this step at [Alfresco documentation](https://docs.alfresco.com/search-enterprise/tasks/generate-keys-ssl.html).
@@ -154,8 +154,8 @@ After the project is successfully built, ZIP can be extracted.
 
 ```bash
 $ cd packaging/target
-$ unzip alfresco-search-services-*.zip
-$ cd alfresco-search-services
+$ unzip pristy-search-services-*.zip
+$ cd pristy-search-services
 ```
 
 Change default Alfresco Communication protocol to `none`, and set `alfresco.allowUnauthenticatedSolrEndpoint` to `true`:
@@ -298,22 +298,22 @@ The following environment variables are supported:
 
 **Using Mutual Auth TLS (SSL)**
 
-This Docker image is exposing as VOLUME the folder `/opt/alfresco-search-services/keystores`, that can be used to mount `keystores` folder from host.
+This Docker image is exposing as VOLUME the folder `/opt/pristy-search-services/keystores`, that can be used to mount `keystores` folder from host.
 
 By default Docker image is using SSL, but an environment variable `ALFRESCO_SECURE_COMMS=https` can be also passed to the Docker container to declare explicitly the SSL mode.
 
 Additionally, SOLR Jetty server must be configured to start in SSL Mode using `SOLR_SSL_*` environment variables and Search Services must be configured by using Java environment variables starting with `alfresco.encryption.ssl.*`
 
-Following command will start Search Services with SSL using keystores located at `/tmp/keystores/solr`. Note that the internal folders are relative to `/opt/alfresco-search-services/keystores`, as this is the Docker container folder exposed to hold the keystores.
+Following command will start Search Services with SSL using keystores located at `/tmp/keystores/solr`. Note that the internal folders are relative to `/opt/pristy-search-services/keystores`, as this is the Docker container folder exposed to hold the keystores.
 
 ```bash
 $ docker run -p 8983:8983 \
--v /tmp/keystores/solr:/opt/alfresco-search-services/keystores \
+-v /tmp/keystores/solr:/opt/pristy-search-services/keystores \
 -e SOLR_CREATE_ALFRESCO_DEFAULTS=alfresco,archive \
--e SOLR_SSL_KEY_STORE=/opt/alfresco-search-services/keystores/ssl.repo.client.keystore \
+-e SOLR_SSL_KEY_STORE=/opt/pristy-search-services/keystores/ssl.repo.client.keystore \
 -e SOLR_SSL_KEY_STORE_PASSWORD=keystore \
 -e SOLR_SSL_KEY_STORE_TYPE=JCEKS \
--e SOLR_SSL_TRUST_STORE=/opt/alfresco-search-services/keystores/ssl.repo.client.truststore \
+-e SOLR_SSL_TRUST_STORE=/opt/pristy-search-services/keystores/ssl.repo.client.truststore \
 -e SOLR_SSL_TRUST_STORE_PASSWORD=truststore \
 -e SOLR_SSL_TRUST_STORE_TYPE=JCEKS \
 -e SOLR_SSL_NEED_CLIENT_AUTH=true \
@@ -392,9 +392,9 @@ solr6:
 
 This Docker Image is available at Alfresco Docker Hub:
 
-[https://hub.docker.com/r/alfresco/alfresco-search-services](https://hub.docker.com/r/alfresco/alfresco-search-services)
+[https://hub.docker.com/r/jeci/pristy-search-services](https://hub.docker.com/r/jeci/pristy-search-services)
 
-To use the public image instead of the local one (`searchservices:develop`) just use `alfresco/alfresco-search-services:1.3.x.x` labels.
+To use the public image instead of the local one (`searchservices:develop`) just use `jeci/pristy-search-services:1.0.0` tags.
 
 
 ## Docker Master-Slave setup
@@ -462,10 +462,10 @@ solr6:
           SOLR_SOLR_PORT: "8983"
           # SSL settings
           ALFRESCO_SECURE_COMMS: "https"
-          SOLR_SSL_TRUST_STORE: "/opt/alfresco-search-services/keystore/ssl.repo.client.truststore"
+          SOLR_SSL_TRUST_STORE: "/opt/pristy-search-services/keystore/ssl.repo.client.truststore"
           SOLR_SSL_TRUST_STORE_PASSWORD: "truststore"
           SOLR_SSL_TRUST_STORE_TYPE: "JCEKS"
-          SOLR_SSL_KEY_STORE: "/opt/alfresco-search-services/keystore/ssl.repo.client.keystore"
+          SOLR_SSL_KEY_STORE: "/opt/pristy-search-services/keystore/ssl.repo.client.keystore"
           SOLR_SSL_KEY_STORE_PASSWORD: "keystore"
           SOLR_SSL_KEY_STORE_TYPE: "JCEKS"
           SOLR_SSL_NEED_CLIENT_AUTH: "true"
@@ -479,7 +479,7 @@ solr6:
       ports:
           - 8083:8983 #Browser port
       volumes:
-          - ./keystores/solr:/opt/alfresco-search-services/keystores
+          - ./keystores/solr:/opt/pristy-search-services/keystores
 ```
 
 SOLR Web Console will be available at:

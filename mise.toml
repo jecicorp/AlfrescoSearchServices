@@ -11,20 +11,20 @@ run = "mvn $MAVEN_CLI_OPTS package -Dmaven.test.skip=true"
 
 [tasks.test]
 description = "Tests unitaires (sans e2e)"
-run = "mvn $MAVEN_CLI_OPTS test -pl search-services/alfresco-solrclient-lib,search-services/alfresco-search -am"
+run = "mvn $MAVEN_CLI_OPTS test -pl search-services/pristy-solrclient-lib,search-services/pristy-search,search-services/pristy-indexing-trackers -am"
 
 [tasks.install]
 description = "Install dans le repo local (sans e2e)"
 # 'clean' is required: a stale target/ (e.g. an old solr-core-8.11.4.jar left in
 # the packaging libs) otherwise gets bundled into the assembled Solr webapp.
-run = "mvn $MAVEN_CLI_OPTS clean install -DskipTests -pl search-services/alfresco-solrclient-lib,search-services/alfresco-search,search-services/packaging -am"
+run = "mvn $MAVEN_CLI_OPTS clean install -DskipTests -pl search-services/pristy-solrclient-lib,search-services/pristy-search,search-services/packaging -am"
 
 [tasks."e2e:build-image"]
 description = "Construit l'image Docker locale depuis le packaging"
 run = """
-docker build -t alfresco/alfresco-search-services:local \
+docker build -t jeci/pristy-search-services:local \
   search-services/packaging/target/docker-resources/
-echo "Image Docker construite : alfresco/alfresco-search-services:local"
+echo "Image Docker construite : jeci/pristy-search-services:local"
 """
 
 [tasks."e2e:generate"]
@@ -33,7 +33,7 @@ dir = "e2e-test/python-generator"
 run = """
 python3 generator.py \
   --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
-  --search=alfresco/alfresco-search-services:local \
+  --search=jeci/pristy-search-services:local \
   --postgres=postgres:16 \
   --transformer=AIOTransformers \
   --output=../../target/e2e-stack
@@ -48,11 +48,11 @@ echo "==> Build Maven (sans tests)..."
 # 'clean' avoids bundling stale jars (e.g. an old solr-core) from a previous build.
 mvn $MAVEN_CLI_OPTS clean package -Dmaven.test.skip=true
 echo "==> Build image Solr..."
-docker build -t alfresco/alfresco-search-services:local search-services/packaging/target/docker-resources/
+docker build -t jeci/pristy-search-services:local search-services/packaging/target/docker-resources/
 echo "==> Génération docker-compose e2e (copie JARs frais)..."
 cd e2e-test/python-generator && python3 generator.py \
   --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
-  --search=alfresco/alfresco-search-services:local \
+  --search=jeci/pristy-search-services:local \
   --postgres=postgres:16 \
   --transformer=AIOTransformers \
   --output=../../target/e2e-stack
@@ -106,7 +106,7 @@ run = """
 # This produces solr.p12, trackers.p12, alfresco.p12 and truststore.p12 in /tmp/mtls-out.
 python3 generator.py \
   --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
-  --search=alfresco/alfresco-search-services:local \
+  --search=jeci/pristy-search-services:local \
   --postgres=postgres:16 \
   --transformer=AIOTransformers \
   --communication=https \
@@ -122,25 +122,25 @@ description = "Build trackers Spring Boot JAR"
 # license-headers via ${maven.multiModuleProjectDirectory}, and with no .mvn/
 # dir that property is the invocation dir. `cd search-services` would point it
 # at search-services/license-headers (nonexistent) and break the build.
-run = "mvn $MAVEN_CLI_OPTS package -pl search-services/alfresco-indexing-trackers -am -Dmaven.test.skip=true"
+run = "mvn $MAVEN_CLI_OPTS package -pl search-services/pristy-indexing-trackers -am -Dmaven.test.skip=true"
 
 [tasks."trackers:build-image"]
 description = "Construit l'image Docker des trackers depuis le JAR"
 depends = ["trackers:build"]
 # The Dockerfile lives outside the build context (packaging/src/docker), and the
 # context is the module's target/ dir where the repackaged Spring Boot JAR sits
-# (COPY alfresco-indexing-trackers-*.jar). Mirrors the compose `trackers` service.
+# (COPY pristy-indexing-trackers-*.jar). Mirrors the compose `trackers` service.
 run = """
-docker build -t alfresco/alfresco-indexing-trackers:local \
+docker build -t jeci/pristy-indexing-trackers:local \
   -f search-services/packaging/src/docker/Dockerfile.trackers \
-  search-services/alfresco-indexing-trackers/target
-echo "Image Docker construite : alfresco/alfresco-indexing-trackers:local"
+  search-services/pristy-indexing-trackers/target
+echo "Image Docker construite : jeci/pristy-indexing-trackers:local"
 """
 
 [tasks."trackers:run"]
 description = "Run trackers locally"
 # Run from the repo root — see trackers:build for why (license-headers path).
-run = "mvn spring-boot:run -pl search-services/alfresco-indexing-trackers"
+run = "mvn spring-boot:run -pl search-services/pristy-indexing-trackers"
 
 [tasks."dev:acs-build"]
 description = "Build the solr9 subsystem JAR and stage it into acs/assets for the ACS image"
@@ -148,9 +148,9 @@ description = "Build the solr9 subsystem JAR and stage it into acs/assets for th
 # copied into acs/assets/ before `docker compose build`. The JAR is a git-ignored
 # build artifact (see acs/assets/.gitignore).
 run = """
-mvn $MAVEN_CLI_OPTS package -pl search-services/alfresco-search-subsystem-solr9 -am -Dmaven.test.skip=true
-cp search-services/alfresco-search-subsystem-solr9/target/alfresco-search-subsystem-solr9.jar acs/assets/
-echo "Staged alfresco-search-subsystem-solr9.jar into acs/assets/"
+mvn $MAVEN_CLI_OPTS package -pl search-services/pristy-search-subsystem-solr9 -am -Dmaven.test.skip=true
+cp search-services/pristy-search-subsystem-solr9/target/pristy-search-subsystem-solr9.jar acs/assets/
+echo "Staged pristy-search-subsystem-solr9.jar into acs/assets/"
 """
 
 [tasks."dev:up"]

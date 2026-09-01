@@ -51,7 +51,7 @@ public class ThirdPartyLicensesIT
     /** Spring Surf is also produced by Alfresco (it lives at https://github.com/Alfresco/surf). */
     private static final String SPRING_SURF_PREFIX = "spring-surf-";
     /** Start of the name of the zip file. */
-    private static final String ALFRESCO_SEARCH_SERVICES = "alfresco-search-services";
+    private static final String PRISTY_SEARCH_SERVICES = "pristy-search-services";
 
     /**
      * Test that the dependencies in notice.txt match the actual dependencies, to ensure we've included third party
@@ -67,10 +67,10 @@ public class ThirdPartyLicensesIT
 
         // Try to find the zip file in the target directory.
         Path zipPath = Files.find(targetPath, 1,
-                    (path, attribute) -> path.getFileName().toString().startsWith(ALFRESCO_SEARCH_SERVICES + "-")
+                    (path, attribute) -> path.getFileName().toString().startsWith(PRISTY_SEARCH_SERVICES + "-")
                                 && path.toString().endsWith(".zip"))
                     .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Could not find " + ALFRESCO_SEARCH_SERVICES
+                    .orElseThrow(() -> new RuntimeException("Could not find " + PRISTY_SEARCH_SERVICES
                                 + "-*.zip in target directory. Is test being run from maven?"));
         // Look through the zip manifest and find all the third party jar files listed.
         Set<String> jars;

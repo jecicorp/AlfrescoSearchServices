@@ -1,7 +1,7 @@
 # Tracker Configuration & Tuning
 
-This guide documents the configuration settings of the standalone **Alfresco
-Indexing Trackers** service (`alfresco-indexing-trackers`, Spring Boot) and
+This guide documents the configuration settings of the standalone **Pristy
+Indexing Trackers** service (`pristy-indexing-trackers`, Spring Boot) and
 explains how each one affects indexing latency, throughput, and resource usage.
 
 ## How configuration is bound
@@ -223,7 +223,7 @@ environment:
 ```
 
 The implementation is described in
-[`doc/architecture/trackers/00002-per-core-configuration.md`](../search-services/alfresco-search/doc/architecture/trackers/00002-per-core-configuration.md).
+[`doc/architecture/trackers/00002-per-core-configuration.md`](../search-services/pristy-search/doc/architecture/trackers/00002-per-core-configuration.md).
 
 ## Reducing full-text indexing delay
 

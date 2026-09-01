@@ -2,35 +2,24 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>fr.jeci.alfresco</groupId>
-        <artifactId>alfresco-search-parent</artifactId>
-        <version>2.99.0-SNAPSHOT</version>
+        <groupId>fr.pristy</groupId>
+        <artifactId>pristy-search-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
     </parent>
-    <artifactId>alfresco-solr-search-parent</artifactId>
-    <version>2.99.0-SNAPSHOT</version>
+    <artifactId>pristy-solr-search-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>Alfresco Solr Search parent</name>
+    <name>Pristy Solr Search parent</name>
     <properties>
         <licenseName>community</licenseName>
     </properties>
     <modules>
-        <module>alfresco-solrclient-lib</module>
-        <module>alfresco-indexing-trackers</module>
-        <module>alfresco-search</module>
-        <module>alfresco-search-subsystem-solr9</module>
+        <module>pristy-solrclient-lib</module>
+        <module>pristy-indexing-trackers</module>
+        <module>pristy-search</module>
+        <module>pristy-search-subsystem-solr9</module>
         <module>packaging</module>
     </modules>
-
-    <distributionManagement>
-        <repository>
-            <id>alfresco-public-releases</id>
-            <url>https://artifacts.alfresco.com/nexus/content/repositories/releases</url>
-        </repository>
-        <snapshotRepository>
-            <id>alfresco-public-snapshots</id>
-            <url>https://artifacts.alfresco.com/nexus/content/repositories/snapshots</url>
-        </snapshotRepository>
-    </distributionManagement>
 
     <repositories>
         <repository>

@@ -1,12 +1,66 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
    <modelVersion>4.0.0</modelVersion>
-   <artifactId>alfresco-search-parent</artifactId>
-   <groupId>fr.jeci.alfresco</groupId>
-   <version>2.99.0-SNAPSHOT</version>
+   <artifactId>pristy-search-parent</artifactId>
+   <groupId>fr.pristy</groupId>
+   <version>1.0.0-SNAPSHOT</version>
    <packaging>pom</packaging>
-   <name>Alfresco Search Engine</name>
+   <name>Pristy Search Services</name>
+   <description>Solr-based search engine for Pristy ECM, a community fork of Alfresco
+      Search Services. Enterprise-only components (Insight Engine, Zeppelin, governance)
+      have been removed; the indexing trackers run as a standalone Spring Boot
+      service.</description>
+   <url>https://gitlab.com/pristy-oss/pristy-search-services</url>
+   <!-- inceptionYear kept at 2005: the bulk of this codebase is derived from
+        Alfresco Search Services, whose history starts there. -->
    <inceptionYear>2005</inceptionYear>
+
+   <organization>
+      <name>Jeci SARL</name>
+      <url>https://jeci.fr</url>
+   </organization>
+
+   <licenses>
+      <license>
+         <name>GNU Lesser General Public License v3.0 or later</name>
+         <url>https://www.gnu.org/licenses/lgpl-3.0.txt</url>
+         <distribution>repo</distribution>
+      </license>
+   </licenses>
+
+   <developers>
+      <developer>
+         <name>Jeci SARL</name>
+         <email>info@jeci.fr</email>
+         <organization>Jeci SARL</organization>
+         <organizationUrl>https://jeci.fr</organizationUrl>
+      </developer>
+   </developers>
+
+   <scm>
+      <connection>scm:git:https://gitlab.com/pristy-oss/pristy-search-services.git</connection>
+      <developerConnection>scm:git:git@gitlab.com:pristy-oss/pristy-search-services.git</developerConnection>
+      <url>https://gitlab.com/pristy-oss/pristy-search-services</url>
+      <tag>HEAD</tag>
+   </scm>
+   <!-- Artifacts are published to this project's GitLab Package Registry. The
+        registry of a public project is readable without authentication, which is
+        all pristy-ecm and outside integrators need. Maven Central (namespace
+        fr.pristy) is planned for 1.1: Central is immutable, so nothing goes there
+        while the coordinates can still move. See docs/release.md. -->
+   <distributionManagement>
+      <repository>
+         <id>gitlab-maven</id>
+         <name>GitLab Package Registry</name>
+         <url>${gitlab.api.url}/projects/${gitlab.project.id}/packages/maven</url>
+      </repository>
+      <snapshotRepository>
+         <id>gitlab-maven</id>
+         <name>GitLab Package Registry</name>
+         <url>${gitlab.api.url}/projects/${gitlab.project.id}/packages/maven</url>
+      </snapshotRepository>
+   </distributionManagement>
+
    <repositories>
        <repository>
            <id>atlassian</id>
@@ -22,6 +76,12 @@
        </repository>
    </repositories>
    <properties>
+      <gitlab.api.url>https://gitlab.com/api/v4</gitlab.api.url>
+      <!-- Numeric id of gitlab.com/pristy-oss/pristy-search-services. The Maven
+           registry endpoint only accepts the numeric project id, never the path,
+           so it is pinned here rather than derived from CI_PROJECT_ID: the URL is
+           then correct outside CI too. -->
+      <gitlab.project.id>85972034</gitlab.project.id>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
       <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
       <maven.build.sourceVersion>17</maven.build.sourceVersion>

@@ -33,7 +33,7 @@ full-text search for a document appears a bit later (see the latency note below)
 
 | Before (Solr 6) | Now (Solr 9) |
 |-----------------|--------------|
-| Solr + trackers in one webapp | **Solr** (query + index storage) and **`alfresco-indexing-trackers`** (a Spring Boot service that reads from the repository and feeds Solr) run separately |
+| Solr + trackers in one webapp | **Solr** (query + index storage) and **`pristy-indexing-trackers`** (a Spring Boot service that reads from the repository and feeds Solr) run separately |
 | Tracker tuning via `solrcore.properties` | Tracker tuning via **environment variables** on the trackers service |
 
 This separation is good news operationally: you can **restart, scale, monitor and
@@ -107,7 +107,7 @@ know about them if you build a custom image or override the startup:
 
 Because Solr is now vanilla and the admin control plane lives in the trackers, the
 **Alfresco Repository** must use a matching search subsystem. This project ships a
-`solr9` Search subsystem as the `alfresco-search-subsystem-solr9` module — a
+`solr9` Search subsystem as the `pristy-search-subsystem-solr9` module — a
 resources-only JAR that just needs to be on the Repository classpath (`WEB-INF/lib`).
 It behaves like the stock `solr6` subsystem except that Alfresco's **admin** HTTP
 client (the `SUMMARY`/`REPORT`/`STATUS`/… actions) is pointed at the trackers service,

@@ -3,10 +3,10 @@
 # Used as a Docker entrypoint wrapper
 # Supports comma-separated core names in SOLR_CREATE_ALFRESCO_DEFAULTS (e.g. "alfresco,archive")
 
-SOLR_HOME="/opt/alfresco-search-services/solrhome"
+SOLR_HOME="/opt/pristy-search-services/solrhome"
 CORE_LIST="${SOLR_CREATE_ALFRESCO_DEFAULTS:-alfresco}"
 TEMPLATE="${SOLR_TEMPLATE:-rerank}"
-DATA_DIR="/opt/alfresco-search-services/data"
+DATA_DIR="/opt/pristy-search-services/data"
 
 # Split comma-separated core names and create each one
 IFS=','
@@ -71,4 +71,4 @@ if [ -n "${SOLR_SSL_KEY_STORE}" ]; then
 fi
 
 # Start Solr (exec replaces the shell with solr process)
-exec /opt/alfresco-search-services/solr/bin/solr start -f
+exec /opt/pristy-search-services/solr/bin/solr start -f

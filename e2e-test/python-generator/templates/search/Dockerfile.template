@@ -19,8 +19,8 @@ RUN replacementPairs=(${SOLRCORE_REPLACEMENTS}); \
     fi
 
 USER root
-RUN mkdir -p /opt/alfresco-search-services/keystore \
-    && chown -R solr:solr /opt/alfresco-search-services/keystore
+RUN mkdir -p /opt/pristy-search-services/keystore \
+    && chown -R solr:solr /opt/pristy-search-services/keystore
 USER solr
 
 # Set the search log level if requested.
@@ -36,6 +36,6 @@ RUN if [[ "${ENABLE_CROSS_LOCALE}" == "True" ]] ; then \
 fi
 
 
-VOLUME ["/opt/alfresco-search-services/keystore"]
+VOLUME ["/opt/pristy-search-services/keystore"]
 
-ENTRYPOINT ["/opt/alfresco-search-services/solr-init-core.sh"]
+ENTRYPOINT ["/opt/pristy-search-services/solr-init-core.sh"]

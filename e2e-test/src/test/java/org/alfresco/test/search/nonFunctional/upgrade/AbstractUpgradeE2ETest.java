@@ -43,7 +43,7 @@ import org.testng.annotations.BeforeClass;
  *
  * @author Paul Brodner
  */
-@ContextConfiguration("classpath:alfresco-search-e2e-context.xml")
+@ContextConfiguration("classpath:pristy-search-e2e-context.xml")
 public abstract class AbstractUpgradeE2ETest extends AbstractTestNGSpringContextTests
 {
     @Autowired

@@ -5,13 +5,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>fr.jeci.alfresco</groupId>
-        <artifactId>alfresco-solr-search-parent</artifactId>
-        <version>2.99.0-SNAPSHOT</version>
+        <groupId>fr.pristy</groupId>
+        <artifactId>pristy-solr-search-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>alfresco-indexing-trackers</artifactId>
-    <name>Alfresco Indexing Trackers</name>
+    <artifactId>pristy-indexing-trackers</artifactId>
+    <name>Pristy Indexing Trackers</name>
     <description>Alfresco content trackers - polls Alfresco Repository and indexes into search engine via InformationServer interface</description>
 
     <properties>
@@ -54,8 +54,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>fr.jeci.alfresco</groupId>
-            <artifactId>alfresco-solrclient-lib</artifactId>
+            <groupId>fr.pristy</groupId>
+            <artifactId>pristy-solrclient-lib</artifactId>
             <version>${project.version}</version>
             <exclusions>
                 <!-- Exclude SLF4J 1.7.x binding: Spring Boot 3.4 uses SLF4J 2.x + Logback -->

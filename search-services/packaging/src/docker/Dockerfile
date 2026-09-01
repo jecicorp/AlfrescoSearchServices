@@ -1,10 +1,14 @@
-# Alfresco Search Services ${project.version} Docker Image
+# Pristy Search Services ${project.version} Docker Image
 
 # More infos about this image: https://github.com/Alfresco/alfresco-docker-base-java
 FROM alfresco/alfresco-base-java:jre17-rockylinux9@sha256:16692e52ef8c3d60606d5c27d95eada9266f9fad8b70f38ad5674a7cbe24e49e
-LABEL creator="Alfresco" maintainer="Alfresco"
+LABEL org.opencontainers.image.title="Pristy Search Services"
+LABEL org.opencontainers.image.description="Solr 9 search engine for Pristy ECM - community fork of Alfresco Search Services"
+LABEL org.opencontainers.image.vendor="Jeci SARL"
+LABEL org.opencontainers.image.licenses="LGPL-3.0-or-later"
+LABEL org.opencontainers.image.source="https://gitlab.com/pristy-oss/pristy-search-services"
 
-ENV DIST_DIR=/opt/alfresco-search-services
+ENV DIST_DIR=/opt/pristy-search-services
 ENV SOLR_ZIP=${project.build.finalName}.zip
 ENV LANG=C.UTF-8
 
@@ -67,13 +71,13 @@ VOLUME $SOLR_BACKUP_DIR
 # TLS / mTLS (secureComms=https). Solr's launcher reads these natively.
 # Keystores are NOT baked into the image — mount them at runtime into this dir
 # (bind mount in dev/compose, orchestrator secret in prod) and set at runtime:
-#   SOLR_SSL_KEY_STORE=/opt/alfresco-search-services/keystore/solr.p12
+#   SOLR_SSL_KEY_STORE=/opt/pristy-search-services/keystore/solr.p12
 #   SOLR_SSL_KEY_STORE_PASSWORD=..., SOLR_SSL_KEY_STORE_TYPE=PKCS12
-#   SOLR_SSL_TRUST_STORE=/opt/alfresco-search-services/keystore/truststore.p12
+#   SOLR_SSL_TRUST_STORE=/opt/pristy-search-services/keystore/truststore.p12
 #   SOLR_SSL_TRUST_STORE_PASSWORD=..., SOLR_SSL_TRUST_STORE_TYPE=PKCS12
 #   SOLR_SSL_NEED_CLIENT_AUTH=true
-RUN mkdir -p /opt/alfresco-search-services/keystore
-VOLUME ["/opt/alfresco-search-services/keystore"]
+RUN mkdir -p /opt/pristy-search-services/keystore
+VOLUME ["/opt/pristy-search-services/keystore"]
 # Only the non-secret store TYPE is defaulted here; paths/passwords come at runtime.
 ENV SOLR_SSL_KEY_STORE_TYPE=PKCS12 \
     SOLR_SSL_TRUST_STORE_TYPE=PKCS12

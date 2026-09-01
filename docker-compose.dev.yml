@@ -84,7 +84,7 @@ services:
       context: search-services/packaging/target/docker-resources
       dockerfile: Dockerfile
     mem_limit: 2g
-    entrypoint: ["/opt/alfresco-search-services/solr-init-core.sh"]
+    entrypoint: ["/opt/pristy-search-services/solr-init-core.sh"]
     environment:
       SOLR_ALFRESCO_HOST: alfresco
       SOLR_ALFRESCO_PORT: "8080"
@@ -99,14 +99,14 @@ services:
       alfresco:
         condition: service_healthy
     volumes:
-      - solr-data-volume:/opt/alfresco-search-services/data
-      - solr-solrhome-volume:/opt/alfresco-search-services/solrhome
+      - solr-data-volume:/opt/pristy-search-services/data
+      - solr-solrhome-volume:/opt/pristy-search-services/solrhome
     networks:
       - backend
 
   trackers:
     build:
-      context: search-services/alfresco-indexing-trackers/target
+      context: search-services/pristy-indexing-trackers/target
       dockerfile: ../../packaging/src/docker/Dockerfile.trackers
     mem_limit: 512m
     environment:

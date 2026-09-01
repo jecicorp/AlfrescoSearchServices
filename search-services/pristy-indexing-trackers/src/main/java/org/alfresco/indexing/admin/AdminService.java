@@ -834,7 +834,7 @@ public class AdminService
 
     /**
      * Discovers the Solr home directory by querying an existing core's instanceDir.
-     * Returns the parent directory (e.g. /opt/alfresco-search-services/solrhome).
+     * Returns the parent directory (e.g. /opt/pristy-search-services/solrhome).
      */
     private String discoverSolrHome()
     {

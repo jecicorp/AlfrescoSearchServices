@@ -1,4 +1,4 @@
-# alfresco-search-subsystem-solr9
+# pristy-search-subsystem-solr9
 
 A **resources-only** JAR installed into the Alfresco Repository webapp
 (`WEB-INF/lib`). It registers a new **`solr9`** Search subsystem type so the

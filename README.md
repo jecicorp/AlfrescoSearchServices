@@ -1,11 +1,16 @@
-# Alfresco Search Services (Jeci Fork)
+# Pristy Search Services
 
 Community fork of **Alfresco Search Services**, modernized to run on **vanilla
 Apache Solr 9.10.1 / Lucene 9.12.3** and **Java 17**. Enterprise components
 (Insight Engine, Zeppelin, governance services) have been removed, and the indexing
 trackers have been **externalized into a standalone service**.
 
-Project home: **https://github.com/jecicorp/AlfrescoSearchServices**
+It is the search tier of **Pristy ECM**, a community fork of Alfresco Community
+Edition, and works with a stock Alfresco Community repository just as well.
+
+- Project home: **https://gitlab.com/pristy-oss/pristy-search-services**
+- Docker images: **https://hub.docker.com/r/jeci/pristy-search-services**
+- Changelog: [CHANGELOG.md](CHANGELOG.md) — Release process: [docs/release.md](docs/release.md)
 
 > ## ⚠️ Status & disclaimer
 >
@@ -26,7 +31,7 @@ Project home: **https://github.com/jecicorp/AlfrescoSearchServices**
 - **Solr 9.10.1 / Lucene 9.12.3** (vanilla Apache, no Alfresco-patched build).
 - **Java 17**, **ZooKeeper 3.6.3**, logging on **Log4j 2**.
 - **Externalized indexing trackers** — a separate Spring Boot service
-  (`alfresco-indexing-trackers`) reads from the repository and feeds Solr, instead
+  (`pristy-indexing-trackers`) reads from the repository and feeds Solr, instead
   of running inside the Solr webapp. Solr and the trackers are now two independently
   deployable, restartable and tunable services.
 - Enterprise-only modules removed; the search API, AFTS query language and ACL
@@ -36,8 +41,8 @@ The search tier therefore consists of **two services**:
 
 | Service | Role |
 |---------|------|
-| **Solr** (`alfresco-search` + `packaging`) | Query serving and index storage. |
-| **`alfresco-indexing-trackers`** | Reads nodes/ACLs/content from the Alfresco Repository and indexes them into Solr. Tuned via `ALFRESCO_TRACKER_*` environment variables. |
+| **Solr** (`pristy-search` + `packaging`) | Query serving and index storage. |
+| **`pristy-indexing-trackers`** | Reads nodes/ACLs/content from the Alfresco Repository and indexes them into Solr. Tuned via `ALFRESCO_TRACKER_*` environment variables. |
 
 ## Documentation
 
@@ -51,6 +56,7 @@ See the [`docs/`](docs/) folder:
 - [docs/tracker-configuration.md](docs/tracker-configuration.md) — full tuning
   reference for the standalone trackers.
 - [docs/debugging.md](docs/debugging.md) — ACL deny filtering diagnostics.
+- [docs/release.md](docs/release.md) — branches, versioning and what a tag publishes.
 
 ## Prerequisites
 
@@ -75,11 +81,11 @@ mvn package -Dmaven.test.skip=true
 ## Unit Tests
 
 ```bash
-# Unit tests (alfresco-search + alfresco-solrclient-lib)
+# Unit tests (pristy-search + pristy-solrclient-lib)
 mise run test
 
 # Or directly with Maven
-mvn test -pl search-services/alfresco-solrclient-lib,search-services/alfresco-search -am
+mvn test -pl search-services/pristy-solrclient-lib,search-services/pristy-search -am
 ```
 
 ## End-to-End Tests
@@ -133,14 +139,14 @@ mise run dev:down    # stop
 
 ```
 .
-├── pom.xml                         # Parent POM (alfresco-search-parent)
+├── pom.xml                         # Parent POM (pristy-search-parent)
 ├── mise.toml                       # mise configuration (Java, Maven, tasks)
 ├── docs/                           # Technical documentation (see index)
 ├── search-services/
 │   ├── pom.xml                     # search-services parent POM
-│   ├── alfresco-solrclient-lib/    # Solr client for Alfresco
-│   ├── alfresco-search/            # Solr search engine (main module)
-│   ├── alfresco-indexing-trackers/ # Standalone indexing trackers (Spring Boot)
+│   ├── pristy-solrclient-lib/    # Solr client for Alfresco
+│   ├── pristy-search/            # Solr search engine (main module)
+│   ├── pristy-indexing-trackers/ # Standalone indexing trackers (Spring Boot)
 │   └── packaging/                  # Distribution assembly + Docker image
 └── e2e-test/                       # End-to-end tests
     ├── python-generator/           # Docker Compose generator (Python)

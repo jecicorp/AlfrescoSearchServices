@@ -135,9 +135,9 @@ def getSolrcoreReplacements(sharding, communication, fingerprint):
     if communication == 'mtls':
         # Legacy JCEKS mTLS profile: replace keystore paths with upstream JCEKS locations.
         solrcoreReplacements['alfresco.secureComms=none'] = 'alfresco.secureComms=https'
-        solrcoreReplacements['alfresco.encryption.ssl.keystore.location=.*'] = 'alfresco.encryption.ssl.keystore.location=\\\\\\/opt\\\\\\/alfresco-search-services\\\\\\/keystore\\\\\\/ssl-repo-client.keystore'
+        solrcoreReplacements['alfresco.encryption.ssl.keystore.location=.*'] = 'alfresco.encryption.ssl.keystore.location=\\\\\\/opt\\\\\\/pristy-search-services\\\\\\/keystore\\\\\\/ssl-repo-client.keystore'
         solrcoreReplacements['alfresco.encryption.ssl.keystore.type=.*'] = 'alfresco.encryption.ssl.keystore.type=JCEKS'
-        solrcoreReplacements['alfresco.encryption.ssl.truststore.location=.*'] = 'alfresco.encryption.ssl.truststore.location=\\\\\\/opt\\\\\\/alfresco-search-services\\\\\\/keystore\\\\\\/ssl-repo-client.truststore'
+        solrcoreReplacements['alfresco.encryption.ssl.truststore.location=.*'] = 'alfresco.encryption.ssl.truststore.location=\\\\\\/opt\\\\\\/pristy-search-services\\\\\\/keystore\\\\\\/ssl-repo-client.truststore'
         solrcoreReplacements['alfresco.encryption.ssl.truststore.type=.*'] = 'alfresco.encryption.ssl.truststore.type=JCEKS'
     elif communication == 'https':
         # Pristy PKCS12 mTLS profile: enable https comms; keystore paths come from
@@ -163,9 +163,9 @@ def addAlfrescoVolumes(alfrescoNode):
 
 def addSolrMtlsConfig(solrEnvNode):
     """Add a list of environment values in Docker Compose SOLR Service for mTLS."""
-    solrEnvNode['SOLR_SSL_TRUST_STORE'] = '/opt/alfresco-search-services/keystore/ssl-repo-client.truststore'
+    solrEnvNode['SOLR_SSL_TRUST_STORE'] = '/opt/pristy-search-services/keystore/ssl-repo-client.truststore'
     solrEnvNode['SOLR_SSL_TRUST_STORE_TYPE'] = 'JCEKS'
-    solrEnvNode['SOLR_SSL_KEY_STORE'] = '/opt/alfresco-search-services/keystore/ssl-repo-client.keystore'
+    solrEnvNode['SOLR_SSL_KEY_STORE'] = '/opt/pristy-search-services/keystore/ssl-repo-client.keystore'
     solrEnvNode['SOLR_SSL_KEY_STORE_TYPE'] = 'JCEKS'
     solrEnvNode['SOLR_SSL_NEED_CLIENT_AUTH'] = 'true'
 
@@ -192,7 +192,7 @@ def addSolrJavaToolOptions(solrEnvNode):
 
 def addSolrVolumes(solrNode):
     """Add route to keystores folder"""
-    solrNode['volumes'] = ['./keystores/solr:/opt/alfresco-search-services/keystore']
+    solrNode['volumes'] = ['./keystores/solr:/opt/pristy-search-services/keystore']
 
 def addSharedSecretSolrOpts(solrEnvNode):
     """Add a list of values to add in Docker Compose SOLR_OPTS property for Shared Secret communication."""
@@ -494,7 +494,7 @@ if __name__ == '__main__':
     trackersDockerfile = os.path.join(scriptDir, '..', '..', 'search-services', 'packaging', 'src', 'docker', 'Dockerfile.trackers')
     shutil.copy2(trackersDockerfile, trackersOutputDir)
     # Copy the tracker JAR
-    jarPattern = os.path.join(scriptDir, '..', '..', 'search-services', 'alfresco-indexing-trackers', 'target', 'alfresco-indexing-trackers-*.jar')
+    jarPattern = os.path.join(scriptDir, '..', '..', 'search-services', 'pristy-indexing-trackers', 'target', 'pristy-indexing-trackers-*.jar')
     for jar in glob.glob(jarPattern):
         shutil.copy2(jar, trackersOutputDir)
 

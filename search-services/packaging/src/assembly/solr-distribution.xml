@@ -58,7 +58,7 @@
         </fileSet>
         <!-- Solr config -->
         <fileSet>
-            <directory>${project.build.directory}/alfresco-search/solr/instance</directory>
+            <directory>${project.build.directory}/pristy-search/solr/instance</directory>
             <outputDirectory>solrhome</outputDirectory>
             <excludes>
                 <exclude>**/workspace-SpacesStore/**</exclude>

@@ -24,7 +24,7 @@ Solr 6.6.5-patched.22  ──▶  Solr 8.11.4 (vanilla)  ──▶  Solr 9.10.1
 ```
 
 A second, structural change accompanied the upgrade: the **indexing trackers were
-externalized** into a standalone Spring Boot service (`alfresco-indexing-trackers`)
+externalized** into a standalone Spring Boot service (`pristy-indexing-trackers`)
 instead of running inside the Solr webapp. Several migration fixes only make sense in
 that light (model loading, commit cadence, cascade tracking) — see
 [`tracker-configuration.md`](tracker-configuration.md).

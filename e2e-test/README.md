@@ -36,10 +36,10 @@ mise run e2e:down
 
 ```bash
 # Build the distribution ZIP first
-mvn install -DskipTests -pl search-services/alfresco-solrclient-lib,search-services/alfresco-search,search-services/packaging -am
+mvn install -DskipTests -pl search-services/pristy-solrclient-lib,search-services/pristy-search,search-services/packaging -am
 
 # Build the Docker image from the packaging output
-docker build -t alfresco/alfresco-search-services:local search-services/packaging/target/docker-resources/
+docker build -t jeci/pristy-search-services:local search-services/packaging/target/docker-resources/
 ```
 
 ### Generate the Docker Compose stack
@@ -48,7 +48,7 @@ docker build -t alfresco/alfresco-search-services:local search-services/packagin
 cd e2e-test/python-generator
 python3 generator.py \
   --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
-  --search=alfresco/alfresco-search-services:local \
+  --search=jeci/pristy-search-services:local \
   --postgres=postgres:16 \
   --transformer=AIOTransformers \
   --output=../../target/e2e-stack

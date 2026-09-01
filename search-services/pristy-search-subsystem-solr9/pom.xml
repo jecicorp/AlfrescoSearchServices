@@ -5,13 +5,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>fr.jeci.alfresco</groupId>
-        <artifactId>alfresco-solr-search-parent</artifactId>
-        <version>2.99.0-SNAPSHOT</version>
+        <groupId>fr.pristy</groupId>
+        <artifactId>pristy-solr-search-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>alfresco-search-subsystem-solr9</artifactId>
-    <name>Alfresco Search Subsystem - solr9</name>
+    <artifactId>pristy-search-subsystem-solr9</artifactId>
+    <name>Pristy Search Subsystem - solr9</name>
     <description>
         Resources-only JAR installed into the Alfresco Repository webapp (WEB-INF/lib).
         Registers a "solr9" Search subsystem type that keeps search queries pointed at

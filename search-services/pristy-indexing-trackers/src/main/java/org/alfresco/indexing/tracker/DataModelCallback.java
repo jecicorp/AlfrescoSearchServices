@@ -28,7 +28,7 @@ import org.alfresco.service.namespace.QName;
 /**
  * Callback interface for data model operations.
  * Abstracts the dependency on AlfrescoSolrDataModel (Solr-specific singleton).
- * Implemented by alfresco-search module.
+ * Implemented by pristy-search module.
  */
 public interface DataModelCallback
 {
