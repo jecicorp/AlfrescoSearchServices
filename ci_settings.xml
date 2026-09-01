@@ -1,5 +1,18 @@
 <settings xmlns="http://maven.apache.org/SETTINGS/1.1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd">
+
+  <!--
+    Settings for the public CI on gitlab.com/pristy-oss.
+
+    Deliberately contains NO mirror and NO private credentials: dependencies are
+    resolved straight from Maven Central and artifacts.alfresco.com (both declared
+    in the POMs), so a merge request from an external contributor builds and tests
+    without access to any protected variable.
+
+    The only server is the project's own GitLab Package Registry, authenticated
+    with the ephemeral CI job token. It is used by `mvn deploy` and matches the
+    <distributionManagement> id in the root POM.
+  -->
   <servers>
     <server>
       <id>gitlab-maven</id>
@@ -12,28 +25,5 @@
         </httpHeaders>
       </configuration>
     </server>
-    <server>
-      <id>pristy-releases</id>
-      <username>${env.NEXUS_USERNAME}</username>
-      <password>${env.NEXUS_PASSWORD}</password>
-    </server>
-    <server>
-      <id>pristy-snapshots</id>
-      <username>${env.NEXUS_USERNAME}</username>
-      <password>${env.NEXUS_PASSWORD}</password>
-    </server>
-    <server>
-      <id>jeci-maven-public</id>
-      <username>${env.NEXUS_USERNAME}</username>
-      <password>${env.NEXUS_PASSWORD}</password>
-    </server>
   </servers>
-  <mirrors>
-    <mirror>
-      <id>jeci-maven-public</id>
-      <name>Maven mirror</name>
-      <url>https://nexus.jeci.tech/repository/maven-public/</url>
-      <mirrorOf>central,alfresco-public,alfresco-public-snapshots,alfresco-private-repository,alfresco-plugin-public,alfresco-plugin-public-snapshots</mirrorOf>
-    </mirror>
-  </mirrors>
 </settings>

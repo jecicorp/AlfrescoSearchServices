@@ -1,76 +1,209 @@
 ---
+# Pipeline pour https://gitlab.com/pristy-oss/pristy-search-services
+#
+# Concu pour un depot public sur runners partages : aucun secret n'est necessaire
+# pour construire, tester et scanner. Les seuls jobs qui consomment des variables
+# protegees (Docker Hub) sont restreints a develop / stable / tags, si bien qu'une
+# merge request venant d'un fork externe passe le pipeline de bout en bout.
 stages:
   - build
+  - security
   - docker
+  - deploy
+
+# Evite les pipelines en double : soit le pipeline de MR, soit celui de branche.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS == null
 
 default:
-  tags:
-    - docker
-    - jeci
+  image: docker.io/maven:3.9-eclipse-temurin-17
+
+variables:
+  MAVEN_OPTS: >-
+    -Dhttps.protocols=TLSv1.2
+    -Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository
+    -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN
+    -Dorg.slf4j.simpleLogger.showDateTime=true
+    -Djava.awt.headless=true
+  MAVEN_CLI_OPTS: "-s ci_settings.xml --batch-mode --errors --show-version -DinstallAtEnd=true -DdeployAtEnd=true"
+  # Le module e2e-test exige une stack ACS + Solr + Postgres complete (voir
+  # e2e-test/README.md) : il ne peut pas tourner dans ce pipeline et est exclu
+  # du reacteur partout. Ses tests se lancent a la main via `mise run e2e:test`.
+  MAVEN_REACTOR: "-pl !e2e-test"
+  DOCKER_NAMESPACE: jeci
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .m2/repository
 
 ####
-## Build Maven ##
+## Build + tests unitaires ##
 ##
 
-.maven:
-  image: docker.io/maven:3.9-eclipse-temurin-17
-  before_script:
-    - source ${NEXUS_SECRET_FILE}
-  cache:
-    paths:
-      - .m2/repository
-  variables:
-    MAVEN_OPTS: "-Dhttps.protocols=TLSv1.2 -Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true"
-    MAVEN_CLI_OPTS: "-s ci_settings.xml --batch-mode --errors --show-version -DinstallAtEnd=true -DdeployAtEnd=true"
-
+# -DskipITs : les tests failsafe (`*IT`) de pristy-search demarrent un coeur Solr
+# embarque et sont actuellement en echec (voir le job integration-tests). Ils n'ont
+# jamais fait partie de la suite lancee par `mise run test`, qui s'arrete a surefire.
+# Ce job reste donc le garde-fou bloquant sur les tests unitaires.
 maven-build:
   stage: build
-  extends: .maven
   script:
-    - mvn $MAVEN_CLI_OPTS package -Dmaven.test.skip=true
+    - mvn $MAVEN_CLI_OPTS verify -DskipITs $MAVEN_REACTOR
   artifacts:
     paths:
-      # Context Docker Solr : Dockerfile filtré par Maven + zip de distribution + scripts
+      # Contexte Docker Solr : Dockerfile filtre par Maven + zip de distribution + scripts
       - "search-services/packaging/target/docker-resources/"
-      # JAR Spring Boot des trackers (Dockerfile.trackers est dans le dépôt)
-      - "search-services/alfresco-indexing-trackers/target/alfresco-indexing-trackers-*.jar"
-    expire_in: 1 day
-  except:
-    - tags
+      # JAR Spring Boot des trackers (Dockerfile.trackers est dans le depot)
+      - "search-services/pristy-indexing-trackers/target/pristy-indexing-trackers-*.jar"
+      - "**/target/surefire-reports/"
+    reports:
+      junit: "**/target/surefire-reports/TEST-*.xml"
+    expire_in: 1 week
+
+# Suite d'integration (coeur Solr embarque), NON bloquante et attendue rouge.
+# Elle existe pour rendre l'etat visible et mesurer les progres, pas pour garder la
+# branche. A basculer dans maven-build (et retirer allow_failure) le jour ou elle
+# passe. -Dtest.solr.allowed.securerandom : contournement recommande par Solr quand
+# le JVM du runner expose NativePRNG, sinon SolrTestCaseJ4 refuse de demarrer.
+integration-tests:
+  stage: build
+  allow_failure: true
+  # Pas de flag pour "seulement les ITs" : surefire n'expose que skipTests, qui
+  # couperait aussi failsafe. Ce job relance donc la suite complete ; c'est du temps
+  # de runner, pas un risque, et il ne bloque rien.
+  script:
+    - mvn $MAVEN_CLI_OPTS verify $MAVEN_REACTOR
+      -Dtest.solr.allowed.securerandom=NativePRNG
+  artifacts:
+    when: always
+    paths:
+      - "**/target/failsafe-reports/"
+    reports:
+      junit: "**/target/failsafe-reports/TEST-*.xml"
+    expire_in: 1 week
 
 ####
-## Build Docker ##
+## Securite : SBOM + scan de vulnerabilites ##
+##
+
+# Deux SBOM CycloneDX, meme decoupage que pristy-core.
+#   - bom-runtime : scope compile -> ce que nos JAR embarquent, et donc ce que
+#     nous pouvons corriger depuis ce depot.
+#   - bom-full    : compile + provided -> ce qui tourne reellement, en incluant
+#     les JAR fournis par Solr 9 et par le repository Alfresco.
+sbom:
+  stage: security
+  script:
+    - mvn $MAVEN_CLI_OPTS $MAVEN_REACTOR org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom
+      -DoutputFormat=json -DoutputName=bom-runtime
+      -DincludeProvidedScope=false -DincludeTestScope=false
+    - mvn $MAVEN_CLI_OPTS $MAVEN_REACTOR org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom
+      -DoutputFormat=json -DoutputName=bom-full
+      -DincludeProvidedScope=true -DincludeTestScope=false
+  artifacts:
+    paths:
+      - target/bom-runtime.json
+      - target/bom-full.json
+    expire_in: 1 week
+
+# Seul le SBOM runtime fait echouer le pipeline. Bloquer sur l'arbre complet le
+# laisserait rouge en permanence sur des CVE non corrigeables ici : elles se
+# remedient en changeant de version de Solr ou d'Alfresco, pas dans src/.
+dependency-scan:
+  stage: security
+  image:
+    name: docker.io/aquasec/trivy:0.74.0
+    entrypoint: [""]
+  needs:
+    - job: sbom
+      artifacts: true
+  variables:
+    TRIVY_CACHE_DIR: .trivycache
+    TRIVY_NO_PROGRESS: "true"
+  # Remplace le cache .m2 global, inutile a ce job.
+  cache:
+    key: trivy-db
+    paths:
+      - .trivycache/
+  script:
+    # Informatif : tout l'arbre d'execution, rapporte mais jamais bloquant.
+    - trivy sbom --quiet --format json --output trivy-full.json target/bom-full.json
+    - trivy convert --quiet --format table --severity HIGH,CRITICAL trivy-full.json
+    # Bloquant : uniquement les JAR que nous distribuons.
+    - trivy sbom --quiet --format json --output trivy-runtime.json target/bom-runtime.json
+    - trivy convert --quiet --format table --severity CRITICAL --exit-code 1 trivy-runtime.json
+  artifacts:
+    when: always
+    paths:
+      - trivy-full.json
+      - trivy-runtime.json
+    expire_in: 1 week
+
+####
+## Images Docker -> Docker Hub (jeci/) ##
 ##
 
 .kaniko:
   stage: docker
   image:
-    name: rg.fr-par.scw.cloud/public/ghcr.io/osscontainertools/kaniko:v1.28.2-debug
+    name: ghcr.io/osscontainertools/kaniko:v1.28.2-debug
     entrypoint: [""]
-  variables:
-    REGISTRY_URI: rg.fr-par.scw.cloud/pristy
+  needs:
+    - job: maven-build
+      artifacts: true
   before_script:
-    - echo "{\"auths\":{\"${REGISTRY_URI}\":{\"auth\":\"$(printf "nologin:%s" "${SCW_SECRET_KEY}" | base64 | tr -d '\n')\"},\"$CI_DEPENDENCY_PROXY_SERVER\":{\"auth\":\"$(printf "%s:%s" ${CI_DEPENDENCY_PROXY_USER} "${CI_DEPENDENCY_PROXY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
-    - export VERSION=$(sed -n '1,/<version>/ s/\s*<[/]*version>//g p' pom.xml)
-  except:
-    - tags
+    - >-
+      echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"auth\":\"$(printf "%s:%s" "${DOCKERHUB_USER}" "${DOCKERHUB_TOKEN}" | base64 | tr -d '\n')\"}}}"
+      > /kaniko/.docker/config.json
+    # Un tag Git publie <version> et deplace latest ; une branche publie <branche>.
+    - if [ -n "$CI_COMMIT_TAG" ]; then IMAGE_TAGS="$CI_COMMIT_TAG latest"; else IMAGE_TAGS="$CI_COMMIT_REF_SLUG"; fi
+    - DESTINATIONS=""
+    - for t in $IMAGE_TAGS; do DESTINATIONS="$DESTINATIONS --destination ${DOCKER_NAMESPACE}/${IMAGE_NAME}:$t"; done
+    - echo "Publication vers$DESTINATIONS"
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_COMMIT_BRANCH == "stable"
 
 docker-build-solr:
   extends: .kaniko
   variables:
-    REGISTRY_REPOSITORY: alfresco-search-services
+    IMAGE_NAME: pristy-search-services
   script:
     - /kaniko/executor
       --context "${CI_PROJECT_DIR}/search-services/packaging/target/docker-resources"
       --dockerfile "${CI_PROJECT_DIR}/search-services/packaging/target/docker-resources/Dockerfile"
-      --destination "${REGISTRY_URI}/${REGISTRY_REPOSITORY}:${VERSION}-${CI_COMMIT_REF_NAME}"
+      $DESTINATIONS
 
 docker-build-trackers:
   extends: .kaniko
   variables:
-    REGISTRY_REPOSITORY: alfresco-indexing-trackers
+    IMAGE_NAME: pristy-indexing-trackers
   script:
     - /kaniko/executor
-      --context "${CI_PROJECT_DIR}/search-services/alfresco-indexing-trackers/target"
+      --context "${CI_PROJECT_DIR}/search-services/pristy-indexing-trackers/target"
       --dockerfile "${CI_PROJECT_DIR}/search-services/packaging/src/docker/Dockerfile.trackers"
-      --destination "${REGISTRY_URI}/${REGISTRY_REPOSITORY}:${VERSION}-${CI_COMMIT_REF_NAME}"
+      $DESTINATIONS
+
+####
+## Publication Maven -> Package Registry GitLab ##
+##
+
+# Snapshots depuis develop, releases depuis un tag. Le Package Registry d'un
+# projet public est lisible sans authentification : c'est ce qui alimente
+# pristy-ecm. Maven Central (namespace fr.pristy) est prevu pour la v1.1.
+maven-deploy:
+  stage: deploy
+  script:
+    - mvn $MAVEN_CLI_OPTS deploy -DskipTests $MAVEN_REACTOR
+  needs:
+    - job: maven-build
+      artifacts: true
+    - job: dependency-scan
+      artifacts: false
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "develop"
