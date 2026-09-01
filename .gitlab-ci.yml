@@ -1,17 +1,21 @@
 ---
-# Pipeline pour https://gitlab.com/pristy-oss/pristy-search-services
+# Pipeline for https://gitlab.com/pristy-oss/pristy-search-services
 #
-# Concu pour un depot public sur runners partages : aucun secret n'est necessaire
-# pour construire, tester et scanner. Les seuls jobs qui consomment des variables
-# protegees (Docker Hub) sont restreints a develop / stable / tags, si bien qu'une
-# merge request venant d'un fork externe passe le pipeline de bout en bout.
+# Runs on the runners dedicated to the public Pristy projects, tagged
+# [docker, pristy] — distinct from the [docker, jeci] runners used by the private
+# projects. Only the jobs that consume protected variables (Docker Hub) are
+# restricted to develop / stable / tags.
+#
+# ci_settings.xml deliberately holds no private mirror and no credential:
+# dependencies resolve from Maven Central and artifacts.alfresco.com, so
+# building, testing and scanning need no secret at all.
 stages:
   - build
   - security
   - docker
   - deploy
 
-# Evite les pipelines en double : soit le pipeline de MR, soit celui de branche.
+# Avoid duplicate pipelines: run the MR pipeline OR the branch pipeline, not both.
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -20,6 +24,9 @@ workflow:
 
 default:
   image: docker.io/maven:3.9-eclipse-temurin-17
+  tags:
+    - docker
+    - pristy
 
 variables:
   MAVEN_OPTS: >-
@@ -29,9 +36,9 @@ variables:
     -Dorg.slf4j.simpleLogger.showDateTime=true
     -Djava.awt.headless=true
   MAVEN_CLI_OPTS: "-s ci_settings.xml --batch-mode --errors --show-version -DinstallAtEnd=true -DdeployAtEnd=true"
-  # Le module e2e-test exige une stack ACS + Solr + Postgres complete (voir
-  # e2e-test/README.md) : il ne peut pas tourner dans ce pipeline et est exclu
-  # du reacteur partout. Ses tests se lancent a la main via `mise run e2e:test`.
+  # The e2e-test module needs a full ACS + Solr + Postgres stack (see
+  # e2e-test/README.md), so it cannot run here and is excluded from the reactor
+  # everywhere. Run its tests by hand with `mise run e2e:test`.
   MAVEN_REACTOR: "-pl !e2e-test"
   DOCKER_NAMESPACE: jeci
 
@@ -41,39 +48,39 @@ cache:
     - .m2/repository
 
 ####
-## Build + tests unitaires ##
+## Build + unit tests ##
 ##
 
-# -DskipITs : les tests failsafe (`*IT`) de pristy-search demarrent un coeur Solr
-# embarque et sont actuellement en echec (voir le job integration-tests). Ils n'ont
-# jamais fait partie de la suite lancee par `mise run test`, qui s'arrete a surefire.
-# Ce job reste donc le garde-fou bloquant sur les tests unitaires.
+# -DskipITs: the failsafe (`*IT`) suite of pristy-search boots an embedded Solr
+# core and is currently failing (see the integration-tests job). It was never part
+# of what `mise run test` executes, which stops at surefire. This job therefore
+# stays the blocking gate on the unit tests.
 maven-build:
   stage: build
   script:
     - mvn $MAVEN_CLI_OPTS verify -DskipITs $MAVEN_REACTOR
   artifacts:
     paths:
-      # Contexte Docker Solr : Dockerfile filtre par Maven + zip de distribution + scripts
+      # Solr Docker context: Maven-filtered Dockerfile + distribution zip + scripts
       - "search-services/packaging/target/docker-resources/"
-      # JAR Spring Boot des trackers (Dockerfile.trackers est dans le depot)
+      # Trackers Spring Boot JAR (Dockerfile.trackers lives in the repository)
       - "search-services/pristy-indexing-trackers/target/pristy-indexing-trackers-*.jar"
       - "**/target/surefire-reports/"
     reports:
       junit: "**/target/surefire-reports/TEST-*.xml"
     expire_in: 1 week
 
-# Suite d'integration (coeur Solr embarque), NON bloquante et attendue rouge.
-# Elle existe pour rendre l'etat visible et mesurer les progres, pas pour garder la
-# branche. A basculer dans maven-build (et retirer allow_failure) le jour ou elle
-# passe. -Dtest.solr.allowed.securerandom : contournement recommande par Solr quand
-# le JVM du runner expose NativePRNG, sinon SolrTestCaseJ4 refuse de demarrer.
+# Integration suite (embedded Solr core), NON blocking and expected to be red.
+# It exists to make the state visible and to measure progress, not to guard the
+# branch. Fold it into maven-build (and drop allow_failure) once it passes.
+# -Dtest.solr.allowed.securerandom is the bypass Solr recommends when the runner
+# JVM exposes NativePRNG, without which SolrTestCaseJ4 refuses to start.
 integration-tests:
   stage: build
   allow_failure: true
-  # Pas de flag pour "seulement les ITs" : surefire n'expose que skipTests, qui
-  # couperait aussi failsafe. Ce job relance donc la suite complete ; c'est du temps
-  # de runner, pas un risque, et il ne bloque rien.
+  # There is no "only the ITs" flag: surefire exposes skipTests, which failsafe
+  # honours too. So this job reruns the whole suite — runner time, not a risk,
+  # and it blocks nothing.
   script:
     - mvn $MAVEN_CLI_OPTS verify $MAVEN_REACTOR
       -Dtest.solr.allowed.securerandom=NativePRNG
@@ -86,14 +93,14 @@ integration-tests:
     expire_in: 1 week
 
 ####
-## Securite : SBOM + scan de vulnerabilites ##
+## Security: SBOM + vulnerability scan ##
 ##
 
-# Deux SBOM CycloneDX, meme decoupage que pristy-core.
-#   - bom-runtime : scope compile -> ce que nos JAR embarquent, et donc ce que
-#     nous pouvons corriger depuis ce depot.
-#   - bom-full    : compile + provided -> ce qui tourne reellement, en incluant
-#     les JAR fournis par Solr 9 et par le repository Alfresco.
+# Two CycloneDX SBOMs, same split as pristy-core.
+#   - bom-runtime: compile scope -> what our JARs actually ship, and therefore
+#     what we can fix from this repository.
+#   - bom-full:    compile + provided -> what really runs, including the JARs
+#     provided by Solr 9 and by the Alfresco repository.
 sbom:
   stage: security
   script:
@@ -109,9 +116,9 @@ sbom:
       - target/bom-full.json
     expire_in: 1 week
 
-# Seul le SBOM runtime fait echouer le pipeline. Bloquer sur l'arbre complet le
-# laisserait rouge en permanence sur des CVE non corrigeables ici : elles se
-# remedient en changeant de version de Solr ou d'Alfresco, pas dans src/.
+# Only the runtime SBOM fails the pipeline. Blocking on the full tree would keep
+# it permanently red on CVEs we cannot fix here: those are remediated by moving
+# to another Solr or Alfresco version, not by anything under src/.
 dependency-scan:
   stage: security
   image:
@@ -123,16 +130,16 @@ dependency-scan:
   variables:
     TRIVY_CACHE_DIR: .trivycache
     TRIVY_NO_PROGRESS: "true"
-  # Remplace le cache .m2 global, inutile a ce job.
+  # Overrides the global .m2 cache, which this job does not need.
   cache:
     key: trivy-db
     paths:
       - .trivycache/
   script:
-    # Informatif : tout l'arbre d'execution, rapporte mais jamais bloquant.
+    # Informative: the whole runtime tree, reported but never blocking.
     - trivy sbom --quiet --format json --output trivy-full.json target/bom-full.json
     - trivy convert --quiet --format table --severity HIGH,CRITICAL trivy-full.json
-    # Bloquant : uniquement les JAR que nous distribuons.
+    # Blocking: only the JARs we distribute.
     - trivy sbom --quiet --format json --output trivy-runtime.json target/bom-runtime.json
     - trivy convert --quiet --format table --severity CRITICAL --exit-code 1 trivy-runtime.json
   artifacts:
@@ -143,7 +150,7 @@ dependency-scan:
     expire_in: 1 week
 
 ####
-## Images Docker -> Docker Hub (jeci/) ##
+## Docker images -> Docker Hub (jeci/) ##
 ##
 
 .kaniko:
@@ -158,11 +165,11 @@ dependency-scan:
     - >-
       echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"auth\":\"$(printf "%s:%s" "${DOCKERHUB_USER}" "${DOCKERHUB_TOKEN}" | base64 | tr -d '\n')\"}}}"
       > /kaniko/.docker/config.json
-    # Un tag Git publie <version> et deplace latest ; une branche publie <branche>.
+    # A Git tag publishes <version> and moves latest; a branch publishes its name.
     - if [ -n "$CI_COMMIT_TAG" ]; then IMAGE_TAGS="$CI_COMMIT_TAG latest"; else IMAGE_TAGS="$CI_COMMIT_REF_SLUG"; fi
     - DESTINATIONS=""
     - for t in $IMAGE_TAGS; do DESTINATIONS="$DESTINATIONS --destination ${DOCKER_NAMESPACE}/${IMAGE_NAME}:$t"; done
-    - echo "Publication vers$DESTINATIONS"
+    - echo "Publishing to$DESTINATIONS"
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH == "develop"
@@ -189,12 +196,12 @@ docker-build-trackers:
       $DESTINATIONS
 
 ####
-## Publication Maven -> Package Registry GitLab ##
+## Maven publication -> GitLab Package Registry ##
 ##
 
-# Snapshots depuis develop, releases depuis un tag. Le Package Registry d'un
-# projet public est lisible sans authentification : c'est ce qui alimente
-# pristy-ecm. Maven Central (namespace fr.pristy) est prevu pour la v1.1.
+# Snapshots from develop, releases from a tag. The Package Registry of a public
+# project is readable without authentication, which is what feeds pristy-ecm.
+# Maven Central (namespace fr.pristy) is planned for 1.1.
 maven-deploy:
   stage: deploy
   script:

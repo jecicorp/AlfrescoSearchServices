@@ -6,29 +6,29 @@ java = "temurin-17"
 maven = "3.9.9"
 
 [tasks.build]
-description = "Build sans tests"
+description = "Build without tests"
 run = "mvn $MAVEN_CLI_OPTS package -Dmaven.test.skip=true"
 
 [tasks.test]
-description = "Tests unitaires (sans e2e)"
+description = "Unit tests (no e2e)"
 run = "mvn $MAVEN_CLI_OPTS test -pl search-services/pristy-solrclient-lib,search-services/pristy-search,search-services/pristy-indexing-trackers -am"
 
 [tasks.install]
-description = "Install dans le repo local (sans e2e)"
+description = "Install into the local Maven repo (no e2e)"
 # 'clean' is required: a stale target/ (e.g. an old solr-core-8.11.4.jar left in
 # the packaging libs) otherwise gets bundled into the assembled Solr webapp.
 run = "mvn $MAVEN_CLI_OPTS clean install -DskipTests -pl search-services/pristy-solrclient-lib,search-services/pristy-search,search-services/packaging -am"
 
 [tasks."e2e:build-image"]
-description = "Construit l'image Docker locale depuis le packaging"
+description = "Build the local Docker image from the packaging module"
 run = """
 docker build -t jeci/pristy-search-services:local \
   search-services/packaging/target/docker-resources/
-echo "Image Docker construite : jeci/pristy-search-services:local"
+echo "Docker image built: jeci/pristy-search-services:local"
 """
 
 [tasks."e2e:generate"]
-description = "Génère le docker-compose pour la stack e2e"
+description = "Generate the docker-compose stack for e2e tests"
 dir = "e2e-test/python-generator"
 run = """
 python3 generator.py \
@@ -37,19 +37,19 @@ python3 generator.py \
   --postgres=postgres:16 \
   --transformer=AIOTransformers \
   --output=../../target/e2e-stack
-echo "Stack générée dans target/e2e-stack/"
-echo "Lancer avec : mise run e2e:up"
+echo "Stack generated in target/e2e-stack/"
+echo "Start it with: mise run e2e:up"
 """
 
 [tasks."e2e:rebuild"]
-description = "Build + regénère + redémarre la stack e2e (ordre correct)"
+description = "Build, regenerate and restart the e2e stack (in the right order)"
 run = """
-echo "==> Build Maven (sans tests)..."
+echo "==> Maven build (no tests)..."
 # 'clean' avoids bundling stale jars (e.g. an old solr-core) from a previous build.
 mvn $MAVEN_CLI_OPTS clean package -Dmaven.test.skip=true
-echo "==> Build image Solr..."
+echo "==> Building the Solr image..."
 docker build -t jeci/pristy-search-services:local search-services/packaging/target/docker-resources/
-echo "==> Génération docker-compose e2e (copie JARs frais)..."
+echo "==> Generating the e2e docker-compose (copies the fresh JARs)..."
 cd e2e-test/python-generator && python3 generator.py \
   --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
   --search=jeci/pristy-search-services:local \
@@ -57,44 +57,44 @@ cd e2e-test/python-generator && python3 generator.py \
   --transformer=AIOTransformers \
   --output=../../target/e2e-stack
 cd ../..
-echo "==> Redémarrage stack e2e..."
+echo "==> Restarting the e2e stack..."
 # --renew-anon-volumes: the search image declares VOLUME .../solrhome, so a reused
 # anonymous volume would mask the freshly built template/config (cores are recreated
 # from the template at startup).
 docker compose -f target/e2e-stack/docker-compose.yml up --build --force-recreate --renew-anon-volumes -d
-echo "==> Stack e2e prête."
+echo "==> e2e stack ready."
 """
 
 [tasks."e2e:up"]
-description = "Démarre la stack e2e (ACS + Solr + Postgres)"
+description = "Start the e2e stack (ACS + Solr + Postgres)"
 run = "docker compose -f target/e2e-stack/docker-compose.yml up --build -d"
 
 [tasks."e2e:down"]
-description = "Arrête la stack e2e"
+description = "Stop the e2e stack"
 run = "docker compose -f target/e2e-stack/docker-compose.yml down"
 
 [tasks."e2e:logs"]
-description = "Affiche les logs de la stack e2e"
+description = "Tail the e2e stack logs"
 run = "docker compose -f target/e2e-stack/docker-compose.yml logs -f"
 
 [tasks."e2e:test"]
-description = "Lance les tests e2e (stack doit être up)"
+description = "Run the e2e tests (the stack must be up)"
 run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test"
 
 [tasks."e2e:test:admin"]
-description = "Tests e2e admin uniquement"
+description = "E2e admin tests only"
 run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='SolrE2eAdminTest,SolrE2ESummaryTest,SolrE2eActionTest'"
 
 [tasks."e2e:test:search"]
-description = "Tests e2e recherche (sans admin)"
+description = "E2e search tests (without admin)"
 run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='SearchTest,SearchSimpleCasesTest,SearchCasesTest,SearchAFTSInFieldTest,SearchExactTermTest,SearchHighLightTest,SearchPermissionsTest,SearchQueryPaginationTest,SearchWithCustomModelTest,SpecialCharacterSearchTest'"
 
 [tasks."e2e:test:facet"]
-description = "Tests e2e facettes"
+description = "E2e facet tests"
 run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='FacetedSearchTest,FacetFieldsSearchTest,FacetIntervalSearchTest,FacetRangeSearchTest,PivotFacetedSearchTest,StatsSearchTest'"
 
 [tasks."e2e:test:class"]
-description = "Lance un test e2e par nom de classe — ex: mise run e2e:test:class MyTest"
+description = "Run a single e2e test class by name - e.g. mise run e2e:test:class MyTest"
 run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='{{arg(name=\"class\")}}'"
 
 [tasks."e2e:generate:https"]
@@ -125,7 +125,7 @@ description = "Build trackers Spring Boot JAR"
 run = "mvn $MAVEN_CLI_OPTS package -pl search-services/pristy-indexing-trackers -am -Dmaven.test.skip=true"
 
 [tasks."trackers:build-image"]
-description = "Construit l'image Docker des trackers depuis le JAR"
+description = "Build the trackers Docker image from the JAR"
 depends = ["trackers:build"]
 # The Dockerfile lives outside the build context (packaging/src/docker), and the
 # context is the module's target/ dir where the repackaged Spring Boot JAR sits
@@ -134,7 +134,7 @@ run = """
 docker build -t jeci/pristy-indexing-trackers:local \
   -f search-services/packaging/src/docker/Dockerfile.trackers \
   search-services/pristy-indexing-trackers/target
-echo "Image Docker construite : jeci/pristy-indexing-trackers:local"
+echo "Docker image built: jeci/pristy-indexing-trackers:local"
 """
 
 [tasks."trackers:run"]
