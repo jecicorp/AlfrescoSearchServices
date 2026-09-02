@@ -23,11 +23,14 @@
 
 package org.alfresco.test.search.functional.searchServices.solr.admin;
 
+import java.io.File;
+
 import javax.net.ssl.SSLException;
 
 import io.restassured.RestAssured;
 import io.restassured.config.RestAssuredConfig;
 import io.restassured.config.SSLConfig;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -79,6 +82,18 @@ public class TrackerAdminMtlsTest
         trustStorePath  = System.getProperty("tracker.ssl.trustStorePath", "/tmp/mtls-out/truststore.p12");
         trustStorePass  = System.getProperty("tracker.ssl.trustStorePass", "changeit");
         baseUrl = trackerScheme + "://" + trackerServer + ":" + trackerPort;
+
+        // Only the https (PKCS12 mTLS) stack generates this truststore, so its absence
+        // means the stack runs in http/secret mode and this negative test has nothing to
+        // assert. Skipping keeps the run honest: a missing keystore is not a tracker
+        // defect, and failing on it would mask real regressions in the same report.
+        if (!new File(trustStorePath).isFile())
+        {
+            throw new SkipException("mTLS truststore not found at " + trustStorePath
+                    + " — the stack is not running the https profile. Generate it with"
+                    + " 'STORE_PASS=changeit keystore/generate-keystores.sh /tmp/mtls-out'"
+                    + " and start the stack with '--communication https' to run this test.");
+        }
     }
 
     /**
