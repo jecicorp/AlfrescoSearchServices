@@ -174,8 +174,8 @@ public class ModelTrackerIT
     {
         QName modelName = QName.createQName("qname");
         TYPE type = TYPE.CHANGED;
-        Long oldChecksum = new Long(0);
-        Long newChecksum = new Long(1);
+        Long oldChecksum = 0L;
+        Long newChecksum = 1L;
         AlfrescoModelDiff diff = new AlfrescoModelDiff(modelName, type, oldChecksum, newChecksum);
         List<AlfrescoModelDiff> modelDiffs = new ArrayList<>();
         modelDiffs.add(diff);

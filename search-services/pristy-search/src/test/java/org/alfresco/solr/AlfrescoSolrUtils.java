@@ -492,8 +492,8 @@ public class AlfrescoSolrUtils
             solrQueryRequest = new SolrServletRequest(core, null);
             AddUpdateCommand addDocCmd = new AddUpdateCommand(solrQueryRequest);
             addDocCmd.overwrite = true;
-            addDocCmd.solrDoc = createDocument(dataModel, new Long(txid), new Long(dbid), nodeRef, type, aspects,
-                  properties, content, new Long(aclid), paths, owner, parentAssocs, ancestors);
+            addDocCmd.solrDoc = createDocument(dataModel, Long.valueOf(txid), Long.valueOf(dbid), nodeRef, type, aspects,
+                  properties, content, Long.valueOf(aclid), paths, owner, parentAssocs, ancestors);
             core.getUpdateHandler().addDoc(addDocCmd);
             if (commit)
             {
@@ -713,7 +713,7 @@ public class AlfrescoSolrUtils
           AddUpdateCommand aclTxCmd = new AddUpdateCommand(solrQueryRequest);
           aclTxCmd.overwrite = true;
           SolrInputDocument aclTxSol = new SolrInputDocument();
-          String aclTxId = AlfrescoSolrDataModel.getAclChangeSetDocumentId(new Long(acltxid));
+          String aclTxId = AlfrescoSolrDataModel.getAclChangeSetDocumentId(Long.valueOf(acltxid));
           aclTxSol.addField(FIELD_SOLR4_ID, aclTxId);
           aclTxSol.addField(FIELD_VERSION, "0");
           aclTxSol.addField(FIELD_ACLTXID, acltxid);
@@ -725,7 +725,7 @@ public class AlfrescoSolrUtils
           AddUpdateCommand aclCmd = new AddUpdateCommand(solrQueryRequest);
           aclCmd.overwrite = true;
           SolrInputDocument aclSol = new SolrInputDocument();
-          String aclDocId = AlfrescoSolrDataModel.getAclDocumentId(AlfrescoSolrDataModel.DEFAULT_TENANT, new Long(aclId));
+          String aclDocId = AlfrescoSolrDataModel.getAclDocumentId(AlfrescoSolrDataModel.DEFAULT_TENANT, Long.valueOf(aclId));
           aclSol.addField(FIELD_SOLR4_ID, aclDocId);
           aclSol.addField(FIELD_VERSION, "0");
           aclSol.addField(FIELD_ACLID, aclId);
@@ -766,15 +766,15 @@ public class AlfrescoSolrUtils
               solrQueryRequest = new SolrServletRequest(core, null);
               AddUpdateCommand addDocCmd = new AddUpdateCommand(solrQueryRequest);
               addDocCmd.overwrite = true;
-              addDocCmd.solrDoc = createDocument(dataModel, new Long(txid), new Long(dbid), rootNodeRef,
-                      ContentModel.TYPE_STOREROOT, new QName[]{ContentModel.ASPECT_ROOT}, null, null, new Long(aclid),
+              addDocCmd.solrDoc = createDocument(dataModel, Long.valueOf(txid), Long.valueOf(dbid), rootNodeRef,
+                      ContentModel.TYPE_STOREROOT, new QName[]{ContentModel.ASPECT_ROOT}, null, null, Long.valueOf(aclid),
                       new String[]{"/"}, "system", null, null);
               core.getUpdateHandler().addDoc(addDocCmd);
               addAcl(solrQueryRequest, core, dataModel, acltxid, aclid, 0, 0);
               AddUpdateCommand txCmd = new AddUpdateCommand(solrQueryRequest);
               txCmd.overwrite = true;
               SolrInputDocument input = new SolrInputDocument();
-              String id = AlfrescoSolrDataModel.getTransactionDocumentId(new Long(txid));
+              String id = AlfrescoSolrDataModel.getTransactionDocumentId(Long.valueOf(txid));
               input.addField(FIELD_SOLR4_ID, id);
               input.addField(FIELD_VERSION, "0");
               input.addField(FIELD_TXID, txid);
@@ -796,7 +796,7 @@ public class AlfrescoSolrUtils
         AddUpdateCommand aclTxCmd = new AddUpdateCommand(solrQueryRequest);
         aclTxCmd.overwrite = true;
         SolrInputDocument aclTxSol = new SolrInputDocument();
-        String aclTxId = AlfrescoSolrDataModel.getAclChangeSetDocumentId(new Long(acltxid));
+        String aclTxId = AlfrescoSolrDataModel.getAclChangeSetDocumentId(Long.valueOf(acltxid));
         aclTxSol.addField(FIELD_SOLR4_ID, aclTxId);
         aclTxSol.addField(FIELD_VERSION, "0");
         aclTxSol.addField(FIELD_ACLTXID, acltxid);
@@ -809,7 +809,7 @@ public class AlfrescoSolrUtils
         AddUpdateCommand aclCmd = new AddUpdateCommand(solrQueryRequest);
         aclCmd.overwrite = true;
         SolrInputDocument aclSol = new SolrInputDocument();
-        String aclDocId = AlfrescoSolrDataModel.getAclDocumentId(AlfrescoSolrDataModel.DEFAULT_TENANT, new Long(aclId));
+        String aclDocId = AlfrescoSolrDataModel.getAclDocumentId(AlfrescoSolrDataModel.DEFAULT_TENANT, Long.valueOf(aclId));
         aclSol.addField(FIELD_SOLR4_ID, aclDocId);
         aclSol.addField(FIELD_VERSION, "0");
         aclSol.addField(FIELD_ACLID, aclId);
