@@ -87,6 +87,8 @@ import java.util.function.IntFunction;
 import org.alfresco.model.ContentModel;
 import org.alfresco.repo.dictionary.M2Model;
 import org.alfresco.repo.tenant.TenantService;
+import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
+import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.StoreRef;
@@ -478,6 +480,16 @@ public class AlfrescoSolrUtils
     public static List<SolrInputDocument> nodeDocuments(Transaction transaction, List<Node> nodes,
             List<NodeMetaData> nodeMetaDatas, List<String> content)
     {
+        return nodeDocuments(transaction, nodes, nodeMetaDatas, content, false);
+    }
+
+    /**
+     * @see #createDocument(AlfrescoSolrDataModel, Long, Long, NodeRef, QName, QName[], Map, Map, Long, String[], String, ChildAssociationRef[], NodeRef[], boolean)
+     *      for what {@code storeTextProperties} does and why it is not the default
+     */
+    public static List<SolrInputDocument> nodeDocuments(Transaction transaction, List<Node> nodes,
+            List<NodeMetaData> nodeMetaDatas, List<String> content, boolean storeTextProperties)
+    {
         AlfrescoSolrDataModel dataModel = AlfrescoSolrDataModel.getInstance();
         List<SolrInputDocument> documents = new ArrayList<>();
 
@@ -513,7 +525,8 @@ public class AlfrescoSolrUtils
                     pathsOf(nodeMetaData),
                     nodeMetaData.getOwner(),
                     toArray(nodeMetaData.getParentAssocs(), ChildAssociationRef[]::new),
-                    toArray(nodeMetaData.getAncestors(), NodeRef[]::new)));
+                    toArray(nodeMetaData.getAncestors(), NodeRef[]::new),
+                    storeTextProperties));
         }
         return documents;
     }
@@ -581,6 +594,12 @@ public class AlfrescoSolrUtils
         {
             dataModel.putModel(M2Model.createModel(is));
         }
+    }
+
+    private static boolean isTextProperty(QName propertyQName)
+    {
+        PropertyDefinition definition = AlfrescoSolrDataModel.getInstance().getPropertyDefinition(propertyQName);
+        return definition != null && DataTypeDefinition.TEXT.equals(definition.getDataType().getName());
     }
 
     private static String[] pathsOf(NodeMetaData nodeMetaData)
@@ -737,6 +756,35 @@ public class AlfrescoSolrUtils
                                                    ChildAssociationRef[] parentAssocs,
                                                    NodeRef[] ancestors)
     {
+        return createDocument(dataModel, txid, dbid, nodeRef, type, aspects, properties, content, aclId,
+                paths, owner, parentAssocs, ancestors, false);
+    }
+
+    /**
+     * {@code storeTextProperties} routes {@code d:text} properties through their <em>stored</em>
+     * field instead of writing the indexed fields directly, letting the schema copyFields fan the
+     * value out. Only the highlighter needs it -- it snippets the stored value, and the indexed
+     * fields are not stored. It cannot be the default: the two routes both feed
+     * {@code text@s__lt@*}, which is single-valued, so doing both fails the update with
+     * "Multiple values encountered for non multiValued copy field", and going stored-only changes
+     * which tokens the indexed variants carry, breaking the wildcard and range assertions of the
+     * tests built on {@link org.alfresco.solr.dataload.TestDataProvider}.
+     */
+    public static SolrInputDocument createDocument(AlfrescoSolrDataModel dataModel,
+                                                   Long txid,
+                                                   Long dbid,
+                                                   NodeRef nodeRef,
+                                                   QName type,
+                                                   QName[] aspects,
+                                                   Map<QName, PropertyValue> properties,
+                                                   Map<QName, String> content,
+                                                   Long aclId,
+                                                   String[] paths,
+                                                   String owner,
+                                                   ChildAssociationRef[] parentAssocs,
+                                                   NodeRef[] ancestors,
+                                                   boolean storeTextProperties)
+    {
         SolrInputDocument doc = new SolrInputDocument();
         String id = AlfrescoSolrDataModel.getNodeDocumentId(AlfrescoSolrDataModel.DEFAULT_TENANT, dbid);
         doc.addField(FIELD_SOLR4_ID, id);
@@ -828,9 +876,18 @@ public class AlfrescoSolrUtils
                 PropertyValue value = entry.getValue();
                 if (value instanceof StringPropertyValue)
                 {
-                    for (AlfrescoSolrDataModel.FieldInstance field : dataModel2.getIndexedFieldNamesForProperty(propQName).getFields())
+                    String text = ((StringPropertyValue) value).getValue();
+                    if (storeTextProperties && isTextProperty(propQName))
                     {
-                        doc.addField(field.getField(), ((StringPropertyValue) value).getValue());
+                        doc.addField(dataModel2.getStoredTextField(propQName),
+                                "\u0000" + I18NUtil.getLocale().toString() + "\u0000" + text);
+                    }
+                    else
+                    {
+                        for (AlfrescoSolrDataModel.FieldInstance field : dataModel2.getIndexedFieldNamesForProperty(propQName).getFields())
+                        {
+                            doc.addField(field.getField(), text);
+                        }
                     }
                 }
                 else if (value instanceof MLTextPropertyValue)

@@ -137,8 +137,9 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
             metadataList.add(fileMetaData);
         });
 
-        indexDirectly(nodeDocuments(foldertxn, singletonList(folderNode), singletonList(folderMetaData), null));
-        indexDirectly(nodeDocuments(txn, nodeList, metadataList, null));
+        // storeTextProperties: the highlighter snippets the stored value of a field.
+        indexDirectly(nodeDocuments(foldertxn, singletonList(folderNode), singletonList(folderMetaData), null, true));
+        indexDirectly(nodeDocuments(txn, nodeList, metadataList, null, true));
 
         waitForDocCount(new TermQuery(new Term(QueryConstants.FIELD_READER, "jim")), 1, MAX_WAIT_TIME);
         waitForDocCount(new TermQuery(new Term(QueryConstants.FIELD_OWNER, owner)), 4, MAX_WAIT_TIME);
