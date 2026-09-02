@@ -261,6 +261,48 @@ public abstract class AbstractAlfrescoDistributedIT extends SolrITInitializer
     {
         return clientShards;
     }
+
+    /**
+     * Indexes documents into every core -- standalone and shards -- and commits. Use it for the
+     * ACL and TX stamps, which every core needs its own copy of: the permission filter resolves
+     * ACL ids against the searcher of the core it runs on.
+     * <p>
+     * Pair it with {@link AlfrescoSolrUtils#aclDocuments}. {@code indexAclChangeSet} only
+     * enqueues into {@code SOLRAPIQueueClient}, and the tracker that used to drain it moved to
+     * {@code pristy-indexing-trackers}.
+     */
+    protected static void indexDirectlyOnAllCores(List<SolrInputDocument> documents) throws Exception
+    {
+        for (SolrClient client : getStandaloneAndShardedClients())
+        {
+            client.add(documents);
+            client.commit();
+        }
+    }
+
+    /**
+     * Reproduces what a per-core tracker used to produce: the standalone core holds every
+     * document, while the shard cores partition them round-robin, the way DBID sharding does.
+     * That is what {@code waitForDocCount} checks -- the standalone count on its own, then the
+     * distributed union over the shards.
+     * <p>
+     * Pair it with {@link AlfrescoSolrUtils#nodeDocuments}.
+     */
+    protected static void indexDirectlyPartitioned(List<SolrInputDocument> documents) throws Exception
+    {
+        for (SolrClient client : getStandaloneClients())
+        {
+            client.add(documents);
+        }
+        for (int i = 0; i < documents.size(); i++)
+        {
+            clientShards.get(i % clientShards.size()).add(documents.get(i));
+        }
+        for (SolrClient client : getStandaloneAndShardedClients())
+        {
+            client.commit();
+        }
+    }
     
     /**
      * Gets a list of all clients for that test

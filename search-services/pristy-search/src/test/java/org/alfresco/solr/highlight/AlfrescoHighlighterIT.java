@@ -92,18 +92,11 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
         AclReaders aclReaders = getAclReaders(aclChangeSet, acl, singletonList("joel"), singletonList("phil"), null);
         AclReaders aclReaders2 = getAclReaders(aclChangeSet, acl2, singletonList("jim"), singletonList("phil"), null);
 
-        indexAclChangeSet(aclChangeSet,
+        indexDirectly(aclDocuments(aclChangeSet,
                 asList(acl, acl2),
-                asList(aclReaders, aclReaders2));
+                asList(aclReaders, aclReaders2)));
 
-
-        //Check for the ACL state stamp.
-        BooleanQuery.Builder builder = new BooleanQuery.Builder();
-        builder.add(new BooleanClause(new TermQuery(new Term(QueryConstants.FIELD_SOLR4_ID, "TRACKER!STATE!ACLTX")), BooleanClause.Occur.MUST));
-        builder.add(new BooleanClause(LongPoint.newRangeQuery(QueryConstants.FIELD_S_ACLTXID, aclChangeSet.getId(), aclChangeSet.getId()), BooleanClause.Occur.MUST));
-        BooleanQuery waitForQuery = builder.build();
         long MAX_WAIT_TIME = 80000;
-        waitForDocCount(waitForQuery, 1, MAX_WAIT_TIME);
 
 
         String owner = "mike";
@@ -144,8 +137,8 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
             metadataList.add(fileMetaData);
         });
 
-        indexTransaction(foldertxn, singletonList(folderNode), singletonList(folderMetaData));
-        indexTransaction(txn, nodeList, metadataList);
+        indexDirectly(nodeDocuments(foldertxn, singletonList(folderNode), singletonList(folderMetaData), null));
+        indexDirectly(nodeDocuments(txn, nodeList, metadataList, null));
 
         waitForDocCount(new TermQuery(new Term(QueryConstants.FIELD_READER, "jim")), 1, MAX_WAIT_TIME);
         waitForDocCount(new TermQuery(new Term(QueryConstants.FIELD_OWNER, owner)), 4, MAX_WAIT_TIME);

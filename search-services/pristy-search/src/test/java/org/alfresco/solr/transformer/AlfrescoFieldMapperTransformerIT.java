@@ -66,7 +66,8 @@ import static org.alfresco.solr.AlfrescoSolrUtils.getAclReaders;
 import static org.alfresco.solr.AlfrescoSolrUtils.getNode;
 import static org.alfresco.solr.AlfrescoSolrUtils.getNodeMetaData;
 import static org.alfresco.solr.AlfrescoSolrUtils.getTransaction;
-import static org.alfresco.solr.AlfrescoSolrUtils.indexAclChangeSet;
+import static org.alfresco.solr.AlfrescoSolrUtils.aclDocuments;
+import static org.alfresco.solr.AlfrescoSolrUtils.nodeDocuments;
 
 @SolrTestCaseJ4.SuppressSSL
 public class AlfrescoFieldMapperTransformerIT extends AbstractAlfrescoDistributedIT
@@ -245,20 +246,14 @@ public class AlfrescoFieldMapperTransformerIT extends AbstractAlfrescoDistribute
 
         AclReaders aclReaders = getAclReaders(aclChangeSet, acl, singletonList("joel"), singletonList("phil"), null);
 
-        indexAclChangeSet(aclChangeSet,
+        indexDirectlyOnAllCores(aclDocuments(aclChangeSet,
                 singletonList(acl),
-                singletonList(aclReaders));
-
-        //Check for the ACL state stamp.
-        BooleanQuery.Builder builder = new BooleanQuery.Builder();
-        builder.add(new BooleanClause(new TermQuery(new Term(QueryConstants.FIELD_SOLR4_ID, "TRACKER!STATE!ACLTX")), BooleanClause.Occur.MUST));
-        builder.add(new BooleanClause(LongPoint.newRangeQuery(QueryConstants.FIELD_S_ACLTXID, aclChangeSet.getId(), aclChangeSet.getId()), BooleanClause.Occur.MUST));
-        BooleanQuery waitForQuery = builder.build();
-        waitForDocCountAllCores(waitForQuery, 1, 80000);
+                singletonList(aclReaders)));
 
         int numNodes = 5;
         List<Node> nodes = new ArrayList<>();
         List<NodeMetaData> nodeMetaDatas = new ArrayList<>();
+        List<String> content = new ArrayList<>();
 
         Transaction bigTxn = getTransaction(0, numNodes);
         Date now = new Date();
@@ -273,9 +268,10 @@ public class AlfrescoFieldMapperTransformerIT extends AbstractAlfrescoDistribute
             nodeMetaData.getProperties().put(ContentModel.PROP_CREATED,
                     new StringPropertyValue(DefaultTypeConverter.INSTANCE.convert(String.class, now)));
             nodeMetaDatas.add(nodeMetaData);
+            content.add("world");
         }
 
-        indexTransaction(bigTxn, nodes, nodeMetaDatas);
+        indexDirectlyPartitioned(nodeDocuments(bigTxn, nodes, nodeMetaDatas, content));
         waitForDocCount(new TermQuery(new Term("content@s___t@{http://www.alfresco.org/model/content/1.0}content", "world")), numNodes, 100000);
     }
 }

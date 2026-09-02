@@ -30,6 +30,7 @@ package org.alfresco.solr.query;
 import org.alfresco.model.ContentModel;
 import org.alfresco.repo.search.adaptor.QueryConstants;
 import org.alfresco.solr.AbstractAlfrescoSolrIT;
+import org.alfresco.solr.SolrDocTypeConstants;
 import org.alfresco.solr.client.Acl;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
@@ -81,16 +82,9 @@ public class AlfrescoSolrFingerprintIT extends AbstractAlfrescoSolrIT
         AclReaders aclReaders = getAclReaders(aclChangeSet, acl, singletonList("joel"), singletonList("phil"), null);
         AclReaders aclReaders2 = getAclReaders(aclChangeSet, acl2, singletonList("jim"), singletonList("phil"), null);
 
-        indexAclChangeSet(aclChangeSet,
+        indexDirectly(aclDocuments(aclChangeSet,
                 asList(acl, acl2),
-                asList(aclReaders, aclReaders2));
-
-        // Check for the ACL state stamp.
-        BooleanQuery.Builder builder = new BooleanQuery.Builder();
-        builder.add(new BooleanClause(new TermQuery(new Term(QueryConstants.FIELD_SOLR4_ID, "TRACKER!STATE!ACLTX")), BooleanClause.Occur.MUST));
-        builder.add(new BooleanClause(LongPoint.newRangeQuery(QueryConstants.FIELD_S_ACLTXID, aclChangeSet.getId(), aclChangeSet.getId()), BooleanClause.Occur.MUST));
-        BooleanQuery waitForQuery = builder.build();
-        waitForDocCount(waitForQuery, 1, MAX_WAIT_TIME);
+                asList(aclReaders, aclReaders2)));
     }
 
     @After
@@ -108,14 +102,14 @@ public class AlfrescoSolrFingerprintIT extends AbstractAlfrescoSolrIT
         assertU(commit());
     }
 
+    /**
+     * The transaction stamp is written by the fixture itself now, in the same commit as its
+     * nodes, so this only guards against a fixture that indexed nothing. TXID cannot be part
+     * of the query: it is a TrieLongField, which a LongPoint range query cannot match.
+     */
     private void makeSureTransactionHasBeenIndexed(long transactionId) throws Exception
     {
-        //Check for the TXN state stamp.
-        BooleanQuery.Builder builder = new BooleanQuery.Builder();
-        builder.add(new BooleanClause(new TermQuery(new Term(QueryConstants.FIELD_SOLR4_ID, "TRACKER!STATE!TX")), BooleanClause.Occur.MUST));
-        builder.add(new BooleanClause(LongPoint.newRangeQuery(QueryConstants.FIELD_S_TXID, transactionId, transactionId), BooleanClause.Occur.MUST));
-        BooleanQuery waitForQuery = builder.build();
-        waitForDocCount(waitForQuery, 1, MAX_WAIT_TIME);
+        waitForDocCount(new TermQuery(new Term(QueryConstants.FIELD_DOC_TYPE, SolrDocTypeConstants.DOC_TYPE_TX)), 1, MAX_WAIT_TIME);
     }
 
     @Test
@@ -136,10 +130,10 @@ public class AlfrescoSolrFingerprintIT extends AbstractAlfrescoSolrIT
         Random randomizer = new Random(1);
         String aFirstToken = Integer.toString(Math.abs(randomizer.nextInt()));
 
-        indexTransaction(txn,
+        indexDirectly(nodeDocuments(txn,
                 asList(node1, node2, node3, node4),
                 asList(nodeMetaData1, nodeMetaData2, nodeMetaData3, nodeMetaData4),
-                randomTextContent());
+                randomTextContent()));
 
         makeSureTransactionHasBeenIndexed(txn.getId());
         makeSureContentNodesHaveBeenIndexed("mike", aFirstToken, 4);
@@ -216,14 +210,13 @@ public class AlfrescoSolrFingerprintIT extends AbstractAlfrescoSolrIT
         Node fileNode = getNode(txn, acl, Node.SolrApiNodeStatus.UPDATED);
         NodeMetaData fileMetaData = getNodeMetaData(fileNode, txn, acl, "mike", null, false);
 
-        indexTransaction(
-                txn,
-                singletonList(fileNode),
-                singletonList(fileMetaData),
-                singletonList("This is a text content which is longer than the default hello world " + fileNode.getId() +
+        List<String> content = singletonList(
+                "This is a text content which is longer than the default hello world " + fileNode.getId() +
                         " returned by the Mock SOLRAPIQueueClient. This is needed because the \"min_hash\" field type " +
                         "definition in Solr doesn't take in account fields which produce less than 5 tokens (see the " +
-                        "ShingleFilter settings)."));
+                        "ShingleFilter settings).");
+
+        indexDirectly(nodeDocuments(txn, singletonList(fileNode), singletonList(fileMetaData), content));
 
         makeSureTransactionHasBeenIndexed(txn.getId());
         makeSureContentNodeHasBeenIndexed(fileNode, "mike", "world");
@@ -233,7 +226,10 @@ public class AlfrescoSolrFingerprintIT extends AbstractAlfrescoSolrIT
         // Let's update the test node
         fileMetaData.setOwner("Andrea");
         fileMetaData.getProperties().put(ContentModel.PROP_TITLE, new StringPropertyValue("This is the new file \"title\" metadata attribute."));
-        reindexTransactionId(txn.getId());
+
+        // The REINDEX core-admin action moved to the trackers service; re-indexing the mutated
+        // document is what it used to end up doing.
+        indexDirectly(nodeDocuments(txn, singletonList(fileNode), singletonList(fileMetaData), content));
 
         makeSureContentNodeHasBeenIndexed(fileNode, "Andrea", "world");
 

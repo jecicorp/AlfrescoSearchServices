@@ -34,7 +34,8 @@ import static org.alfresco.solr.AlfrescoSolrUtils.getAclReaders;
 import static org.alfresco.solr.AlfrescoSolrUtils.getNode;
 import static org.alfresco.solr.AlfrescoSolrUtils.getNodeMetaData;
 import static org.alfresco.solr.AlfrescoSolrUtils.getTransaction;
-import static org.alfresco.solr.AlfrescoSolrUtils.indexAclChangeSet;
+import static org.alfresco.solr.AlfrescoSolrUtils.aclDocuments;
+import static org.alfresco.solr.AlfrescoSolrUtils.nodeDocuments;
 import static java.util.Collections.singletonList;
 
 import java.util.ArrayList;
@@ -89,14 +90,7 @@ public class DistributedAlfrescoSolrFingerPrintIT extends AbstractAlfrescoDistri
         AclReaders aclReaders = getAclReaders(aclChangeSet, ACL, singletonList("joel"), singletonList("phil"), null);
         AclReaders aclReaders2 = getAclReaders(aclChangeSet, acl2, singletonList("jim"), singletonList("phil"), null);
 
-        indexAclChangeSet(aclChangeSet, asList(ACL, acl2), asList(aclReaders, aclReaders2));
-
-        //Check for the ACL state stamp.
-        BooleanQuery.Builder builder = new BooleanQuery.Builder();
-        builder.add(new BooleanClause(new TermQuery(new Term(QueryConstants.FIELD_SOLR4_ID, "TRACKER!STATE!ACLTX")), BooleanClause.Occur.MUST));
-        builder.add(new BooleanClause(LongPoint.newRangeQuery(QueryConstants.FIELD_S_ACLTXID, aclChangeSet.getId(), aclChangeSet.getId()), BooleanClause.Occur.MUST));
-        BooleanQuery waitForQuery = builder.build();
-        waitForDocCountAllCores(waitForQuery, 1, 80000);
+        indexDirectlyOnAllCores(aclDocuments(aclChangeSet, asList(ACL, acl2), asList(aclReaders, aclReaders2)));
 
         Transaction txn = getTransaction(0, 4);
 
@@ -132,20 +126,10 @@ public class DistributedAlfrescoSolrFingerPrintIT extends AbstractAlfrescoDistri
             content.add(buf.toString());
         }
 
-        //Index the transaction, NODES, and nodeMetaDatas.
-        //Note that the content is automatically created by the test framework.
-        indexTransaction(txn,
+        indexDirectlyPartitioned(nodeDocuments(txn,
             asList(NODES[0], NODES[1], NODES[2], NODES[3]),
             asList(NODES_METADATA[0], NODES_METADATA[1], NODES_METADATA[2], NODES_METADATA[3]),
-            content);
-
-        //Check for the TXN state stamp.
-        builder = new BooleanQuery.Builder();
-        builder.add(new BooleanClause(new TermQuery(new Term(QueryConstants.FIELD_SOLR4_ID, "TRACKER!STATE!TX")), BooleanClause.Occur.MUST));
-        builder.add(new BooleanClause(LongPoint.newRangeQuery(QueryConstants.FIELD_S_TXID, txn.getId(), txn.getId()), BooleanClause.Occur.MUST));
-        waitForQuery = builder.build();
-
-        waitForDocCountAllCores(waitForQuery, 1, 80000);
+            content));
 
         /*
          * Query the index for the content

@@ -47,6 +47,7 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.solr.SolrTestCaseJ4;
 import org.apache.solr.SolrTestCaseJ4.XmlDoc;
 import org.apache.solr.client.solrj.util.ClientUtils;
+import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.params.CommonParams;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
@@ -64,6 +65,8 @@ import org.apache.solr.request.SolrQueryRequest;
 import org.apache.solr.request.SolrQueryRequestBase;
 import org.apache.solr.response.SolrQueryResponse;
 import org.apache.solr.search.SolrIndexSearcher;
+import org.apache.solr.update.AddUpdateCommand;
+import org.apache.solr.update.CommitUpdateCommand;
 import org.apache.solr.util.BaseTestHarness;
 import org.apache.solr.util.RefCounted;
 import org.apache.solr.util.TestHarness;
@@ -142,68 +145,9 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
 
 
 
-    /**
-     * Loads the bootstrap data models into the {@link AlfrescoSolrDataModel} dictionary.
-     *
-     * <p>Since the trackers were externalized, the data model no longer loads any model
-     * on startup — the (now separate) ModelTracker pushes them via {@code putModel()}.
-     * Embedded tests have no tracker, so we load the bootstrap models directly here, in
-     * dependency order (dictionary -> system -> content -> cmis), then refresh the CMIS
-     * dictionary.</p>
-     */
     protected static void loadBootstrapModels() throws IOException
     {
-        AlfrescoSolrDataModel dataModel = AlfrescoSolrDataModel.getInstance();
-
-        // Base dictionary model ships in alfresco-data-model.
-        try (InputStream is = AbstractAlfrescoSolrIT.class.getClassLoader()
-                .getResourceAsStream("alfresco/model/dictionaryModel.xml"))
-        {
-            if (is != null)
-            {
-                dataModel.putModel(M2Model.createModel(is));
-            }
-        }
-
-        File modelsDir = Paths.get(testExecutionSolrHome, "alfrescoModels").toFile();
-        File[] modelFiles = modelsDir.listFiles((dir, name) -> name.endsWith(".xml"));
-        if (modelFiles != null)
-        {
-            Set<String> loaded = new HashSet<>();
-
-            // Explicit dependency order: system, then content, then cmis.
-            for (String token : new String[]{ "systemmodel", "contentmodel", "cmismodel" })
-            {
-                for (File modelFile : modelFiles)
-                {
-                    if (modelFile.getName().contains(token))
-                    {
-                        putModel(dataModel, modelFile);
-                        loaded.add(modelFile.getName());
-                    }
-                }
-            }
-
-            // Then the test models (cmistest, acme, ...), which import d/sys/cm only. The dictionary
-            // came from the classpath above; reloading it here would recompile its importers.
-            for (File modelFile : modelFiles)
-            {
-                if (!loaded.contains(modelFile.getName()) && !modelFile.getName().contains("dictionary"))
-                {
-                    putModel(dataModel, modelFile);
-                }
-            }
-        }
-
-        dataModel.afterInitModels();
-    }
-
-    private static void putModel(AlfrescoSolrDataModel dataModel, File modelFile) throws IOException
-    {
-        try (InputStream is = new FileInputStream(modelFile))
-        {
-            dataModel.putModel(M2Model.createModel(is));
-        }
+        AlfrescoSolrUtils.loadBootstrapModels(testExecutionSolrHome);
     }
 
     protected static void copyTestFiles() throws IOException {
@@ -292,6 +236,36 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
     protected static SolrCore getCore()
     {
         return h.getCore();
+    }
+
+    /**
+     * Indexes documents straight into the test core and commits, so they are queryable as
+     * soon as this returns.
+     * <p>
+     * Use it with {@link AlfrescoSolrUtils#aclDocuments} / {@link AlfrescoSolrUtils#nodeDocuments}
+     * instead of {@code indexAclChangeSet} / {@code indexTransaction}: those only enqueue into
+     * {@code SOLRAPIQueueClient}, and the tracker that used to drain it moved to
+     * {@code pristy-indexing-trackers}.
+     */
+    protected static void indexDirectly(List<SolrInputDocument> documents) throws Exception
+    {
+        SolrCore core = h.getCore();
+        SolrQueryRequest request = new SolrServletRequest(core, null);
+        try
+        {
+            for (SolrInputDocument document : documents)
+            {
+                AddUpdateCommand command = new AddUpdateCommand(request);
+                command.overwrite = true;
+                command.solrDoc = document;
+                core.getUpdateHandler().addDoc(command);
+            }
+            core.getUpdateHandler().commit(new CommitUpdateCommand(request, false));
+        }
+        finally
+        {
+            request.close();
+        }
     }
 
     /**

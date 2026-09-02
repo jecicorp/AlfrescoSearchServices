@@ -63,9 +63,14 @@ import static org.alfresco.repo.search.adaptor.QueryConstants.FIELD_TYPE;
 import static org.alfresco.repo.search.adaptor.QueryConstants.FIELD_VERSION;
 import static org.junit.Assert.assertEquals;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringWriter;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -77,8 +82,10 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.IntFunction;
 
 import org.alfresco.model.ContentModel;
+import org.alfresco.repo.dictionary.M2Model;
 import org.alfresco.repo.tenant.TenantService;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.NodeRef;
@@ -89,6 +96,7 @@ import org.alfresco.solr.client.Acl;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
 import org.alfresco.solr.client.ContentPropertyValue;
+import org.alfresco.solr.client.MLTextPropertyValue;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.PropertyValue;
@@ -96,6 +104,7 @@ import org.alfresco.solr.client.SOLRAPIQueueClient;
 import org.alfresco.solr.client.StringPropertyValue;
 import org.alfresco.solr.client.Transaction;
 import org.alfresco.util.ISO9075;
+import org.alfresco.util.Pair;
 import org.apache.solr.SolrTestCaseJ4.XmlDoc;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.params.CoreAdminParams;
@@ -407,6 +416,192 @@ public class AlfrescoSolrUtils
 
         SOLRAPIQueueClient.ACL_CHANGE_SET_QUEUE.add(aclChangeSet);
     }
+
+    /**
+     * Builds the Solr documents of an ACL change set: the ACL-TX stamp, plus one ACL document
+     * per ACL carrying its real readers and denied authorities.
+     * <p>
+     * {@link #indexAclChangeSet} only fills the {@link SOLRAPIQueueClient} queues, which a
+     * tracker used to drain. The trackers now live in their own module, so nothing reads those
+     * queues from this one any more and tests have to index the documents themselves.
+     */
+    public static List<SolrInputDocument> aclDocuments(AclChangeSet aclChangeSet, List<Acl> aclList,
+            List<AclReaders> aclReadersList)
+    {
+        Map<Long, AclReaders> readersByAclId = new HashMap<>();
+        if (aclReadersList != null)
+        {
+            for (AclReaders aclReaders : aclReadersList)
+            {
+                readersByAclId.put(aclReaders.getId(), aclReaders);
+            }
+        }
+
+        List<SolrInputDocument> documents = new ArrayList<>();
+
+        SolrInputDocument aclTx = new SolrInputDocument();
+        aclTx.addField(FIELD_SOLR4_ID, AlfrescoSolrDataModel.getAclChangeSetDocumentId(aclChangeSet.getId()));
+        aclTx.addField(FIELD_VERSION, "0");
+        aclTx.addField(FIELD_ACLTXID, aclChangeSet.getId());
+        aclTx.addField(FIELD_INACLTXID, aclChangeSet.getId());
+        aclTx.addField(FIELD_ACLTXCOMMITTIME, aclChangeSet.getCommitTimeMs());
+        aclTx.addField(FIELD_DOC_TYPE, SolrDocTypeConstants.DOC_TYPE_ACL_TX);
+        documents.add(aclTx);
+
+        for (Acl acl : aclList)
+        {
+            SolrInputDocument aclDocument = new SolrInputDocument();
+            aclDocument.addField(FIELD_SOLR4_ID,
+                    AlfrescoSolrDataModel.getAclDocumentId(AlfrescoSolrDataModel.DEFAULT_TENANT, acl.getId()));
+            aclDocument.addField(FIELD_VERSION, "0");
+            aclDocument.addField(FIELD_ACLID, acl.getId());
+            aclDocument.addField(FIELD_INACLTXID, acl.getAclChangeSetId());
+            aclDocument.addField(FIELD_DOC_TYPE, SolrDocTypeConstants.DOC_TYPE_ACL);
+
+            AclReaders aclReaders = readersByAclId.get(acl.getId());
+            if (aclReaders != null)
+            {
+                aclReaders.getReaders().forEach(reader -> aclDocument.addField(FIELD_READER, reader));
+                aclReaders.getDenied().forEach(denied -> aclDocument.addField(FIELD_DENIED, denied));
+            }
+            documents.add(aclDocument);
+        }
+        return documents;
+    }
+
+    /**
+     * Builds the Solr documents of a transaction: the TX stamp, plus one node document per node.
+     * {@code content} is optional and positional -- one entry per node, in the same order.
+     *
+     * @see #aclDocuments(AclChangeSet, List, List) for why tests index directly
+     */
+    public static List<SolrInputDocument> nodeDocuments(Transaction transaction, List<Node> nodes,
+            List<NodeMetaData> nodeMetaDatas, List<String> content)
+    {
+        AlfrescoSolrDataModel dataModel = AlfrescoSolrDataModel.getInstance();
+        List<SolrInputDocument> documents = new ArrayList<>();
+
+        SolrInputDocument tx = new SolrInputDocument();
+        tx.addField(FIELD_SOLR4_ID, AlfrescoSolrDataModel.getTransactionDocumentId(transaction.getId()));
+        tx.addField(FIELD_VERSION, "0");
+        tx.addField(FIELD_TXID, transaction.getId());
+        tx.addField(FIELD_INTXID, transaction.getId());
+        tx.addField(FIELD_TXCOMMITTIME, transaction.getCommitTimeMs());
+        tx.addField(FIELD_DOC_TYPE, SolrDocTypeConstants.DOC_TYPE_TX);
+        documents.add(tx);
+
+        for (int i = 0; i < nodes.size(); i++)
+        {
+            Node node = nodes.get(i);
+            NodeMetaData nodeMetaData = nodeMetaDatas.get(i);
+
+            Map<QName, String> contentByProperty = null;
+            if (content != null && i < content.size())
+            {
+                contentByProperty = Map.of(ContentModel.PROP_CONTENT, content.get(i));
+            }
+
+            documents.add(createDocument(dataModel,
+                    transaction.getId(),
+                    node.getId(),
+                    nodeMetaData.getNodeRef(),
+                    nodeMetaData.getType(),
+                    toArray(nodeMetaData.getAspects(), QName[]::new),
+                    nodeMetaData.getProperties(),
+                    contentByProperty,
+                    node.getAclId(),
+                    pathsOf(nodeMetaData),
+                    nodeMetaData.getOwner(),
+                    toArray(nodeMetaData.getParentAssocs(), ChildAssociationRef[]::new),
+                    toArray(nodeMetaData.getAncestors(), NodeRef[]::new)));
+        }
+        return documents;
+    }
+
+    /**
+     * Loads the bootstrap data models of a solr home into the {@link AlfrescoSolrDataModel}
+     * dictionary, in dependency order (dictionary -> system -> content -> cmis), then the test
+     * models, then refreshes the CMIS dictionary.
+     * <p>
+     * Since the trackers were externalized the data model loads nothing on startup -- the
+     * (separate) ModelTracker pushes models through {@code putModel()}. Tests have no tracker,
+     * so both harnesses call this. Without it, {@code getPropertyDefinition} returns null and
+     * every property-to-field lookup fails.
+     */
+    public static void loadBootstrapModels(String solrHome) throws IOException
+    {
+        AlfrescoSolrDataModel dataModel = AlfrescoSolrDataModel.getInstance();
+
+        // Base dictionary model ships in alfresco-data-model.
+        try (InputStream is = AlfrescoSolrUtils.class.getClassLoader()
+                .getResourceAsStream("alfresco/model/dictionaryModel.xml"))
+        {
+            if (is != null)
+            {
+                dataModel.putModel(M2Model.createModel(is));
+            }
+        }
+
+        File modelsDir = Paths.get(solrHome, "alfrescoModels").toFile();
+        File[] modelFiles = modelsDir.listFiles((dir, name) -> name.endsWith(".xml"));
+        if (modelFiles != null)
+        {
+            Set<String> loaded = new HashSet<>();
+
+            // Explicit dependency order: system, then content, then cmis.
+            for (String token : new String[]{ "systemmodel", "contentmodel", "cmismodel" })
+            {
+                for (File modelFile : modelFiles)
+                {
+                    if (modelFile.getName().contains(token))
+                    {
+                        putModel(dataModel, modelFile);
+                        loaded.add(modelFile.getName());
+                    }
+                }
+            }
+
+            // Then the test models (cmistest, acme, ...), which import d/sys/cm only. The dictionary
+            // came from the classpath above; reloading it here would recompile its importers.
+            for (File modelFile : modelFiles)
+            {
+                if (!loaded.contains(modelFile.getName()) && !modelFile.getName().contains("dictionary"))
+                {
+                    putModel(dataModel, modelFile);
+                }
+            }
+        }
+
+        dataModel.afterInitModels();
+    }
+
+    private static void putModel(AlfrescoSolrDataModel dataModel, File modelFile) throws IOException
+    {
+        try (InputStream is = new FileInputStream(modelFile))
+        {
+            dataModel.putModel(M2Model.createModel(is));
+        }
+    }
+
+    private static String[] pathsOf(NodeMetaData nodeMetaData)
+    {
+        List<Pair<String, QName>> paths = nodeMetaData.getPaths();
+        if (paths == null || paths.isEmpty())
+        {
+            return null;
+        }
+        return paths.stream().map(Pair::getFirst).toArray(String[]::new);
+    }
+
+    /** Empty collapses to null: createDocument reads null as "leave the field out". */
+    private static <T> T[] toArray(Collection<T> values, IntFunction<T[]> factory)
+    {
+        if (values == null || values.isEmpty())
+        {
+            return null;
+        }
+        return values.toArray(factory.apply(values.size()));
+    }
     /**
      * Generate a collection from input.
      * @param strings
@@ -636,6 +831,18 @@ public class AlfrescoSolrUtils
                     for (AlfrescoSolrDataModel.FieldInstance field : dataModel2.getIndexedFieldNamesForProperty(propQName).getFields())
                     {
                         doc.addField(field.getField(), ((StringPropertyValue) value).getValue());
+                    }
+                }
+                else if (value instanceof MLTextPropertyValue)
+                {
+                    // The stored field is what the schema copyFields fan out to the indexed
+                    // variants, and what [fmap] returns.
+                    MLTextPropertyValue mlText = (MLTextPropertyValue) value;
+                    String storedField = dataModel2.getStoredMLTextField(propQName);
+                    for (Locale mlLocale : mlText.getLocales())
+                    {
+                        doc.addField(storedField,
+                                "\u0000" + mlLocale.toString() + "\u0000" + mlText.getValue(mlLocale));
                     }
                 }
             }

@@ -66,7 +66,8 @@ import static org.alfresco.solr.AlfrescoSolrUtils.getAclReaders;
 import static org.alfresco.solr.AlfrescoSolrUtils.getNode;
 import static org.alfresco.solr.AlfrescoSolrUtils.getNodeMetaData;
 import static org.alfresco.solr.AlfrescoSolrUtils.getTransaction;
-import static org.alfresco.solr.AlfrescoSolrUtils.indexAclChangeSet;
+import static org.alfresco.solr.AlfrescoSolrUtils.aclDocuments;
+import static org.alfresco.solr.AlfrescoSolrUtils.nodeDocuments;
 import static com.google.common.collect.ImmutableList.of;
 
 @SolrTestCaseJ4.SuppressSSL
@@ -156,9 +157,9 @@ public class DynamicCopyFieldsIT extends AbstractAlfrescoDistributedIT {
         Acl acl = getAcl(aclChangeSet);
         AclReaders aclReaders = getAclReaders(aclChangeSet, acl, singletonList("joel"), singletonList("phil"), null);
 
-        indexAclChangeSet(aclChangeSet,
+        indexDirectlyOnAllCores(aclDocuments(aclChangeSet,
                 of(acl),
-                of(aclReaders));
+                of(aclReaders)));
 
         Transaction bigTxn = getTransaction(0, 2);
 
@@ -188,9 +189,10 @@ public class DynamicCopyFieldsIT extends AbstractAlfrescoDistributedIT {
         metadataNode0.getProperties().put(getCustomQName(MLTEXT_NONE), new MLTextPropertyValue(Map.of(Locale.ENGLISH,"value")));
         metadataNode0.getProperties().put(getCustomQName(MLTEXT_LOVWHOLE), new MLTextPropertyValue(Map.of(Locale.ENGLISH,"value")));
 
-        indexTransaction(bigTxn,
+        indexDirectlyPartitioned(nodeDocuments(bigTxn,
                 of(parentFolder, node0),
-                of(parentFolderMetadata, metadataNode0));
+                of(parentFolderMetadata, metadataNode0),
+                of("world", "world")));
 
         /*
          * Get sure the nodes are indexed correctly in the shards

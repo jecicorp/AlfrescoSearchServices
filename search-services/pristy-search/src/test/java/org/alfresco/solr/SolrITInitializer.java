@@ -190,6 +190,10 @@ public abstract class SolrITInitializer extends SolrTestCaseJ4
 
         createServers(testClassName, coreNames, numShards, solrcoreProperties);
 
+        // The cores no longer load the models themselves (the ModelTracker moved out), and the
+        // shared AlfrescoSolrDataModel singleton is what the fixtures resolve fields against.
+        AlfrescoSolrUtils.loadBootstrapModels(testDir.toPath().resolve(testClassName).toString());
+
         return testClassName;
     }
 
