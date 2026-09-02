@@ -89,23 +89,31 @@ public class ModelTrackerIT
     @AfterClass
     public static void tearDownAfterClass() throws Exception
     {
-        try {
-            File[] listFiles = alfrescoModelDir.listFiles();
-            for (File file : listFiles)
+        purgeModelDir();
+        alfrescoModelDir.delete();
+    }
+
+    /**
+     * The tracker persists every model it registers into alfrescoModelDir, and the constructor
+     * reloads whatever it finds there through putModel(). Left in place, those files make the next
+     * test -- or the next run, since target/ is not cleaned -- fail on a fresh mock returning false.
+     */
+    private static void purgeModelDir()
+    {
+        File[] files = alfrescoModelDir.listFiles();
+        if (files != null)
+        {
+            for (File file : files)
             {
                 file.delete();
             }
-            alfrescoModelDir.delete();
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
         }
     }
 
     @Before
     public void setUp() throws Exception
     {
+        purgeModelDir();
         when(props.getProperty("alfresco.stores", "workspace://SpacesStore")).thenReturn("workspace://SpacesStore");
         when(props.getProperty("alfresco.batch.count", "5000")).thenReturn("5000");
         when(props.getProperty("alfresco.maxLiveSearchers", "2")).thenReturn("2");
