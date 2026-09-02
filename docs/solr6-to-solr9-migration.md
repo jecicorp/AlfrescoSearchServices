@@ -278,7 +278,12 @@ The embedded IT harness needed several adjustments to boot a Solr 9 core:
   `solr.PointType` and the `Trie*` types are still shipped by Solr 9, so they stay.
   A schema aborts on the **first** missing class, hiding the rest, so check statically instead of
   paying one run per class: extract every `class="solr.*"` outside XML comments from those configs and
-  look the simple name up in `solr-core-9.10.1.jar`.
+  look the simple name up in `solr-core-9.10.1.jar`. **The class existing is not enough** — its
+  arguments must still be accepted: `solr.ExternalFileField` no longer knows `valType` (Solr 9's
+  `init()` consumes only `keyField` and `defVal`, and `FieldType.setArgs` rejects whatever is left),
+  so the four declarations carrying it aborted the whole `schema-rerank.xml` with
+  *"schema fieldtype file(org.apache.solr.schema.ExternalFileField) invalid arguments:{valType=float}"*
+  and left `collection1` unavailable.
 - **`TopDocs.totalHits` is a `TotalHits` object since Lucene 8**, not an `int`. Two test assertions
   still compared it to an expected count: `assertEquals(count, docs.totalHits)` binds to
   `assertEquals(Object, Object)`, so it fails even when the counts agree — the giveaway is
