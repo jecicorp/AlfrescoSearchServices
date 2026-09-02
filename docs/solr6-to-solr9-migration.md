@@ -257,6 +257,14 @@ The embedded IT harness needed several adjustments to boot a Solr 9 core:
 - **JaCoCo**: exclude `org/alfresco/repo/search/impl/parsers/**`. The ANTLR-generated
   `FTSParser` DFA methods exceed the JVM 64 KB method limit once instrumented
   (`MethodTooLargeException`), which broke query parsing under coverage.
+- **Solr 6 example-schema leftovers** in `test-files/{collection1,master,slave}/conf/schema-rerank.xml`
+  (three identical copies): dropped `solr.GeoHashField` and its only field `point_hash`,
+  `solr.LatLonType` (declared but unused — `solr.LatLonPointSpatialField` is the Solr 9 replacement)
+  and the `solr.StandardFilterFactory` filter (a no-op since Lucene 4.7, removed in Lucene 7).
+  `solr.PointType` and the `Trie*` types are still shipped by Solr 9, so they stay.
+  A schema aborts on the **first** missing class, hiding the rest, so check statically instead of
+  paying one run per class: extract every `class="solr.*"` outside XML comments from those configs and
+  look the simple name up in `solr-core-9.10.1.jar`.
 
 ## Tracker timing (post-externalization)
 

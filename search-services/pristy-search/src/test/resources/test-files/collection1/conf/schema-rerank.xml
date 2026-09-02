@@ -255,13 +255,8 @@
     <!-- Poly field -->
     <fieldType name="xy" class="solr.PointType" dimension="2" subFieldType="double"/>
     <fieldType name="xyd" class="solr.PointType" dimension="2" subFieldSuffix="*_d"/>
-    <fieldType name="geohash" class="solr.GeoHashField"/>
 
     <fieldType name="point" class="solr.PointType" dimension="2" subFieldSuffix="_d"/>
-
-    <!-- A specialized field for geospatial search. If indexed, this fieldType must not be multi
-valued. -->
-    <fieldType name="location" class="solr.LatLonType" subFieldSuffix="_coordinate"/>
 
     <!-- These should pass right through and insure that we can declare external field types -->
     <fieldType name="eff_float" keyField="id" defVal="0"
@@ -282,7 +277,6 @@ valued. -->
     <fieldType name="text_length" class="solr.TextField">
         <analyzer>
             <tokenizer class="solr.StandardTokenizerFactory"/>
-            <filter class="solr.StandardFilterFactory"/>
             <filter class="solr.LowerCaseFilterFactory"/>
             <filter class="solr.LengthFilterFactory" min="2" max="32768"/>
         </analyzer>
@@ -318,8 +312,6 @@ valued. -->
     <!-- Test a point field for distances -->
     <field name="point" type="xy" indexed="true" stored="true" multiValued="false"/>
     <field name="pointD" type="xyd" indexed="true" stored="true" multiValued="false"/>
-
-    <field name="point_hash" type="geohash" indexed="true" stored="true" multiValued="false"/>
 
     <field name="signatureField" type="string" indexed="true" stored="false"/>
 
