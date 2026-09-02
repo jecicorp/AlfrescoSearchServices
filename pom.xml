@@ -121,7 +121,7 @@
 
       <dependency.alfresco-data-model.version>18.20</dependency.alfresco-data-model.version>
 
-      <dependency.jackson.version>2.17.2</dependency.jackson.version>
+      <dependency.jackson.version>2.18.8</dependency.jackson.version>
 
       <dependency.google.guava.version>33.1.0-jre</dependency.google.guava.version>
       <dependency.apache-commons-compress.version>1.26.1</dependency.apache-commons-compress.version>
@@ -136,9 +136,8 @@
       <dependency.jaxen.version>1.2.0</dependency.jaxen.version>
       <dependency.jaxb-xjc.version>4.0.3</dependency.jaxb-xjc.version>
 
-      <dependency.calcite.version>1.32.0</dependency.calcite.version>
       <dependency.slf4j.version>1.7.36</dependency.slf4j.version>
-      <dependency.cxf.version>3.6.6</dependency.cxf.version>
+      <dependency.cxf.version>3.6.12</dependency.cxf.version>
 
       <!-- Solr 9 runs on Jetty 10, which still uses javax.servlet (Jakarta only lands in Solr 10). -->
       <dependency.javax.servlet.api.version>4.0.1</dependency.javax.servlet.api.version>
@@ -151,13 +150,17 @@
       <dependency.chemistry.opencmis.version>1.1.0</dependency.chemistry.opencmis.version>
       <dependency.protobuf.version>3.25.5</dependency.protobuf.version>
       <dependency.jayway.jsonpath.version>2.9.0</dependency.jayway.jsonpath.version>
-      <dependency.janino.version>3.1.10</dependency.janino.version>
       <dependency.commons-fileupload.version>1.6.0</dependency.commons-fileupload.version>
       <dependency.commons-io.version>2.15.1</dependency.commons-io.version>
       <dependency.commons-codec.version>1.16.1</dependency.commons-codec.version>
-      <dependency.spring.version>6.2.12</dependency.spring.version>
+      <dependency.spring.version>6.2.19</dependency.spring.version>
       <dependency.spring-e2e-test.version>5.3.39</dependency.spring-e2e-test.version>
-      <dependency.zookeeper.version>3.6.3</dependency.zookeeper.version>
+      <dependency.zookeeper.version>3.9.5</dependency.zookeeper.version>
+      <dependency.netty.version>4.1.136.Final</dependency.netty.version>
+      <dependency.httpcore5.version>5.4.3</dependency.httpcore5.version>
+      <dependency.httpclient5.version>5.6.4</dependency.httpclient5.version>
+      <dependency.quartz.version>2.5.2</dependency.quartz.version>
+      <dependency.json-smart.version>2.5.2</dependency.json-smart.version>
       <dependency.mime4j.version>0.8.11</dependency.mime4j.version>
    </properties>
    <dependencyManagement>
@@ -170,15 +173,11 @@
             <scope>import</scope>
          </dependency>
          <dependency>
-            <groupId>org.apache.zookeeper</groupId>
-            <artifactId>zookeeper</artifactId>
-            <version>${dependency.zookeeper.version}</version>
-            <exclusions>
-               <exclusion>
-                  <groupId>com.github.spotbugs</groupId>
-                  <artifactId>spotbugs-annotations</artifactId>
-               </exclusion>
-            </exclusions>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-bom</artifactId>
+            <version>${dependency.netty.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
          </dependency>
          <dependency>
             <groupId>commons-fileupload</groupId>
@@ -196,19 +195,39 @@
             <version>${dependency.commons-codec.version}</version>
          </dependency>
          <dependency>
-            <groupId>org.codehaus.janino</groupId>
-            <artifactId>commons-compiler</artifactId>
-            <version>${dependency.janino.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.codehaus.janino</groupId>
-            <artifactId>janino</artifactId>
-            <version>${dependency.janino.version}</version>
-         </dependency>
-         <dependency>
             <groupId>com.jayway.jsonpath</groupId>
             <artifactId>json-path</artifactId>
             <version>${dependency.jayway.jsonpath.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>net.minidev</groupId>
+            <artifactId>json-smart</artifactId>
+            <version>${dependency.json-smart.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.quartz-scheduler</groupId>
+            <artifactId>quartz</artifactId>
+            <version>${dependency.quartz.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5</artifactId>
+            <version>${dependency.httpcore5.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5-h2</artifactId>
+            <version>${dependency.httpcore5.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <version>${dependency.httpclient5.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
+            <version>${dependency.zookeeper.version}</version>
          </dependency>
          <dependency>
             <groupId>com.google.protobuf</groupId>
@@ -248,11 +267,6 @@
             <groupId>com.carrotsearch.thirdparty</groupId>
             <artifactId>simple-xml-safe</artifactId>
             <version>${dependency.carrotsearch.thirdpaty.simple-xml-safe.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.apache.calcite</groupId>
-            <artifactId>calcite-core</artifactId>
-            <version>${dependency.calcite.version}</version>
          </dependency>
          <dependency>
             <groupId>com.sun.xml.bind</groupId>
@@ -313,7 +327,7 @@
          <dependency>
             <groupId>org.apache.cxf</groupId>
             <artifactId>cxf-rt-transports-http</artifactId>
-            <version>4.0.5</version>
+            <version>${dependency.cxf.version}</version>
          </dependency>
          <dependency>
             <groupId>org.apache.cxf</groupId>

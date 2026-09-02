@@ -15,7 +15,7 @@
     <description>Alfresco content trackers - polls Alfresco Repository and indexes into search engine via InformationServer interface</description>
 
     <properties>
-        <spring-boot.version>3.4.1</spring-boot.version>
+        <spring-boot.version>3.5.16</spring-boot.version>
     </properties>
 
     <dependencies>
@@ -72,9 +72,8 @@
         <dependency>
             <groupId>org.quartz-scheduler</groupId>
             <artifactId>quartz</artifactId>
-            <version>2.3.2</version>
             <exclusions>
-                <!-- Exclude SLF4J 1.7.x: Spring Boot 3.4 brings SLF4J 2.x via Logback -->
+                <!-- Exclude SLF4J 1.7.x: Spring Boot 3.5 brings SLF4J 2.x via Logback -->
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
@@ -123,11 +122,14 @@
             <artifactId>junit</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- JUnit Vintage engine to run JUnit 4 tests on JUnit 5 platform -->
+        <!-- JUnit Vintage engine to run JUnit 4 tests on JUnit 5 platform.
+             Keep this version in step with the JUnit Jupiter that spring-boot-starter-test
+             pulls in: a lower Vintage drags junit-platform back with it, and Jupiter then
+             fails to discover any test at all. -->
         <dependency>
             <groupId>org.junit.vintage</groupId>
             <artifactId>junit-vintage-engine</artifactId>
-            <version>5.11.4</version>
+            <version>5.12.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
