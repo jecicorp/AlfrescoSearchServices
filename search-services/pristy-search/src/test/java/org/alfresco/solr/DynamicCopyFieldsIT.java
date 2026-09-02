@@ -189,10 +189,13 @@ public class DynamicCopyFieldsIT extends AbstractAlfrescoDistributedIT {
         metadataNode0.getProperties().put(getCustomQName(MLTEXT_NONE), new MLTextPropertyValue(Map.of(Locale.ENGLISH,"value")));
         metadataNode0.getProperties().put(getCustomQName(MLTEXT_LOVWHOLE), new MLTextPropertyValue(Map.of(Locale.ENGLISH,"value")));
 
+        // storeTextProperties: this test enumerates the field variants a property generates, and
+        // the d:text ones come from the copyFields of the stored field.
         indexDirectlyPartitioned(nodeDocuments(bigTxn,
                 of(parentFolder, node0),
                 of(parentFolderMetadata, metadataNode0),
-                of("world", "world")));
+                of("world", "world"),
+                true));
 
         /*
          * Get sure the nodes are indexed correctly in the shards

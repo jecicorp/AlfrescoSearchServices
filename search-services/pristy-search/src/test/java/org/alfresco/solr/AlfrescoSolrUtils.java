@@ -94,6 +94,7 @@ import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.AbstractAlfrescoSolrIT.SolrServletRequest;
+import org.alfresco.solr.AlfrescoSolrDataModel.FieldUse;
 import org.alfresco.solr.client.Acl;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
@@ -901,6 +902,13 @@ public class AlfrescoSolrUtils
                         doc.addField(storedField,
                                 "\u0000" + mlLocale.toString() + "\u0000" + mlText.getValue(mlLocale));
                     }
+                    // mltext@m__sort@* has no copyField source, unlike text@s__sort@*, so the
+                    // indexer writes it and the fixture has to as well. It is single-valued: one
+                    // locale only.
+                    mlText.getLocales().stream().findFirst().ifPresent(sortLocale ->
+                            dataModel2.getQueryableFields(propQName, null, FieldUse.SORT).getFields()
+                                    .forEach(field -> doc.addField(field.getField(),
+                                            "\u0000" + sortLocale.toString() + "\u0000" + mlText.getValue(sortLocale))));
                 }
             }
             if (content != null)
