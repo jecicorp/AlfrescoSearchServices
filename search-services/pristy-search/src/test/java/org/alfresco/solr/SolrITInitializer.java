@@ -110,11 +110,11 @@ public abstract class SolrITInitializer extends SolrTestCaseJ4
 
     public static Properties DEFAULT_CORE_PROPS = new Properties();
 
-    protected static Map<String, JettySolrRunner> jettyContainers;
+    protected static Map<String, JettySolrRunner> jettyContainers = new HashMap<>();
     protected static int jettyPort;
-    protected static Map<String, SolrClient> solrCollectionNameToStandaloneClient;
-    protected static List<JettySolrRunner> solrShards;
-    protected static List<SolrClient> clientShards;
+    protected static Map<String, SolrClient> solrCollectionNameToStandaloneClient = new HashMap<>();
+    protected static List<JettySolrRunner> solrShards = new ArrayList<>();
+    protected static List<SolrClient> clientShards = new ArrayList<>();
     protected static String shards;
     protected static String[] shardsArr;
     protected static File testDir;
