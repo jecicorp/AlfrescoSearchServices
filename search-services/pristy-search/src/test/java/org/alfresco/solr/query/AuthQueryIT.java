@@ -120,7 +120,7 @@ public class AuthQueryIT extends AuthDataLoad
                     solrQueryRequest, FTSQueryParser.RerankPhase.SINGLE_PASS);
             TopDocs docs = solrIndexSearcher.search(query, count * 2 + 10);
         
-            Assert.assertEquals(count, docs.totalHits);
+            Assert.assertEquals(count, docs.totalHits.value);
         } 
         finally
         {

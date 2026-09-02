@@ -279,6 +279,12 @@ The embedded IT harness needed several adjustments to boot a Solr 9 core:
   A schema aborts on the **first** missing class, hiding the rest, so check statically instead of
   paying one run per class: extract every `class="solr.*"` outside XML comments from those configs and
   look the simple name up in `solr-core-9.10.1.jar`.
+- **`TopDocs.totalHits` is a `TotalHits` object since Lucene 8**, not an `int`. Two test assertions
+  still compared it to an expected count: `assertEquals(count, docs.totalHits)` binds to
+  `assertEquals(Object, Object)`, so it fails even when the counts agree — the giveaway is
+  `expected:<1> but was:<1 hits>`, `TotalHits.toString()`. Fixed with `.value`
+  (`AbstractAlfrescoSolrIT.assertAQuery`, `AuthQueryIT.assertFTSQuery`); `src/main` had already
+  been migrated.
 
 ## Tracker timing (post-externalization)
 

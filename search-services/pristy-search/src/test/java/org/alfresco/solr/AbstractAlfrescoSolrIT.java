@@ -870,7 +870,7 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
         LOG.debug("####### Query ######:"+query);
         TopDocs docs = solrIndexSearcher.search(query, count * 2 + 10);
 
-            assertEquals(fixQueryString(queryString, name), count, docs.totalHits);
+            assertEquals(fixQueryString(queryString, name), count, docs.totalHits.value);
         }
         catch(Exception exception)
         {
