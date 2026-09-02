@@ -73,6 +73,8 @@ public class TrackerSchedulerTest
     public void setUp() throws Exception
     {
         this.trackerScheduler = new TrackerScheduler("testScheduler");
+        // These tests assert scheduling only: don't fire the jobs against the bare mocks
+        this.trackerScheduler.scheduler.standby();
         this.spiedQuartzScheduler = spy(this.trackerScheduler.scheduler);
         this.trackerScheduler.scheduler = spiedQuartzScheduler;
         props = new Properties();
