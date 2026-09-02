@@ -12,17 +12,33 @@ requests originating from the Alfresco UI, the flag should always be `true`.
 
 ### Enabling diagnostic logs
 
-Uncomment the following lines in `search-services/packaging/src/main/resources/logs/log4j.properties`:
+Add the following to `search-services/packaging/src/main/resources/logs/log4j.properties`.
+That file is **log4j2** format (Solr 9 ships log4j2), so the log4j 1.x
+`log4j.logger.<class>=LEVEL` syntax is silently ignored — each logger needs a `.name`
+and a `.level` line:
 
 ```properties
-log4j.logger.org.alfresco.solr.query.AbstractQParser=TRACE
-log4j.logger.org.alfresco.solr.component.SetProcessedDeniesComponent=TRACE
+logger.aftsqparser.name = org.alfresco.solr.query.AbstractQParser
+logger.aftsqparser.level = TRACE
+
+logger.aftsplugin.name = org.alfresco.solr.query.AlfrescoFTSQParserPlugin
+logger.aftsplugin.level = DEBUG
+
+logger.processeddenies.name = org.alfresco.solr.component.SetProcessedDeniesComponent
+logger.processeddenies.level = TRACE
 ```
 
 Then rebuild and redeploy. Search for `[ACL-DIAG]` in `solr.log`:
 
 ```bash
 grep ACL-DIAG /opt/solr/server/logs/solr.log
+```
+
+To also see how many documents each request matched, raise Solr's own request log:
+
+```properties
+logger.solrrequest.name = org.apache.solr.core.SolrCore.Request
+logger.solrrequest.level = DEBUG
 ```
 
 ### What the logs tell you
@@ -35,6 +51,18 @@ grep ACL-DIAG /opt/solr/server/logs/solr.log
 | `JSONException during authority filter parsing` | JSON from Alfresco is malformed or missing expected keys |
 | `anyDenyDenies=false in JSON` | Alfresco explicitly disabled deny filtering |
 | `AUTHORITY_FILTER_FROM_JSON matched but authQuery is empty` | JSON was parsed but contained no authorities |
+| `AFTS QP query as lucene: …` | The parsed Lucene query — the fastest way to tell a wrong query from a wrong index |
+| `Post filter value: true\|false` | Which permission-filtering mode this request used (see [solr9-admin-guide.md](solr9-admin-guide.md#permissions-filtering--post-filter-vs-query)) |
+
+### Zero results on every permission-filtered query
+
+If `numFound` is `0` with `status=0` and no exception, while the same query without
+`fq={!afts}AUTHORITY_FILTER_FROM_JSON` returns documents, compare the two modes: run the
+request with `-Dalfresco.postfilter=true` and with `false`. A discrepancy points at the
+ACL query classes rather than at the index — `Query.equals`/`hashCode` there must
+distinguish the concrete class, or Lucene's `BooleanQuery.rewrite` collapses
+`+AUTHSET -DENYSET` into `MatchNoDocsQuery`. See the corresponding section of
+[solr6-to-solr9-migration.md](solr6-to-solr9-migration.md#queryequals-must-compare-the-class).
 
 ## Tracker startup issues
 

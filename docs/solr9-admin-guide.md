@@ -89,6 +89,48 @@ workspace store. No configuration is needed for the standard layout. See
 [tracker-configuration.md](tracker-configuration.md#per-core-configuration--store-selection)
 for the full per-core reference.
 
+### Permissions filtering — post-filter vs query
+
+Permissions are not stored on the document: a node carries an `ACLID`, and the
+authorities allowed to read it live in separate ACL documents. Every user-facing search
+therefore joins ACL documents to node documents, and two Solr **core** properties in
+`conf/solrcore.properties` control that join:
+
+| Property | Default | Effect |
+|----------|---------|--------|
+| `alfresco.doPermissionChecks` | `true` | `false` disables ACL filtering entirely — every user sees every document. Never set this on a real repository; it exists for benchmarking. |
+| `alfresco.postfilter` | `true` | Chooses **when** the ACL join runs (below). |
+
+A JVM system property of the same name **overrides** the core property, so the mode can
+be flipped for a whole node with `-Dalfresco.postfilter=false` without editing cores.
+
+**`true` — post-filter (the default).** The authority filter is wrapped in a
+`PostFilterQuery` (uncached, cost 200) and applied as a Solr post-filter: a collector
+reads the `ACLID` of each document *already matched by the query* and tests it against
+the set of readable ACLs. Cost is proportional to the number of matching documents, and
+nothing per-user is retained in the `filterCache`.
+
+**`false` — ordinary query.** The filter becomes a normal Lucene query in the `fq`. It
+**scans the whole index** (every document of every segment, reading `ACLID` doc values)
+to build one bitset per segment, and the resulting doc set goes into the `filterCache`.
+
+Which to prefer:
+
+- Keep the default for a normal ECM workload. Each user has a different set of
+  authorities, so caching one index-wide bitset per user fills the `filterCache` with
+  entries that are never reused.
+- Consider `false` when a *single* set of authorities issues many poorly selective
+  queries — a service account, a connector, a paginating export batch. The initial
+  full scan is then amortised over many requests that hit the cache.
+
+Two limits worth knowing. The post-filter only applies when the authority filter uses
+its compact `AUTHSET`/`DENYSET` form, which the query parser picks whenever it can find
+a separator character unused by the authority names (`:` `,` `-` `!` `+` `=` `;` `~` `/`);
+if all nine appear, it falls back to individual `AUTHORITY:`/`DENIED:` clauses and the
+post-filter is skipped whatever the property says. And `HybridBitSet`, which holds the
+readable ACL ids, allocates a fixed 60 M-bit set per call (7.5 MB) before falling back to
+a hash set for higher ids — that ceiling is not configurable.
+
 ### Solr runtime — new secure-by-default settings
 
 Solr 9 ships "secure by default", and a few of those defaults must be turned off for
