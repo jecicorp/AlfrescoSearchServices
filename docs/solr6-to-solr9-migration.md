@@ -252,8 +252,12 @@ The embedded IT harness needed several adjustments to boot a Solr 9 core:
 - **`loadBootstrapModels()`**: since the trackers were externalized,
   `AlfrescoSolrDataModel` no longer loads any model on startup (the separate
   `ModelTracker` pushes them via `putModel()`). Embedded tests have no tracker, so
-  they load the bootstrap models (`dictionary → system → content → cmis`) directly
-  from test resources.
+  they load the models directly from test resources: `dictionary → system → content →
+  cmis` first, then every remaining model in `test-files/alfrescoModels` (`cmistest`,
+  `acme`, `allfieldtypes`, `solrtest`), which import `d`/`sys`/`cm` only. Loading just
+  the four socle models is not enough — `CMISQueryParser` then rejects the CMIS test
+  queries with `Type is unsupported in query: cmistest:extendedContent`, since the
+  type is simply absent from the dictionary.
 - **JaCoCo**: exclude `org/alfresco/repo/search/impl/parsers/**`. The ANTLR-generated
   `FTSParser` DFA methods exceed the JVM 64 KB method limit once instrumented
   (`MethodTooLargeException`), which broke query parsing under coverage.

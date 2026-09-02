@@ -86,10 +86,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
@@ -167,6 +169,8 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
         File[] modelFiles = modelsDir.listFiles((dir, name) -> name.endsWith(".xml"));
         if (modelFiles != null)
         {
+            Set<String> loaded = new HashSet<>();
+
             // Explicit dependency order: system, then content, then cmis.
             for (String token : new String[]{ "systemmodel", "contentmodel", "cmismodel" })
             {
@@ -174,16 +178,32 @@ public abstract class AbstractAlfrescoSolrIT implements SolrTestFiles, AlfrescoS
                 {
                     if (modelFile.getName().contains(token))
                     {
-                        try (InputStream is = new FileInputStream(modelFile))
-                        {
-                            dataModel.putModel(M2Model.createModel(is));
-                        }
+                        putModel(dataModel, modelFile);
+                        loaded.add(modelFile.getName());
                     }
+                }
+            }
+
+            // Then the test models (cmistest, acme, ...), which import d/sys/cm only. The dictionary
+            // came from the classpath above; reloading it here would recompile its importers.
+            for (File modelFile : modelFiles)
+            {
+                if (!loaded.contains(modelFile.getName()) && !modelFile.getName().contains("dictionary"))
+                {
+                    putModel(dataModel, modelFile);
                 }
             }
         }
 
         dataModel.afterInitModels();
+    }
+
+    private static void putModel(AlfrescoSolrDataModel dataModel, File modelFile) throws IOException
+    {
+        try (InputStream is = new FileInputStream(modelFile))
+        {
+            dataModel.putModel(M2Model.createModel(is));
+        }
     }
 
     protected static void copyTestFiles() throws IOException {
