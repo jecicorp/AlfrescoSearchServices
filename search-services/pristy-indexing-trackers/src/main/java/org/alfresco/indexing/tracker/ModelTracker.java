@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -130,8 +131,13 @@ public class ModelTracker extends AbstractTracker
     {
         super(p, client, coreName, informationServer, Tracker.Type.MODEL);
         this.dataModelCallback = dataModelCallback;
-        String normalSolrHome = solrHome.endsWith("/") ? solrHome : solrHome + "/";
-        alfrescoModelDir = new File(locateProperty("solr.model.dir", normalSolrHome+"alfrescoModels"));
+        String modelDir = locateProperty("solr.model.dir", null);
+        if (modelDir == null)
+        {
+            Objects.requireNonNull(solrHome, "solrHome is required when solr.model.dir is not set");
+            modelDir = (solrHome.endsWith("/") ? solrHome : solrHome + "/") + "alfrescoModels";
+        }
+        alfrescoModelDir = new File(modelDir);
         LOGGER.info("Alfresco Model dir {}", alfrescoModelDir);
         if (!alfrescoModelDir.exists())
         {
