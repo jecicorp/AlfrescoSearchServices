@@ -120,6 +120,16 @@ had to clamp offsets to be non-decreasing:
   The inherited Solr 6 `solr.xml` lacked it, so core-admin actions failed with a
   path-not-allowed error. Added to `solr.xml` (and `solr.allowPaths` set in the
   Dockerfile).
+- The shard URL allow-list (CVE-2017-3164) was renamed: `shardsWhitelist` →
+  **`allowUrls`**, and `solr.disable.shardsWhitelist` → `solr.disable.allowUrls`.
+  Like `allowPaths` it is read from `solr.xml` only (`AllowListUrlChecker.create(NodeConfig)`;
+  nothing in `solr-core` reads the `solr.allowUrls` system property directly), so the
+  placeholder had to be declared there too. Without it, any request carrying the `shards`
+  parameter fails in standalone mode with *"solr.xml property 'allowUrls' not configured
+  but required (in lieu of ZkController and ClusterState)"* — which affects sharded
+  deployments, not just the distributed ITs. A sharded install must set
+  `-Dsolr.allowUrls=host1:8983,host2:8983,…`; the checker keeps only `host:port`, so the
+  core path in the URL is irrelevant.
 - `getCoreProperties()` returns `null` in Solr 8 → use
   `getCore().getCoreDescriptor().getCoreProperty()` (auth queries/scorers).
 - `SolrCachingPathQuery.createWeight` signature fixed Lucene 6 → 8.

@@ -279,13 +279,13 @@ public abstract class SolrITInitializer extends SolrTestCaseJ4
             return;
         }
 
-        StringBuilder shardWhitelistBuilder = new StringBuilder();
+        StringBuilder allowUrlsBuilder = new StringBuilder();
         for (int i = 0; i < numShards; i++)
         {
-            shardWhitelistBuilder.append("127.0.0.1:").append(jettyPort).append(JETTY_CONTEXT).append("/" + SHARD_NAME_PREFIX + i).append(',');
+            allowUrlsBuilder.append("127.0.0.1:").append(jettyPort).append(JETTY_CONTEXT).append("/" + SHARD_NAME_PREFIX + i).append(',');
         }
-        shardWhitelistBuilder.deleteCharAt(shardWhitelistBuilder.length() - 1);
-        System.setProperty("solr.shardsWhitelist", shardWhitelistBuilder.toString());
+        allowUrlsBuilder.deleteCharAt(allowUrlsBuilder.length() - 1);
+        System.setProperty("solr.allowUrls", allowUrlsBuilder.toString());
     }
 
     public static void distribTearDown()
@@ -293,6 +293,7 @@ public abstract class SolrITInitializer extends SolrTestCaseJ4
         System.clearProperty("solr.directoryFactory");
         System.clearProperty("solr.log.dir");
         System.clearProperty("solr.solr.home");
+        System.clearProperty("solr.allowUrls");
 
         SOLRAPIQueueClient.NODE_META_DATA_MAP.clear();
         SOLRAPIQueueClient.TRANSACTION_QUEUE.clear();
