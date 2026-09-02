@@ -117,8 +117,6 @@ public class ModelTrackerIT
         when(props.getProperty("alfresco.stores", "workspace://SpacesStore")).thenReturn("workspace://SpacesStore");
         when(props.getProperty("alfresco.batch.count", "5000")).thenReturn("5000");
         when(props.getProperty("alfresco.maxLiveSearchers", "2")).thenReturn("2");
-        when(props.getProperty("shard.count", "1")).thenReturn("1");
-        when(props.getProperty("shard.instance", "0")).thenReturn("0");
         when(this.srv.getTrackerStats()).thenReturn(trackerStats);
         System.setProperty("solr.model.dir", alfrescoModelDir.getAbsolutePath());
         DataModelCallback noOpCallback = new DataModelCallback()
