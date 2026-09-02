@@ -266,6 +266,11 @@
     <requestHandler name="/afts" class="org.apache.solr.handler.component.AlfrescoSearchHandler" lazy="true" >
         <lst name="defaults">
              <str name="defType">afts</str>
+
+             <!-- Solr 9 defaults hl.method=unified; force the (deprecated) "original" method
+                  so the AlfrescoSolrHighlighter, which maps cm:* names to Solr fields, is used. -->
+             <str name="hl.method">original</str>
+
              <str name="spellcheck">false</str>
              <str name="spellcheck.extendedResults">false</str>
              <str name="spellcheck.count">5</str>
