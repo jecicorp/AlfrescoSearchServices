@@ -31,6 +31,7 @@ import static java.util.stream.IntStream.range;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.alfresco.rest.search.SearchResponse;
+import org.alfresco.utility.Utility;
 import org.alfresco.utility.constants.UserRole;
 import org.alfresco.utility.data.DataContent;
 import org.alfresco.utility.data.DataSite;
@@ -67,6 +69,13 @@ public abstract class AbstractSearchExactTermTest extends AbstractE2EFunctionalT
     protected DataContent dataContent;
     
     private static final DateFormat QUERY_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
+
+    /** How long assertResponseCardinality keeps retrying before it gives up. */
+    private static final Duration CARDINALITY_TIMEOUT = Duration.ofSeconds(60);
+
+    /** Pause between two cardinality checks. */
+    private static final int CARDINALITY_POLL_SECONDS = 1;
+
     protected String fromDate;
     protected String toDate;
     
@@ -157,11 +166,42 @@ public abstract class AbstractSearchExactTermTest extends AbstractE2EFunctionalT
         
     }
     
+    /**
+     * Asserts that a query returns exactly {@code num} results, retrying until it does
+     * or the timeout expires.
+     *
+     * <p>Indexing is eventually consistent and dataPreparation cannot prove that every
+     * document landed: it waits on the last file created, which says nothing about the
+     * others because the trackers index by transaction and in batches, not in creation
+     * order. Asserting on the first response therefore fails at random whenever one
+     * document lags behind.</p>
+     *
+     * <p>The retry is bounded in time rather than in attempts: the query costs far more
+     * than the pause between two tries, so a fixed number of attempts would not bound
+     * the wall clock in any predictable way.</p>
+     */
     protected void assertResponseCardinality(String query, int num)
     {
-        SearchResponse response = queryAsUser(testUser, query);
-        restClient.assertStatusCodeIs(HttpStatus.OK);
-        Assert.assertEquals(response.getPagination().getCount(), num, query);
+        final long deadline = System.nanoTime() + CARDINALITY_TIMEOUT.toNanos();
+
+        int count;
+        do
+        {
+            SearchResponse response = queryAsUser(testUser, query);
+            restClient.assertStatusCodeIs(HttpStatus.OK);
+            count = response.getPagination().getCount();
+
+            if (count == num)
+            {
+                return;
+            }
+
+            Utility.waitToLoopTime(CARDINALITY_POLL_SECONDS, "Waiting for indexing to settle: " + query);
+        }
+        while (System.nanoTime() < deadline);
+
+        // Same message as before, so a genuine cardinality mismatch reads identically.
+        Assert.assertEquals(count, num, query);
     }
     
     protected void assertException(String query)
