@@ -136,7 +136,7 @@
       <dependency.jaxen.version>1.2.0</dependency.jaxen.version>
       <dependency.jaxb-xjc.version>4.0.3</dependency.jaxb-xjc.version>
 
-      <dependency.slf4j.version>1.7.36</dependency.slf4j.version>
+      <dependency.slf4j.version>2.0.17</dependency.slf4j.version>
       <dependency.cxf.version>3.6.12</dependency.cxf.version>
 
       <!-- Solr 9 runs on Jetty 10, which still uses javax.servlet (Jakarta only lands in Solr 10). -->
