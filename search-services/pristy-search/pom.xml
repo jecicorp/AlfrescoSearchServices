@@ -14,13 +14,6 @@
 
         <dependency>
             <groupId>fr.pristy</groupId>
-            <artifactId>pristy-indexing-trackers</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>fr.pristy</groupId>
             <artifactId>pristy-solrclient-lib</artifactId>
             <version>1.0.0-SNAPSHOT</version>
             <exclusions>
