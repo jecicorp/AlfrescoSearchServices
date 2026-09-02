@@ -13,5 +13,9 @@ environment:
   ENABLE_SPELLCHECK: "${SEARCH_ENABLE_SPELLCHECK}"
   #Disable Cascade Tracking
   DISABLE_CASCADE_TRACKING: "${DISABLE_CASCADE_TRACKING}"
+  #How Solr and the repository authenticate each other. The entrypoint
+  #(solr-init-core.sh) reads this to rewrite solrcore.properties; without it the
+  #template default (https) stands and Solr rejects every unauthenticated call.
+  ALFRESCO_SECURE_COMMS: "${ALFRESCO_SECURE_COMMS}"
 ports:
   - ${EXTERNAL_PORT}:8983 #Browser port

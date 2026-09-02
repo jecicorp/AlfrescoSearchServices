@@ -39,6 +39,9 @@ for CORE_NAME in $CORE_LIST; do
                 ;;
             none)
                 sed -i 's|alfresco.secureComms=https|alfresco.secureComms=none|' "$PROPS"
+                # SecretSharedAuthPlugin rejects "none" on its own: it only lets an
+                # unauthenticated call through when this flag is explicitly set.
+                echo 'alfresco.allowUnauthenticatedSolrEndpoint=true' >> "$PROPS"
                 ;;
             https|"")
                 : # keep template default alfresco.secureComms=https
