@@ -481,6 +481,11 @@
             </executions>
             <configuration>
                <runOrder>alphabetical</runOrder>
+               <!-- The IT assertions are written for English analysis, and the requests carry no
+                    locale, so the parser falls back to the JVM default. Left unpinned, results
+                    depend on the developer's machine: on a fr_FR JVM the wildcard "?est" loses its
+                    stem ("est" is a French stop word) and AFTSDefaultTextQueryIT fails wholesale. -->
+               <argLine>-Duser.language=en -Duser.country=US</argLine>
             </configuration>
          </plugin>
          <plugin>
