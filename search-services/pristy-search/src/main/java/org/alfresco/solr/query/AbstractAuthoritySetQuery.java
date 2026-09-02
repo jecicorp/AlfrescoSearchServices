@@ -87,7 +87,7 @@ public abstract class AbstractAuthoritySetQuery extends Query
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof AbstractAuthoritySetQuery)) return false;
+        if (!sameClassAs(o)) return false;
 
         AbstractAuthoritySetQuery that = (AbstractAuthoritySetQuery) o;
 
@@ -97,7 +97,7 @@ public abstract class AbstractAuthoritySetQuery extends Query
 
     @Override
     public int hashCode() {
-        return authorities.hashCode();
+        return 31 * classHash() + authorities.hashCode();
     }
 
 

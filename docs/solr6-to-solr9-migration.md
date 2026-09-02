@@ -114,6 +114,32 @@ had to clamp offsets to be non-decreasing:
   per-tokenizer offset state is lost between invocations; a wrapper-level filter
   persists across the whole token stream and catches every backwards offset.
 
+### `Query.equals` must compare the class
+
+Lucene 7.2 taught `BooleanQuery.rewrite` to short-circuit contradictions: if a query
+appears both as `MUST`/`FILTER` and as `MUST_NOT`, the whole boolean is replaced by
+`MatchNoDocsQuery("FILTER or MUST clause also in MUST_NOT")`. Lucene 6.6.5 had no such
+rule, which is why the inherited ACL queries got away with an `equals`/`hashCode` that
+compared only the authority string and ignored the concrete class:
+
+```java
+if (!(o instanceof AbstractAuthoritySetQuery)) return false;
+return authorities.equals(that.authorities);        // hashCode() = authorities.hashCode()
+```
+
+The authority filter is built as `+(AUTHSET:<auths>) -(DENYSET:<auths>)` — the *same*
+authority string on both sides — so `SolrAuthoritySetQuery` and `SolrDenySetQuery`
+compared equal, and **every permission-filtered query returned zero documents**, with
+status 200 and no exception. Fixed in `AbstractAuthoritySetQuery` and
+`AbstractAuthorityQuery` with Lucene's own helpers, `sameClassAs(o)` in `equals` and
+`classHash()` mixed into `hashCode`.
+
+Only the in-filter path was affected: with `alfresco.postfilter=true` (the default,
+per-core property) the filter is wrapped in a `PostFilterQuery` whose
+`getFilterCollector` walks the query tree itself, so Lucene never rewrites the boolean.
+`SolrAuthIT.testAuthInFilter` is the regression test; its sibling
+`testAuthPostFilter` passed throughout.
+
 ### Solr 8 runtime / security
 
 - Since Solr 8.6, **`-Dsolr.allowPaths` is only honoured when declared in `solr.xml`**.
