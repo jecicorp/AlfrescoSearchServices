@@ -14,6 +14,7 @@
       <tas.cmis.api.version>23.1.0.101</tas.cmis.api.version>
       <tas.utility.version>4.0.4</tas.utility.version>
       <suiteXmlFile>src/test/resources/SearchSuite.xml</suiteXmlFile>
+      <e2e.skipTests>true</e2e.skipTests>
       <test.exclude />
       <test.include />
       <dependency.google.guava.version>23.0</dependency.google.guava.version>
@@ -26,6 +27,7 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
+               <skipTests>${e2e.skipTests}</skipTests>
                <suiteXmlFiles>
                   <suiteXmlFile>${suiteXmlFile}</suiteXmlFile>
                </suiteXmlFiles>

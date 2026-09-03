@@ -79,23 +79,23 @@ run = "docker compose -f target/e2e-stack/docker-compose.yml logs -f"
 
 [tasks."e2e:test"]
 description = "Run the e2e tests (the stack must be up)"
-run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test"
+run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -De2e.skipTests=false"
 
 [tasks."e2e:test:admin"]
 description = "E2e admin tests only"
-run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='SolrE2eAdminTest,SolrE2ESummaryTest,SolrE2eActionTest'"
+run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -De2e.skipTests=false -Dtest='SolrE2eAdminTest,SolrE2ESummaryTest,SolrE2eActionTest'"
 
 [tasks."e2e:test:search"]
 description = "E2e search tests (without admin)"
-run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='SearchTest,SearchSimpleCasesTest,SearchCasesTest,SearchAFTSInFieldTest,SearchExactTermTest,SearchHighLightTest,SearchPermissionsTest,SearchQueryPaginationTest,SearchWithCustomModelTest,SpecialCharacterSearchTest'"
+run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -De2e.skipTests=false -Dtest='SearchTest,SearchSimpleCasesTest,SearchCasesTest,SearchAFTSInFieldTest,SearchExactTermTest,SearchHighLightTest,SearchPermissionsTest,SearchQueryPaginationTest,SearchWithCustomModelTest,SpecialCharacterSearchTest'"
 
 [tasks."e2e:test:facet"]
 description = "E2e facet tests"
-run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='FacetedSearchTest,FacetFieldsSearchTest,FacetIntervalSearchTest,FacetRangeSearchTest,PivotFacetedSearchTest,StatsSearchTest'"
+run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -De2e.skipTests=false -Dtest='FacetedSearchTest,FacetFieldsSearchTest,FacetIntervalSearchTest,FacetRangeSearchTest,PivotFacetedSearchTest,StatsSearchTest'"
 
 [tasks."e2e:test:class"]
 description = "Run a single e2e test class by name - e.g. mise run e2e:test:class MyTest"
-run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -Dtest='{{arg(name=\"class\")}}'"
+run = "mvn $MAVEN_CLI_OPTS test -pl e2e-test -De2e.skipTests=false -Dtest='{{arg(name=\"class\")}}'"
 
 [tasks."e2e:generate:https"]
 description = "Generate docker-compose for the e2e stack with the Pristy https/mTLS (PKCS12) profile"
