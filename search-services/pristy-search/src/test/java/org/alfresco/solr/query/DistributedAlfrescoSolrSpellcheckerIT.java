@@ -67,7 +67,9 @@ public class DistributedAlfrescoSolrSpellcheckerIT extends AbstractAlfrescoDistr
         NamedList collation = (NamedList)suggestions.getVal(2); // The third suggestion should be collation in the Solr format.
         String collationQuery = (String)collation.get("collationQuery");
         String collationQueryString = (String)collation.get("collationQueryString");
-        int hits = (int)collation.get("hits");
+        // Solr 9 reports hits as a long (SpellCheckCollation.hits changed type), so read it
+        // as a Number rather than casting.
+        int hits = ((Number) collation.get("hits")).intValue();
         assertTrue(hits == 3);
         assertTrue(collationQuery.equals("(yyyyyyy bbbbbbb AND (id:(1 2 3 4 5 6)))"));
         assertTrue(collationQueryString.equals("yyyyyyy bbbbbbb"));

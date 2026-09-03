@@ -219,7 +219,12 @@ public class AlfrescoSpellCheckCollator
                         checkResponse.setFieldFlags(f |= SolrIndexSearcher.TERMINATE_EARLY);
                     }
                     queryComponent.process(checkResponse);
-                    hits = (Integer) checkResponse.rsp.getToLog().get("hits");
+                    // Read it as a Number: QueryComponent logs DocList.matches(), which returns a
+                    // long since Solr 9, so the value is a Long and an (Integer) cast throws. The
+                    // ClassCastException was swallowed by the catch below, leaving hits at 0, which
+                    // discards every collation.
+                    Number matches = (Number) checkResponse.rsp.getToLog().get("hits");
+                    hits = matches != null ? matches.intValue() : 0;
                 }
                 catch (EarlyTerminatingCollectorException etce)
                 {
