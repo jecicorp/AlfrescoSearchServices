@@ -1,33 +1,40 @@
-## Alfresco Search Services
+## Pristy Search Services
 
-Alfresco Search Services ${project.version} using Apache Solr ${solr.base.version}
+Pristy Search Services ${project.version}, using Apache Solr ${solr.base.version}.
 
-Find out more about Solr 6 and how to be installed at:
+A community fork of Alfresco Search Services, maintained by Jeci SARL, and the search tier
+of Pristy ECM. The enterprise-only components (Insight Engine, Zeppelin, governance
+services) have been removed.
 
-* Community users: https://docs.alfresco.com/search-community/concepts/search-home.html 
-
-* Enterprise users: https://docs.alfresco.com/search-enterprise/concepts/search-home.html
+* Home and documentation: https://gitlab.com/pristy-oss/pristy-search-services
 
 
 ### License
-Copyright (C) 2005 - 2019 Alfresco Software Limited
 
-This file is part of the Alfresco software. 
-If the software was purchased under a paid Alfresco license, the terms of 
-the paid license agreement will prevail.  Otherwise, the software is 
-provided under the following open source license terms:
+Copyright (C) 2005 - 2019 Alfresco Software, Ltd. and others
 
-Alfresco is free software: you can redistribute it and/or modify
+Copyright (C) 2026 Jeci SARL - https://jeci.fr
+
+This distribution is derived from Alfresco Search Services (Community Edition) and has been
+modified by Jeci SARL since March 2026. No Alfresco commercial agreement covers it, and
+Alfresco Software, Ltd. neither produces nor endorses it.
+
+This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-Alfresco is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public License
-along with Alfresco. If not, see <http://www.gnu.org/licenses/>.
+along with this program, in licenses/license.txt. If not, see
+<https://www.gnu.org/licenses/lgpl-3.0.html>.
 
-#### Build ${project.timestamp} ${project.revision.key}
+Third-party components are inventoried under licenses/. "Alfresco" and "Apache Solr" are
+trademarks of their respective owners, used here to describe the origin and the contents of
+this distribution.
+
+#### Build ${project.timestamp}

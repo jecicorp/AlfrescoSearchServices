@@ -1,12 +1,18 @@
-Copyright (c) 2005-2019 Alfresco Software, Ltd. and others.
-All rights reserved.  This program and the accompanying materials are made available under the terms of the Alfresco
-agreement located at www.alfresco.com/legal/agreements/ or other commercial agreement between Alfresco Software, Ltd.
-("Alfresco") and the user of this program.
-Portions of this product distribution require certain copyright or other notices to
-be included with the product distribution.  These notices may also appear in individual
-source files.
+Pristy Search Services - JavaScript components
+==============================================
 
-Below is the list of licenses and modules used under corresponding licenses. Licenses for libraries used by Apache Solr are listed separately.
+Copyright (c) 2005-2019 Alfresco Software, Ltd. and others.
+Copyright (c) 2026 Jeci SARL - https://jeci.fr
+
+Pristy Search Services is a community fork of Alfresco Search Services, modified by Jeci
+SARL since March 2026 and distributed under the GNU Lesser General Public License, version
+3 or later. No Alfresco commercial agreement covers this distribution, and Alfresco
+Software, Ltd. neither produces nor endorses it. The full notice is in licenses/notice.txt
+and the license text in licenses/license.txt.
+
+This file inventories the JavaScript libraries this distribution adds to the Solr admin web
+application. Portions of them require their own copyright or license notices to be included
+with the distribution. These notices may also appear in the individual files.
 
 
 === MIT ===
@@ -22,23 +28,7 @@ angular.js https://github.com/angular/angular.js/blob/v1.8.2/LICENSE
 angular.min.js https://github.com/angular/angular.js/blob/v1.8.2/LICENSE
 
 
-=== Part of Apache Solr (Licenses listed separately) ===
-angular-chosen.js
-chosen.jquery.js
-chosen.jquery.min.js
-chosen.js
-console.js
-d3.js
-highlight.js
-jquery.ajaxfileupload.js
-jquery.blockUI.js
-jquery.cookie.js
-jquery.form.js
-jquery.jstree.js
-jquery.sammy.js
-jquery.timeago.js
-linker.js
-naturalSort.js
-ngtimeago.js
-order.js
-ZeroClipboard.js
+=== Part of Apache Solr ===
+Every other JavaScript file under solr/server/solr-webapp/ is shipped by Apache Solr
+unmodified, and is covered by the notices Apache maintains for its own distribution. This
+distribution carries them verbatim, in solr/LICENSE.txt, solr/NOTICE.txt and solr/licenses/.

@@ -1,10 +1,37 @@
+Pristy Search Services
+======================
+
+A community fork of Alfresco Search Services, maintained by Jeci SARL.
+Source: https://gitlab.com/pristy-oss/pristy-search-services
+
 Copyright (c) 2005-2023 Alfresco Software, Ltd. and others.
-All rights reserved.  This program and the accompanying materials are made available under the terms of the Alfresco 
-agreement located at www.alfresco.com/legal/agreements/ or other commercial agreement between Alfresco Software, Ltd. 
-("Alfresco") and the user of this program.
-Portions of this product distribution require certain copyright or other notices to 
-be included with the product distribution.  These notices may also appear in individual 
-source files.
+Copyright (c) 2026 Jeci SARL - https://jeci.fr
+
+This distribution is derived from Alfresco Search Services (Community Edition) and has
+been modified by Jeci SARL since March 2026: the enterprise-only components were removed,
+the indexing trackers were extracted into a standalone service, and the search tier was
+moved to vanilla Apache Solr 9. No Alfresco commercial agreement covers this distribution,
+and Alfresco Software, Ltd. neither produces nor endorses it.
+
+This program is free software: you can redistribute it and/or modify it under the terms of
+the GNU Lesser General Public License as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU Lesser General Public License for more details, in licenses/license.txt or at
+<https://www.gnu.org/licenses/lgpl-3.0.html>.
+
+"Alfresco" and "Apache Solr" are trademarks of their respective owners. They are used here
+to describe the origin and the contents of this distribution, and imply no affiliation with
+or endorsement by their owners.
+
+
+Third-party components
+----------------------
+
+Portions of this distribution require their own copyright or license notices to be included
+with it. These notices may also appear in individual source files.
 
 This distribution carries three separate license inventories, covering three sets of jars.
 
@@ -14,7 +41,7 @@ This distribution carries three separate license inventories, covering three set
   this file                 the jars the packaging module copies in on its own, which appear in
                             neither of the above
 
-The Apache Solr project page is http://lucene.apache.org/solr/
+The Apache Solr project page is https://solr.apache.org/
 The Apache Lucene project page is https://lucene.apache.org/
 
 === Apache 2.0 ===
