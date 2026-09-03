@@ -63,11 +63,13 @@ import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
  * @author Joel
  */
+@Ignore("MINHASH is no longer written at index time: SolrInformationServer computed it and was removed when the trackers were externalized. See docs/superpowers/specs/2026-09-03-tracker-content-enrichment-design.md. The feature is covered end to end by e2e-test SearchFingerprintSuite.xml, which is the right level -- this fixture writes its own documents, so making it pass would mean replicating the MinHash analysis chain a third time in test scope.")
 @SolrTestCaseJ4.SuppressSSL
 public class DistributedAlfrescoSolrFingerPrintIT extends AbstractAlfrescoDistributedIT
 {

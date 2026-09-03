@@ -48,6 +48,7 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.List;
@@ -60,6 +61,7 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.IntStream.range;
 import static org.alfresco.solr.AlfrescoSolrUtils.*;
 
+@Ignore("MINHASH is no longer written at index time: SolrInformationServer computed it and was removed when the trackers were externalized. See docs/superpowers/specs/2026-09-03-tracker-content-enrichment-design.md. The feature is covered end to end by e2e-test SearchFingerprintSuite.xml, which is the right level -- this fixture writes its own documents, so making it pass would mean replicating the MinHash analysis chain a third time in test scope.")
 public class AlfrescoSolrFingerprintIT extends AbstractAlfrescoSolrIT
 {
     private static long MAX_WAIT_TIME = 80000;
