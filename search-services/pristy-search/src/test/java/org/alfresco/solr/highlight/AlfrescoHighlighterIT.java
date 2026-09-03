@@ -160,7 +160,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     @Test
     public void highlightingSnippetsFragSizeTest()
     {
-        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5",
+        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.Q, "long",
                 HighlightParams.FIELDS, "content,name,title",
@@ -182,7 +182,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     public void highlightingPhraseQueriesTest()
     {
         //Phrase hightling is on by default
-        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5",
+        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.Q, "\"some long\"",
                 HighlightParams.FIELDS, "name",
@@ -195,7 +195,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
         assertQ(req,
                 "//lst[@name='highlighting']/lst/arr/str[.='this is (some) (long) text.  It has the word long in many places.  In fact, it has long on some']");
 
-        req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5",
+        req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.Q, "\"some long\"",
                 HighlightParams.FIELDS, "name",
@@ -214,7 +214,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     @Test
     public void highlightingMaxAnalyzedCharsTest()
     {
-        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5",
+        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.Q, "long",
                 HighlightParams.FIELDS, "name,title",
@@ -233,7 +233,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     @Test
     public void highlightingMergeContinuousFragmentsTest()
     {
-        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5",
+        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.Q, "'some long'",
                 HighlightParams.FIELDS, "name",
@@ -253,7 +253,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     @Test
     public void highlightingLocalConfigurationsTest()
     {
-        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5",
+        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.Q, "long",
                 HighlightParams.FIELDS, "name,title",
@@ -275,7 +275,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     @Test
     public void highlightingRequiredFieldsTest()
     {
-       SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5",
+       SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.Q, "long",
                 HighlightParams.FIELDS, "name,title",
@@ -288,7 +288,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
                 "*[count(//lst[@name='highlighting']/lst/arr[@name='title'])=1]",
                 "//lst[@name='highlighting']/lst[1]/arr[@name='title']/str[.='title1 is very {long}']");
 
-        req = areq(params( "q", "name:long OR title:long", "qt", "/afts", "start", "0", "rows", "5",
+        req = areq(params( "q", "name:long OR title:long", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.Q, "title:long",
                 HighlightParams.FIELDS, "name,title",
@@ -307,7 +307,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     @Test
     public void highlightingPrePostTest()
     {
-        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5",
+        SolrServletRequest req = areq(params( "q", "name:long", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.Q, "long",
                 HighlightParams.FIELDS, "content,name,title",
@@ -330,7 +330,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     @Test
     public void highlightingCamelCaseTest()
     {
-        SolrServletRequest req = areq(params( "q", "name:cabbage", "qt", "/afts", "start", "0", "rows", "5",
+        SolrServletRequest req = areq(params( "q", "name:cabbage", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.FIELDS, "name",
                 HighlightParams.HIGHLIGHT_MULTI_TERM, "false",
@@ -349,7 +349,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     @Test
     public void highlightingPluralsTest()
     {
-        SolrServletRequest req = areq(params( "q", "name:plural", "qt", "/afts", "start", "0", "rows", "5",
+        SolrServletRequest req = areq(params( "q", "name:plural", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 //HighlightParams.Q, "lon*",
                 HighlightParams.FIELDS, "name",
@@ -369,7 +369,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     @Test
     public void highlightingStemmingTest()
     {
-        SolrServletRequest req = areq(params( "q", "name:discuss", "qt", "/afts", "start", "0", "rows", "5",
+        SolrServletRequest req = areq(params( "q", "name:discuss", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 //HighlightParams.Q, "lon*",
                 HighlightParams.FIELDS, "name",
@@ -390,7 +390,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     @Test
     public void highlightingBooleanConjunctionTest()
     {
-        SolrServletRequest req = areq(params( "q", "title:(is AND long)", "qt", "/afts", "start", "0", "rows", "5",
+        SolrServletRequest req = areq(params( "q", "title:(is AND long)", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.FIELDS, "title",
                 HighlightParams.HIGHLIGHT_MULTI_TERM, "false",
@@ -407,7 +407,7 @@ public class AlfrescoHighlighterIT extends AbstractAlfrescoSolrIT
     @Test
     public void highlightingBooleanConjunctionGenericTextTest()
     {
-        SolrServletRequest req = areq(params( "q", "(very AND name)", "qt", "/afts", "start", "0", "rows", "5",
+        SolrServletRequest req = areq(params( "q", "(very AND name)", "qt", "/afts", "start", "0", "rows", "5", "sort", "DBID asc",
                 HighlightParams.HIGHLIGHT, "true",
                 HighlightParams.FIELDS, "name",
                 HighlightParams.HIGHLIGHT_MULTI_TERM, "false",
