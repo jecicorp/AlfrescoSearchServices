@@ -100,5 +100,22 @@ from any Alfresco Search Services release: Lucene 9 cannot read a Lucene 6 index
   rather than inherited from a default that is about to change. It stays a fallback,
   so an environment variable, `ZK_HOST` or `-c` still selects SolrCloud.
 
+### Known limitations
+
+- **Sharding is not supported**, by either model. A deployment runs one core per store;
+  scaling is vertical, or horizontal through read-only replicas fed by the
+  `ReplicationHandler`. Alfresco's dynamic sharding (one standalone core per shard, each
+  announcing itself to the repository, each tracker keeping only the nodes routed to it)
+  lost its index-time routing when the trackers were split out of the Solr webapp: no
+  tracker sends a `ShardState`, no document router remains, and the `shard.method` key
+  still present in `solrcore.properties` is inert. The surrounding plumbing and the
+  distributed **query** path are intact, so restoring it is a bounded piece of work.
+  SolrCloud is a separate matter — this distribution has no ZooKeeper, no configset and no
+  `CloudSolrClient` — and the two models are mutually exclusive, since each puts a
+  different authority in charge of document placement.
+- **FINGERPRINT search does not return results.** The query side is complete, but no
+  `MINHASH` field is written at index time since the trackers moved out. Planned as part of
+  tracker-side content enrichment, disabled by default.
+
 [Unreleased]: https://gitlab.com/pristy-oss/pristy-search-services/-/compare/1.0.0...develop
 [1.0.0]: https://gitlab.com/pristy-oss/pristy-search-services/-/releases/1.0.0

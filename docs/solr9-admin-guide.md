@@ -146,6 +146,31 @@ know about them if you build a custom image or override the startup:
 
 `solr.allowPaths` (file-access allow-list) is also configured for you in the image.
 
+This distribution runs Solr **standalone** (Solr's own term: *user-managed*), not
+SolrCloud, and that is a property of the codebase rather than of the image: cores are
+created on disk with a `core.properties` and a local `conf/solrcore.properties` carrying
+each core's Alfresco settings (`alfresco.stores`, `alfresco.host`, `alfresco.secureComms`),
+the trackers open a plain `HttpSolrClient` on one base URL, and backups drive the per-core
+`ReplicationHandler`. SolrCloud would need a configset in ZooKeeper, collections created
+through the Collections API, per-collection rather than per-core properties, a
+`CloudSolrClient` and the Collections API for backups.
+
+**Sharding is not available in this release, by either model.** The Alfresco model — one
+standalone core per shard, each announcing itself to the repository, each tracker keeping
+only the nodes the repository routes to it — lost its index-time routing when the trackers
+were split out: `MetadataTracker.filterNodes` returns every node unchanged, no tracker sends
+a `ShardState`, and no `DocRouter` survived. The `shard.method` key still present in
+`solrcore.properties` is inert. What remains is the surrounding plumbing (the `ShardState`
+argument of the repository client, the `NON_SHARD_*` node statuses, the repository-side
+registry timeout in the `solr9` subsystem) and the distributed **query** path, which the
+`AlfrescoDistributed*IT` classes still exercise by partitioning documents themselves. So a
+deployment runs one core per store; scaling is vertical, or by read-only replicas fed
+through the `ReplicationHandler`.
+
+Kubernetes does **not** require SolrCloud: a standalone deployment maps onto a StatefulSet
+with one core per pod and its own volume, which is how the Alfresco charts do it. Should
+SolrCloud support ever land, `SOLR_MODE` is the switch — hence the fallback form above.
+
 ### Node configuration (`solr.xml`) is refreshed at every start
 
 `solrhome/solr.xml` carries the **node-level** settings: `allowPaths` (file access),
