@@ -54,7 +54,15 @@
                 <exclude>**/example/**</exclude>
                 <exclude>**/bin/solr.in.sh</exclude>
                 <exclude>**/bin/solr.in.cmd</exclude>
+                <exclude>modules/**</exclude>
+                <exclude>cross-dc-manager/**</exclude>
+                <exclude>prometheus-exporter/**</exclude>
             </excludes>
+        </fileSet>
+        <!-- Solr ICU analysis module -->
+        <fileSet>
+            <directory>${solr.directory}/modules/analysis-extras</directory>
+            <outputDirectory>solr/modules/analysis-extras</outputDirectory>
         </fileSet>
         <!-- Solr config -->
         <fileSet>
