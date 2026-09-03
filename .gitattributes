@@ -1,0 +1,12 @@
+# Every text file is stored in the index and checked out with LF, whatever the
+# platform. Git's own detection decides what counts as text; the entries below
+# pin the binaries it must not touch, including the extensionless keystores.
+* text=auto eol=lf
+
+*.png        binary
+*.jar        binary
+*.p12        binary
+*.pkcs12     binary
+*.keystore   binary
+*.truststore binary
+**/keystore  binary
