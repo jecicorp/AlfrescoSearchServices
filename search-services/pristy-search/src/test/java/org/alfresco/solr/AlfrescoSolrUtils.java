@@ -634,6 +634,21 @@ public class AlfrescoSolrUtils
                 // so highlighting a stemmed match (discuss -> discussion) finds nothing.
                 doc.addField(dataModel.getStoredTextField(propQName),
                         "\u0000" + I18NUtil.getLocale().getLanguage() + "\u0000" + text);
+
+                // The docValues variant (text@sd___@*) is not a copyField destination, so the
+                // indexer writes it and the fixture must too, or faceting finds no value. Written
+                // through FieldUse.FACET, which is how the query side resolves a facet field.
+                for (AlfrescoSolrDataModel.FieldInstance field :
+                        dataModel.getQueryableFields(propQName, null, FieldUse.FACET).getFields())
+                {
+                    // "_dummy_" is the sentinel the data model returns for a property it cannot
+                    // resolve (unknown, or neither indexed nor stored). Writing to it is meaningless
+                    // and, being single-valued, a second property would fail the update.
+                    if (!"_dummy_".equals(field.getField()) && doc.getField(field.getField()) == null)
+                    {
+                        doc.addField(field.getField(), text);
+                    }
+                }
             }
             else
             {
