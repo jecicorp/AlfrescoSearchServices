@@ -271,7 +271,8 @@ public class AlfrescoFieldMapperTransformerIT extends AbstractAlfrescoDistribute
             content.add("world");
         }
 
-        indexDirectlyPartitioned(nodeDocuments(bigTxn, nodes, nodeMetaDatas, content));
+        // storeTextProperties: [fmap] returns the stored value of a field, and cm:name is d:text.
+        indexDirectlyPartitioned(nodeDocuments(bigTxn, nodes, nodeMetaDatas, content, true));
         waitForDocCount(new TermQuery(new Term("content@s___t@{http://www.alfresco.org/model/content/1.0}content", "world")), numNodes, 100000);
     }
 }
