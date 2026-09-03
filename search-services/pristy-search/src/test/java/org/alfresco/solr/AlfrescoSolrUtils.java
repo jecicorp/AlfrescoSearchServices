@@ -83,6 +83,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntFunction;
+import java.util.stream.Collectors;
 
 import org.alfresco.model.ContentModel;
 import org.alfresco.repo.dictionary.M2Model;
@@ -661,13 +662,17 @@ public class AlfrescoSolrUtils
                         "\u0000" + mlLocale.toString() + "\u0000" + mlText.getValue(mlLocale));
             }
             // mltext@m__sort@* has no copyField source, unlike text@s__sort@*, so the indexer
-            // writes it and the fixture has to as well.
+            // writes it and the fixture has to as well. It is single-valued and holds *every*
+            // locale in one string: AlfrescoCollatableMLTextFieldType's comparator splits on
+            // \u0000 and steps three parts at a time, picking the segment closest to the request
+            // locale -- hence the extra \u0000 joining consecutive pairs.
             if (sortWritten.add(propQName))
             {
-                mlText.getLocales().stream().findFirst().ifPresent(sortLocale ->
-                        dataModel.getQueryableFields(propQName, null, FieldUse.SORT).getFields()
-                                .forEach(field -> doc.addField(field.getField(),
-                                        "\u0000" + sortLocale.toString() + "\u0000" + mlText.getValue(sortLocale))));
+                String sortValue = mlText.getLocales().stream()
+                        .map(locale -> "\u0000" + locale.toString() + "\u0000" + mlText.getValue(locale))
+                        .collect(Collectors.joining("\u0000"));
+                dataModel.getQueryableFields(propQName, null, FieldUse.SORT).getFields()
+                        .forEach(field -> doc.addField(field.getField(), sortValue));
             }
         }
     }
