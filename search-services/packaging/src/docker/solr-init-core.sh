@@ -7,6 +7,20 @@ SOLR_HOME="/opt/pristy-search-services/solrhome"
 CORE_LIST="${SOLR_CREATE_ALFRESCO_DEFAULTS:-alfresco}"
 TEMPLATE="${SOLR_TEMPLATE:-rerank}"
 DATA_DIR="/opt/pristy-search-services/data"
+NODE_CONFIG="${SOLR_HOME}/solr.xml"
+NODE_CONFIG_PRISTINE="/opt/pristy-search-services/solr-defaults/solr.xml"
+
+if [ -f "$NODE_CONFIG_PRISTINE" ]; then
+    if [ -f "$NODE_CONFIG" ] && [ ! -f "${NODE_CONFIG}.bak" ]; then
+        cp -p "$NODE_CONFIG" "${NODE_CONFIG}.bak" \
+            && echo "Previous node config kept as ${NODE_CONFIG}.bak"
+    fi
+    if cp "$NODE_CONFIG_PRISTINE" "$NODE_CONFIG"; then
+        echo "Node config refreshed from ${NODE_CONFIG_PRISTINE}"
+    else
+        echo "WARN: could not write ${NODE_CONFIG}; the node keeps its current copy, which may predate this image" >&2
+    fi
+fi
 
 # Split comma-separated core names and create each one
 IFS=','

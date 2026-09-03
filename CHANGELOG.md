@@ -84,6 +84,12 @@ from any Alfresco Search Services release: Lucene 9 cannot read a Lucene 6 index
 - Each core's tracked store is now resolved per core; previously a core with no
   explicit `alfresco.stores` silently indexed the live workspace, leaving the
   `alfresco` and `archive` cores with identical indexes.
+- Node configuration (`solrhome/solr.xml`) is refreshed from the image at every
+  container start. It sits inside the mounted `solrhome`, so a mount created by an
+  earlier image kept its original copy through every upgrade — leaving the global
+  `maxBooleanClauses` at Lucene's 1024 default and no `allowUrls` for distributed
+  queries. Neither is fixable with a `-D` flag, since those properties are only
+  substituted into that file. The previous copy is preserved as `solr.xml.bak`.
 
 [Unreleased]: https://gitlab.com/pristy-oss/pristy-search-services/-/compare/1.0.0...develop
 [1.0.0]: https://gitlab.com/pristy-oss/pristy-search-services/-/releases/1.0.0

@@ -145,6 +145,41 @@ know about them if you build a custom image or override the startup:
 
 `solr.allowPaths` (file-access allow-list) is also configured for you in the image.
 
+### Node configuration (`solr.xml`) is refreshed at every start
+
+`solrhome/solr.xml` carries the **node-level** settings: `allowPaths` (file access),
+`allowUrls` (the `shards` allow-list) and `maxBooleanClauses` (the global clause limit).
+Every value in it comes from a system property the image already sets, so **there is
+nothing to hand-edit there**.
+
+That file lives inside `solrhome`, which is a mounted volume — and Docker seeds an image's
+content into a volume **only when it is a named volume and empty**, never into a bind
+mount. A `solrhome` initialised by an older image therefore kept its original `solr.xml`
+across every image upgrade, silently. To close that, the image keeps a pristine copy
+outside the mount (`/opt/pristy-search-services/solr-defaults/solr.xml`) and the entrypoint
+copies it over `solrhome/solr.xml` at **every** start; the first refresh preserves what was
+there as `solr.xml.bak`.
+
+Two symptoms of an out-of-date `solr.xml`, both silent apart from one log line:
+
+```
+WARN  SolrConfig  solrconfig.xml: <maxBooleanClauses> of 10000 is greater than
+                  global limit of 1024 and will have no effect
+```
+The global limit stays at Lucene's 1024 default, so a wide wildcard expansion or a large
+CMIS `IN` list fails with `TooManyClauses`.
+
+```
+solr.xml property 'allowUrls' not configured but required
+```
+Every distributed (sharded) query fails.
+
+Neither can be worked around with a `-D` flag: since Solr 8.6 those properties are only
+substituted **into `solr.xml`**, so with no matching placeholder in the file the flag is
+inert. Before this refresh existed, the only fixes were to edit the file in place or
+recreate the mount.
+
+
 ### Repository side: the `solr9` search subsystem
 
 Because Solr is now vanilla and the admin control plane lives in the trackers, the
