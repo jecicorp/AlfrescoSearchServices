@@ -628,8 +628,12 @@ public class AlfrescoSolrUtils
             }
             if (storeTextProperties && isTextProperty(propQName))
             {
+                // The marker carries the *language*, not the full locale: LanguagePrefixedTokenStream
+                // reads a 5-char buffer and only accepts NUL + 2-or-3-char code + NUL, so "en_US"
+                // is not recognised and the analysis falls back to text___ -- which has no stemmer,
+                // so highlighting a stemmed match (discuss -> discussion) finds nothing.
                 doc.addField(dataModel.getStoredTextField(propQName),
-                        "\u0000" + I18NUtil.getLocale().toString() + "\u0000" + text);
+                        "\u0000" + I18NUtil.getLocale().getLanguage() + "\u0000" + text);
             }
             else
             {
