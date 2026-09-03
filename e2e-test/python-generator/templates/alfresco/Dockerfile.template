@@ -20,6 +20,8 @@ ENV TRUSTSTORE_TYPE=$$TRUSTSTORE_TYPE \
 
 USER root
 
+COPY pristy-search-subsystem-solr9.jar $${TOMCAT_DIR}/webapps/alfresco/WEB-INF/lib/
+
 # Default value in 'repository.properties' is 'dir.keystore=classpath:alfresco/keystore'
 RUN if [ "$$SOLR_COMMS" == "https" ] ; then \
         echo -e "\n\

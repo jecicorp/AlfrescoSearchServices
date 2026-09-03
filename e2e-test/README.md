@@ -47,7 +47,7 @@ docker build -t jeci/pristy-search-services:local search-services/packaging/targ
 ```bash
 cd e2e-test/python-generator
 python3 generator.py \
-  --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
+  --alfresco=alfresco/alfresco-content-repository-community:26.2.0 \
   --search=jeci/pristy-search-services:local \
   --postgres=postgres:16 \
   --transformer=AIOTransformers \

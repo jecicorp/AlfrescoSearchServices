@@ -38,7 +38,7 @@ description = "Generate the docker-compose stack for e2e tests"
 dir = "e2e-test/python-generator"
 run = """
 python3 generator.py \
-  --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
+  --alfresco=alfresco/alfresco-content-repository-community:26.2.0 \
   --search=jeci/pristy-search-services:local \
   --postgres=postgres:16 \
   --transformer=AIOTransformers \
@@ -57,7 +57,7 @@ echo "==> Building the Solr image..."
 docker build -t jeci/pristy-search-services:local search-services/packaging/target/docker-resources/
 echo "==> Generating the e2e docker-compose (copies the fresh JARs)..."
 cd e2e-test/python-generator && python3 generator.py \
-  --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
+  --alfresco=alfresco/alfresco-content-repository-community:26.2.0 \
   --search=jeci/pristy-search-services:local \
   --postgres=postgres:16 \
   --transformer=AIOTransformers \
@@ -111,7 +111,7 @@ run = """
 #   STORE_PASS=changeit keystore/generate-keystores.sh /tmp/mtls-out
 # This produces solr.p12, trackers.p12, alfresco.p12 and truststore.p12 in /tmp/mtls-out.
 python3 generator.py \
-  --alfresco=alfresco/alfresco-content-repository-community:23.4.1 \
+  --alfresco=alfresco/alfresco-content-repository-community:26.2.0 \
   --search=jeci/pristy-search-services:local \
   --postgres=postgres:16 \
   --transformer=AIOTransformers \

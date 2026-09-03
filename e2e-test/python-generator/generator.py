@@ -5,6 +5,7 @@ import argparse
 from string import Template
 import yaml
 import os
+import shutil
 from distutils.dir_util import copy_tree
 
 LIBRE_OFFICE = 'LibreOffice'
@@ -24,7 +25,8 @@ SHARDING_OPTS = '-Dsolr.useDynamicShardRegistration=true'
 JAVA_OPTS = ('-Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco '
         '-Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Dsolr.port=8983 '
         '-Dsystem.acl.maxPermissionCheckEnabled=true '
-        '-Dindex.subsystem.name=solr6 '
+        '-Dindex.subsystem.name=solr9 '
+        '-Dsolr.tracker.host=trackers -Dsolr.tracker.port=8085 '
         '-Dalfresco.restApi.basicAuthScheme=true '
         # longer timeouts for CI
         '-Dsolr.http.socket.timeout=30000 '
@@ -483,6 +485,18 @@ if __name__ == '__main__':
         os.makedirs('{}/{}'.format(args.output, 'alfresco'), exist_ok=True)
     with open('{}/{}/Dockerfile'.format(args.output, 'alfresco'), 'w') as f:
         dockerfileTemplate = f.write(dockerfileString)
+
+    subsystemJar = os.path.join(scriptDir, '..', '..', 'search-services',
+                                'pristy-search-subsystem-solr9', 'target',
+                                'pristy-search-subsystem-solr9.jar')
+    if not os.path.isfile(subsystemJar):
+        print('ERROR: solr9 Search subsystem JAR not found at {}\n'
+              '       The generated Alfresco image needs it to serve -Dindex.subsystem.name=solr9.\n'
+              '       Build it first:\n'
+              '         mvn package -pl search-services/pristy-search-subsystem-solr9 -am -Dmaven.test.skip=true'
+              .format(os.path.normpath(subsystemJar)))
+        exit(1)
+    shutil.copy2(subsystemJar, '{}/{}'.format(args.output, 'alfresco'))
 
     # Create a trackers build context with the Dockerfile and JAR.
     trackersOutputDir = '{}/trackers'.format(args.output)
