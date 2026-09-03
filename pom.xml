@@ -162,6 +162,7 @@
       <dependency.quartz.version>2.5.2</dependency.quartz.version>
       <dependency.json-smart.version>2.5.2</dependency.json-smart.version>
       <dependency.mime4j.version>0.8.11</dependency.mime4j.version>
+      <dependency.tomcat.version>10.1.59</dependency.tomcat.version>
    </properties>
    <dependencyManagement>
       <dependencies>
@@ -178,6 +179,21 @@
             <version>${dependency.netty.version}</version>
             <type>pom</type>
             <scope>import</scope>
+         </dependency>
+         <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-core</artifactId>
+            <version>${dependency.tomcat.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-el</artifactId>
+            <version>${dependency.tomcat.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-websocket</artifactId>
+            <version>${dependency.tomcat.version}</version>
          </dependency>
          <dependency>
             <groupId>commons-fileupload</groupId>

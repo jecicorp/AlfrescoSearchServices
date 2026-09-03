@@ -45,3 +45,5 @@ keystore/*.crt
 keystore/*.csr
 keystore/*.srl
 keystore/out/
+
+trivy-*.json
