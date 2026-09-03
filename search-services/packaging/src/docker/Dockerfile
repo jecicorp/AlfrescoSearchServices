@@ -52,7 +52,8 @@ RUN set -x \
    && echo '# Solr 9 binds to 127.0.0.1 by default; bind to all interfaces so the container is reachable' >> $DIST_DIR/solr.in.sh \
    && echo 'SOLR_JETTY_HOST=0.0.0.0' >> $DIST_DIR/solr.in.sh \
    && echo '# Solr 9 enables the Java SecurityManager by default; the Alfresco plugins need unrestricted file/network access' >> $DIST_DIR/solr.in.sh \
-   && echo 'SOLR_SECURITY_MANAGER_ENABLED=false' >> $DIST_DIR/solr.in.sh
+   && echo 'SOLR_SECURITY_MANAGER_ENABLED=false' >> $DIST_DIR/solr.in.sh \
+   && echo 'SOLR_MODE="${SOLR_MODE:-user-managed}"' >> $DIST_DIR/solr.in.sh
 
 COPY search_config_setup.sh $DIST_DIR/solr/bin/
 RUN chmod +x $DIST_DIR/solr/bin/search_config_setup.sh

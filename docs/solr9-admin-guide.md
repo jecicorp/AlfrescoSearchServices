@@ -142,6 +142,7 @@ know about them if you build a custom image or override the startup:
 | `SOLR_JETTY_HOST` | `0.0.0.0` | Solr 9 listens only on `127.0.0.1` by default, which makes the container unreachable. |
 | `SOLR_SECURITY_MANAGER_ENABLED` | `false` | Solr 9 turns on the Java SecurityManager by default, which blocks the Alfresco plugins. |
 | `SOLR_MODULES` | `analysis-extras` | The ICU text-analysis components used by the Alfresco schema moved into a module that is no longer loaded by default. |
+| `SOLR_MODE` | `${SOLR_MODE:-user-managed}` | Solr 10 will make **SolrCloud** the default of `bin/solr start`; standalone will then require `--user-managed`. Declaring the mode pins today's behaviour and silences the 9.x forward-notice. Written as a fallback, so an environment variable, `ZK_HOST`, or `bin/solr start -c` still wins. |
 
 `solr.allowPaths` (file-access allow-list) is also configured for you in the image.
 
@@ -178,7 +179,6 @@ Neither can be worked around with a `-D` flag: since Solr 8.6 those properties a
 substituted **into `solr.xml`**, so with no matching placeholder in the file the flag is
 inert. Before this refresh existed, the only fixes were to edit the file in place or
 recreate the mount.
-
 
 ### Repository side: the `solr9` search subsystem
 

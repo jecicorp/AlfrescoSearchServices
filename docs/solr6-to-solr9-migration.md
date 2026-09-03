@@ -235,6 +235,15 @@ about volume of code.
   fieldValue / …).
 - Removed the `XSLTResponseWriter` from `solrconfig` (removed from `solr-core`).
 - Dropped the `solrconfig_insight.xml` XInclude (Insight Engine removed).
+- **Deprecated declarations Solr 9 ignores**, removed so the startup log stays readable:
+  `<jmx />` (superseded by the `<metrics><reporter>` section of `solr.xml` since Solr 7)
+  and the `enableRemoteStreaming` attribute of `<requestParsers>` (now driven only by the
+  `solr.enableRemoteStreaming` system property, default `false`).
+- **`luceneMatchVersion` is pinned to `9.12.3`** instead of `LATEST`. With `LATEST` the
+  index-time analysis silently follows whatever Lucene the next Solr release embeds, which
+  is exactly what back-compat is supposed to prevent. **Bump it together with the Solr
+  version**, and only as a deliberate decision — it changes how text is indexed and queried,
+  so it belongs with a re-index.
 
 ### Sort comparators — docvalues type became strict
 
@@ -270,6 +279,7 @@ deployment and must be overridden:
 | `SOLR_MODULES=analysis-extras` | Solr 9 moved ICU analysis (`ICUTokenizerFactory`, `ICUNormalizer2FilterFactory`, used by the Alfresco schema) into a module that is **not** on the default classpath. |
 | `SOLR_JETTY_HOST=0.0.0.0` | Solr 9 binds to `127.0.0.1` by default, leaving the container unreachable. |
 | `SOLR_SECURITY_MANAGER_ENABLED=false` | Solr 9 enables the Java `SecurityManager` by default, which blocks the Alfresco plugins' file/network access. |
+| `SOLR_MODE="${SOLR_MODE:-user-managed}"` | Not a Solr 9 default but a Solr **10** one: `bin/solr start` will switch to SolrCloud, and standalone (Solr's *user-managed*) will require `--user-managed`. Solr 9.10 already accepts the value, so setting it pins the mode and drops the forward-notice from every startup log. Written as a fallback: an env var, `ZK_HOST` or `-c` still overrides it. |
 
 Also: the Solr log4j config was converted from **Log4j 1.x to Log4j 2** format.
 
@@ -357,6 +367,19 @@ on the metadata lookup.
 4. Start the externalized trackers and let them rebuild the index from the repository.
 5. Verify: facet drill-down (APATH), highlighting (`hl.method=original`), and sorting
    on `text`/`mltext` fields (the `SORTED` docvalues fix).
+
+### When bumping Solr later
+
+`luceneMatchVersion` is **not** a version to keep in step with the Solr release. It states
+which Lucene behaviour the index was built with, so it moves **with a re-index**, not with an
+upgrade — a Solr patch or minor bump leaves it alone. Lucene keeps the constants of the
+previous major (Lucene 9 still declares `LUCENE_8_*`), so today's `9.12.3` stays valid
+through Solr 10 and only has to move at Solr 11 — which is a re-index anyway.
+
+Two things to know when it does move: the value must exist as a Lucene `Version` constant
+(check `javap -cp lucene-core-<v>.jar org.apache.lucene.util.Version`), and editing the two
+shipped templates changes **new cores only** — an existing core carries its own copy in
+`solrhome/<core>/conf/solrconfig.xml`.
 
 ## References
 

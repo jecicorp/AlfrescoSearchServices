@@ -90,6 +90,15 @@ from any Alfresco Search Services release: Lucene 9 cannot read a Lucene 6 index
   `maxBooleanClauses` at Lucene's 1024 default and no `allowUrls` for distributed
   queries. Neither is fixable with a `-D` flag, since those properties are only
   substituted into that file. The previous copy is preserved as `solr.xml.bak`.
+- Removed the declarations Solr 9 ignores from the shipped `solrconfig.xml`
+  (`<jmx />`, `enableRemoteStreaming`) and pinned `luceneMatchVersion` to `9.12.3`
+  instead of `LATEST`, so index-time analysis no longer follows whatever Lucene a
+  future Solr release embeds.
+- The image now declares `SOLR_MODE="${SOLR_MODE:-user-managed}"`. Solr 10 will start
+  `bin/solr` in SolrCloud mode by default; this distribution is standalone (cores
+  discovered from `core.properties`, no ZooKeeper), so the mode is stated explicitly
+  rather than inherited from a default that is about to change. It stays a fallback,
+  so an environment variable, `ZK_HOST` or `-c` still selects SolrCloud.
 
 [Unreleased]: https://gitlab.com/pristy-oss/pristy-search-services/-/compare/1.0.0...develop
 [1.0.0]: https://gitlab.com/pristy-oss/pristy-search-services/-/releases/1.0.0

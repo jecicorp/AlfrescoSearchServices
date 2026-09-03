@@ -30,8 +30,6 @@
 
 <config>
 
-    <jmx />
-
     <!-- Used to specify an alternate directory to hold all index data.
          It defaults to "index" if not present, and should probably
          not be changed if replication is in use. -->
@@ -49,7 +47,7 @@
 
     <schemaFactory class="ClassicIndexSchemaFactory"/>
 
-    <luceneMatchVersion>LATEST</luceneMatchVersion>
+    <luceneMatchVersion>9.12.3</luceneMatchVersion>
 
     <xi:include href="solrconfig.snippet.randomindexconfig.xml" xmlns:xi="http://www.w3.org/2001/XInclude"/>
 
@@ -454,9 +452,8 @@
         </highlighting>
     </searchComponent>
 
-    <!-- enable streaming for testing... -->
     <requestDispatcher handleSelect="true" >
-        <requestParsers enableRemoteStreaming="true" multipartUploadLimitInKB="2048" />
+        <requestParsers multipartUploadLimitInKB="2048" />
         <httpCaching lastModifiedFrom="openTime" etagSeed="Solr" never304="false">
             <cacheControl>max-age=30, public</cacheControl>
         </httpCaching>
