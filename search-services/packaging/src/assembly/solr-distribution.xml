@@ -85,4 +85,11 @@
             </excludes>
         </fileSet>
     </fileSets>
+    <files>
+        <!-- Generated Maven dependency inventory, referenced by licenses/notice.txt -->
+        <file>
+            <source>${project.build.directory}/pristy-search/THIRD-PARTY.txt</source>
+            <outputDirectory>licenses</outputDirectory>
+        </file>
+    </files>
 </assembly>

@@ -26,95 +26,108 @@
 
 package org.alfresco;
 
-import com.google.common.collect.Sets;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Integration tests of the declared third party licenses.
+ * <p>
+ * The distribution ships two license inventories, and this test guards the seam between them:
+ * every jar the build adds to the Solr webapp must appear in one of them. Apache's own
+ * {@code solr/licenses} covers the jars Solr itself ships, and is not checked here.
+ * <p>
+ * See {@code docs/third-party-licenses.md}.
  */
 public class ThirdPartyLicensesIT
 {
-    /** Libraries produced by Alfresco will start with "alfresco-". */
-    private static final String ALFRESCO_PREFIX = "alfresco-";
-    /** Spring Surf is also produced by Alfresco (it lives at https://github.com/Alfresco/surf). */
-    private static final String SPRING_SURF_PREFIX = "spring-surf-";
-    /** Start of the name of the zip file. */
-    private static final String PRISTY_SEARCH_SERVICES = "pristy-search-services";
+    /** Artifacts produced by the fork or by Alfresco, which need no third-party declaration. */
+    private static final List<String> OWN_ARTIFACT_PREFIXES =
+                List.of("alfresco-", "pristy-", "spring-surf-");
 
-    /**
-     * Test that the dependencies in notice.txt match the actual dependencies, to ensure we've included third party
-     * licenses for all dependencies.
-     *
-     * @throws Exception Unexpected
-     */
+    /** {@code (License) Name (groupId:artifactId:version - url)}, as license-maven-plugin writes it. */
+    private static final Pattern INVENTORY_ENTRY =
+                Pattern.compile("\\(([^:()]+):([^:()]+):([^ )]+) -");
+
     @Test
-    public void testLicensesDeclared() throws Exception
+    public void everyShippedJarHasADeclaredLicense() throws Exception
     {
-        // Get the path to the target directory.
-        Path targetPath = Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
+        Path target = Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
 
-        // Try to find the zip file in the target directory.
-        Path zipPath = Files.find(targetPath, 1,
-                    (path, attribute) -> path.getFileName().toString().startsWith(PRISTY_SEARCH_SERVICES + "-")
-                                && path.toString().endsWith(".zip"))
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Could not find " + PRISTY_SEARCH_SERVICES
-                                + "-*.zip in target directory. Is test being run from maven?"));
-        // Look through the zip manifest and find all the third party jar files listed.
-        Set<String> jars;
-        try (java.util.zip.ZipFile zipFile = new ZipFile(zipPath.toFile()))
+        Set<String> generated = generatedInventory(target.resolve("pristy-search/THIRD-PARTY.txt"));
+        Set<String> handDeclared = handDeclaredInventory(target.resolve("classes/licenses/notice.txt"));
+
+        List<String> undeclared = shippedJars(target.resolve("solr-libs/libs")).stream()
+                    .filter(jar -> !handDeclared.contains(jar))
+                    .filter(jar -> generated.stream().noneMatch(jar::startsWith))
+                    .sorted()
+                    .collect(toList());
+
+        assertEquals("Jars added to the Solr webapp with no declared license. Either the dependency "
+                    + "is new (regenerate nothing -- license-maven-plugin picks it up on the next "
+                    + "build) or it is copied in by the packaging module, in which case declare it "
+                    + "in licenses/notice.txt.", List.of(), undeclared);
+    }
+
+    @Test
+    public void noStaleHandDeclaration() throws Exception
+    {
+        Path target = Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
+
+        Set<String> shipped = shippedJars(target.resolve("solr-libs/libs"));
+        List<String> stale = handDeclaredInventory(target.resolve("classes/licenses/notice.txt")).stream()
+                    .filter(jar -> !shipped.contains(jar))
+                    .sorted()
+                    .collect(toList());
+
+        assertEquals("Jars declared in licenses/notice.txt that the build no longer adds. Remove "
+                    + "them, or move the declaration if the artifact changed version.",
+                    List.of(), stale);
+    }
+
+    /** The jars the build adds to the Solr webapp, excluding artifacts of the fork itself. */
+    private static Set<String> shippedJars(Path libs) throws IOException
+    {
+        try (Stream<Path> files = Files.list(libs))
         {
-            jars = zipFile.stream()
-                        .map(ZipEntry::getName)
-                        .map(Paths::get)
-                        .map(Path::getFileName)
-                        .map(Path::toString)
+            return files.map(path -> path.getFileName().toString())
                         .filter(name -> name.endsWith(".jar"))
-                        .filter(name -> !name.startsWith(ALFRESCO_PREFIX)) // We don't need a declaration for alfresco libraries.
-                        .filter(name -> !name.startsWith(SPRING_SURF_PREFIX))
+                        .filter(name -> OWN_ARTIFACT_PREFIXES.stream().noneMatch(name::startsWith))
                         .collect(toSet());
         }
+    }
 
-        // Get the dependencies referenced in notice.txt.
-        Path noticePath = Paths.get(targetPath.toString(), "classes", "licenses", "notice.txt");
-        List<String> lines = Files.readAllLines(noticePath);
-        // Skip the header, which is all lines before the first "=== License Type ===" line.
-        int headerSize = 0;
-        for (String line : lines)
-        {
-            if (line.startsWith("==="))
-            {
-                break;
-            }
-            headerSize++;
-        }
-        Set<String> declared = lines.stream()
-                    .skip(headerSize)
-                    .filter(line -> !line.isEmpty() && !line.startsWith("==="))
-                    .map(line -> line.split(" ")[0])
+    /**
+     * The {@code artifactId-version} prefixes of the inventory license-maven-plugin generates for
+     * {@code pristy-search}. Prefixes rather than file names, so that a jar carrying a classifier
+     * ({@code netty-transport-native-epoll-4.2.6.Final-linux-x86_64.jar}) still matches.
+     */
+    private static Set<String> generatedInventory(Path thirdParty) throws IOException
+    {
+        Matcher matcher = INVENTORY_ENTRY.matcher(Files.readString(thirdParty));
+        return matcher.results()
+                    .map(result -> result.group(2) + "-" + result.group(3))
                     .collect(toSet());
+    }
 
-        // If the two lists don't match then fail the test and provide information about what's wrong.
-        if (!jars.equals(declared))
-        {
-            List<String> onlyInTarget = Sets.difference(jars, declared).stream().sorted().collect(toList());
-            List<String> onlyInNotice = Sets.difference(declared, jars).stream().sorted().collect(toList());
-
-            fail("Jar files in zip do not match those declared in notice.txt file.\n"
-                        + "Jars found but not declared: " + onlyInTarget + "\n"
-                        + "Jars declared but not found: " + onlyInNotice);
-        }
+    /** The jar names declared by hand in notice.txt, for what the packaging module copies in. */
+    private static Set<String> handDeclaredInventory(Path notice) throws IOException
+    {
+        return Files.readAllLines(notice).stream()
+                    .map(line -> line.split("\\s+")[0])
+                    .filter(name -> name.endsWith(".jar"))
+                    .collect(toSet());
     }
 }

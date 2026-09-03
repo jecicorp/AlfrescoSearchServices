@@ -420,7 +420,10 @@
                 <executions>
                     <execution>
                         <id>third-party-licenses</id>
-                        <phase>none</phase>
+                        <configuration>
+                            <excludedScopes>test</excludedScopes>
+                            <excludedGroups>org.alfresco|^findbugs</excludedGroups>
+                        </configuration>
                     </execution>
                     <!-- Exclude Jeci-authored files from the inherited Alfresco (community) header check -->
                     <execution>
