@@ -247,6 +247,8 @@ public Scorer scorer(LeafReaderContext context) throws IOException {
     private class ReRankCollector extends TopDocsCollector  {
 
         private Query reRankQuery;
+        private Query query;
+        private Sort sort;
         private TopDocsCollector  mainCollector;
         private IndexSearcher searcher;
         private int reRankDocs;
@@ -272,12 +274,14 @@ public Scorer scorer(LeafReaderContext context) throws IOException {
             this.length = length;
             this.boostedPriority = boostedPriority;
             this.scale = scale;
+            this.query = cmd.getQuery();
             Sort sort = cmd.getSort();
             if(sort == null) {
+                this.sort = null;
                 this.mainCollector = TopScoreDocCollector.create(Math.max(this.reRankDocs, length), Integer.MAX_VALUE);
             } else {
-                sort = sort.rewrite(searcher);
-                this.mainCollector = TopFieldCollector.create(sort, Math.max(this.reRankDocs, length), Integer.MAX_VALUE);
+                this.sort = sort.rewrite(searcher);
+                this.mainCollector = TopFieldCollector.create(this.sort, Math.max(this.reRankDocs, length), Integer.MAX_VALUE);
             }
             this.searcher = searcher;
             this.reRankWeight = reRankWeight;
@@ -295,6 +299,13 @@ public Scorer scorer(LeafReaderContext context) throws IOException {
 
                 if(mainDocs.totalHits.value == 0 || mainDocs.scoreDocs.length == 0) {
                     return mainDocs;
+                }
+
+                if(sort != null) {
+                    // A TopFieldCollector does not compute scores -- the trackDocScores flag of the
+                    // Lucene 6 factory is gone -- so ScoreDoc.score is NaN here. The rescorer would
+                    // then combine NaN and the final ordering would collapse to doc id order.
+                    TopFieldCollector.populateScores(mainDocs.scoreDocs, searcher, query);
                 }
 
                 if(reRankDocs == 0) {
