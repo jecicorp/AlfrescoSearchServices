@@ -47,7 +47,7 @@ public class CompositeReaderTest
     @Test(expected=IllegalArgumentException.class)
     public void noReadersSupplied_shouldThrowAnException()
     {
-        CompositeReader reader = new CompositeReader(null);
+        CompositeReader reader = new CompositeReader((Reader[]) null);
     }
 
     @Test(expected=IllegalArgumentException.class)
