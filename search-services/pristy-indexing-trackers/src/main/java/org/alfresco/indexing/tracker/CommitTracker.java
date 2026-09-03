@@ -247,7 +247,7 @@ public class CommitTracker extends AbstractTracker
 
             //Reset cascadeTracker
             cascadeTracker.ifPresent(c -> c.setRollback(false, null));
-            cascadeTracker.ifPresent(c -> c.invalidateState());
+            cascadeTracker.ifPresent(CascadeTracker::invalidateState);
 
             //Release the locks
             contentTracker.getWriteLock().release();
