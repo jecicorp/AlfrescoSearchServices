@@ -317,6 +317,23 @@ The embedded IT harness needed several adjustments to boot a Solr 9 core:
   (`AbstractAlfrescoSolrIT.assertAQuery`, `AuthQueryIT.assertFTSQuery`); `src/main` had already
   been migrated.
 
+- **The failsafe `argLine` in the root POM pins two system properties**; neither is optional.
+  - `-Duser.language=en -Duser.country=US`. The assertions are written for English analysis and
+    most requests carry **no** locale (`assertResponseCardinality` passes a null JSON), so the
+    parser falls back to `I18NUtil.getLocale()`. Left unpinned, results depend on the developer's
+    machine: on a `fr_FR` JVM the wildcard `?est` loses its stem (`est` is a French stop word, so
+    the token vanishes and only the `?` survives the offset-based wildcard reconstruction),
+    `[te to test]` matches everything, and `runner` stems onto one document too many.
+    `AbstractAlfrescoDistributedIT` extends `SolrTestCaseJ4`, which randomises `Locale.setDefault`
+    anyway, so the pin only makes deterministic the harnesses that do not.
+  - `-Dtest.solr.allowed.securerandom=NativePRNG`.
+    `SolrTestCaseJ4.assertNonBlockingRandomGeneratorAvailable` fails a whole class when the JVM
+    picks a SecureRandom it deems potentially blocking, and which one it picks varies per run — so
+    the check fires **at random**, before any test executes. The backing algorithm is irrelevant to
+    what these tests do. Never read such a failure as a code regression. Passing the same property
+    with `-D` on the command line is now redundant, and makes Maven warn that it is
+    *"configured twice"* — harmless, but drop the flag.
+
 ## Tracker timing (post-externalization)
 
 The externalized trackers no longer read `solrcore.properties`, so they started on

@@ -481,13 +481,6 @@
             </executions>
             <configuration>
                <runOrder>alphabetical</runOrder>
-               <!-- The IT assertions are written for English analysis, and the requests carry no
-                    locale, so the parser falls back to the JVM default. Left unpinned, results
-                    depend on the developer's machine: on a fr_FR JVM the wildcard "?est" loses its
-                    stem ("est" is a French stop word) and AFTSDefaultTextQueryIT fails wholesale. -->
-               <!-- The Solr test framework fails the suite when the JVM picks a SecureRandom it
-                    considers potentially blocking. Which one it picks varies per run, so the check
-                    fires at random; the backing algorithm is irrelevant to what these tests do. -->
                <argLine>-Duser.language=en -Duser.country=US -Dtest.solr.allowed.securerandom=NativePRNG</argLine>
             </configuration>
          </plugin>
