@@ -95,17 +95,20 @@ import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.AbstractAlfrescoSolrIT.SolrServletRequest;
 import org.alfresco.solr.AlfrescoSolrDataModel.FieldUse;
+import org.alfresco.solr.AlfrescoSolrDataModel.SpecializedFieldType;
 import org.alfresco.solr.client.Acl;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
 import org.alfresco.solr.client.ContentPropertyValue;
 import org.alfresco.solr.client.MLTextPropertyValue;
+import org.alfresco.solr.client.MultiPropertyValue;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.PropertyValue;
 import org.alfresco.solr.client.SOLRAPIQueueClient;
 import org.alfresco.solr.client.StringPropertyValue;
 import org.alfresco.solr.client.Transaction;
+import org.alfresco.repo.search.adaptor.QueryConstants;
 import org.alfresco.util.ISO9075;
 import org.alfresco.util.Pair;
 import org.apache.solr.SolrTestCaseJ4.XmlDoc;
@@ -597,6 +600,108 @@ public class AlfrescoSolrUtils
         }
     }
 
+    /**
+     * Writes one property value onto the document. {@link MultiPropertyValue} recurses, which is
+     * what makes the multi-valued test properties (@{code any-many-ista}, @{code mltext-many-ista})
+     * land in the index at all -- an unhandled value type is simply dropped here.
+     *
+     * @param sortWritten guards the sort field, which is single-valued: only the first value of a
+     *        property may write it.
+     */
+    private static void addPropertyValue(SolrInputDocument doc, AlfrescoSolrDataModel dataModel,
+            QName propQName, PropertyValue value, boolean storeTextProperties, Set<QName> sortWritten)
+    {
+        if (value instanceof MultiPropertyValue)
+        {
+            for (PropertyValue nested : ((MultiPropertyValue) value).getValues())
+            {
+                addPropertyValue(doc, dataModel, propQName, nested, storeTextProperties, sortWritten);
+            }
+        }
+        else if (value instanceof StringPropertyValue)
+        {
+            String text = ((StringPropertyValue) value).getValue();
+            if (text == null)
+            {
+                return;
+            }
+            if (storeTextProperties && isTextProperty(propQName))
+            {
+                doc.addField(dataModel.getStoredTextField(propQName),
+                        "\u0000" + I18NUtil.getLocale().toString() + "\u0000" + text);
+            }
+            else
+            {
+                for (AlfrescoSolrDataModel.FieldInstance field : dataModel.getIndexedFieldNamesForProperty(propQName).getFields())
+                {
+                    doc.addField(field.getField(), text);
+                }
+            }
+        }
+        else if (value instanceof ContentPropertyValue)
+        {
+            // Otherwise the content sub-properties are silently dropped and
+            // @cm:content.locale / .mimetype / .size / .encoding match nothing. The fields are
+            // resolved the way Solr4QueryParser resolves them when querying.
+            ContentPropertyValue contentProperty = (ContentPropertyValue) value;
+            addSpecializedField(doc, propQName, SpecializedFieldType.CONTENT_LOCALE, contentProperty.getLocale());
+            addSpecializedField(doc, propQName, SpecializedFieldType.CONTENT_MIMETYPE, contentProperty.getMimetype());
+            addSpecializedField(doc, propQName, SpecializedFieldType.CONTENT_ENCODING, contentProperty.getEncoding());
+            addSpecializedField(doc, propQName, SpecializedFieldType.CONTENT_SIZE, contentProperty.getLength());
+        }
+        else if (value instanceof MLTextPropertyValue)
+        {
+            // The stored field is what the schema copyFields fan out to the indexed variants, and
+            // what [fmap] returns.
+            MLTextPropertyValue mlText = (MLTextPropertyValue) value;
+            String storedField = dataModel.getStoredMLTextField(propQName);
+            for (Locale mlLocale : mlText.getLocales())
+            {
+                doc.addField(storedField,
+                        "\u0000" + mlLocale.toString() + "\u0000" + mlText.getValue(mlLocale));
+            }
+            // mltext@m__sort@* has no copyField source, unlike text@s__sort@*, so the indexer
+            // writes it and the fixture has to as well.
+            if (sortWritten.add(propQName))
+            {
+                mlText.getLocales().stream().findFirst().ifPresent(sortLocale ->
+                        dataModel.getQueryableFields(propQName, null, FieldUse.SORT).getFields()
+                                .forEach(field -> doc.addField(field.getField(),
+                                        "\u0000" + sortLocale.toString() + "\u0000" + mlText.getValue(sortLocale))));
+            }
+        }
+    }
+
+    /** No value at all, a {@link StringPropertyValue} holding null, or a multi value of those. */
+    private static boolean isNullValue(PropertyValue value)
+    {
+        if (value == null)
+        {
+            return true;
+        }
+        if (value instanceof StringPropertyValue)
+        {
+            return ((StringPropertyValue) value).getValue() == null;
+        }
+        if (value instanceof MultiPropertyValue)
+        {
+            List<PropertyValue> values = ((MultiPropertyValue) value).getValues();
+            return values.isEmpty() || values.stream().allMatch(AlfrescoSolrUtils::isNullValue);
+        }
+        return false;
+    }
+
+    private static void addSpecializedField(SolrInputDocument doc, QName propertyQName,
+            SpecializedFieldType type, Object value)
+    {
+        if (value == null)
+        {
+            return;
+        }
+        AlfrescoSolrDataModel.getInstance().getQueryableFields(propertyQName, type, FieldUse.ID).getFields()
+                .forEach(field -> doc.addField(field.getField(), value.toString()));
+    }
+
     private static boolean isTextProperty(QName propertyQName)
     {
         PropertyDefinition definition = AlfrescoSolrDataModel.getInstance().getPropertyDefinition(propertyQName);
@@ -871,45 +976,18 @@ public class AlfrescoSolrUtils
         {
             // Simplified property population for tests (SolrInformationServer has been removed)
             AlfrescoSolrDataModel dataModel2 = AlfrescoSolrDataModel.getInstance();
+            Set<QName> sortWritten = new HashSet<>();
             for (Map.Entry<QName, PropertyValue> entry : properties.entrySet())
             {
-                QName propQName = entry.getKey();
-                PropertyValue value = entry.getValue();
-                if (value instanceof StringPropertyValue)
+                // ISUNSET / ISNULL / EXISTS / ISNOTNULL are answered from these two fields, not
+                // from the value fields: a property present with a null value is "set but null".
+                doc.addField(QueryConstants.FIELD_PROPERTIES, entry.getKey().toString());
+                if (isNullValue(entry.getValue()))
                 {
-                    String text = ((StringPropertyValue) value).getValue();
-                    if (storeTextProperties && isTextProperty(propQName))
-                    {
-                        doc.addField(dataModel2.getStoredTextField(propQName),
-                                "\u0000" + I18NUtil.getLocale().toString() + "\u0000" + text);
-                    }
-                    else
-                    {
-                        for (AlfrescoSolrDataModel.FieldInstance field : dataModel2.getIndexedFieldNamesForProperty(propQName).getFields())
-                        {
-                            doc.addField(field.getField(), text);
-                        }
-                    }
+                    doc.addField(QueryConstants.FIELD_NULLPROPERTIES, entry.getKey().toString());
                 }
-                else if (value instanceof MLTextPropertyValue)
-                {
-                    // The stored field is what the schema copyFields fan out to the indexed
-                    // variants, and what [fmap] returns.
-                    MLTextPropertyValue mlText = (MLTextPropertyValue) value;
-                    String storedField = dataModel2.getStoredMLTextField(propQName);
-                    for (Locale mlLocale : mlText.getLocales())
-                    {
-                        doc.addField(storedField,
-                                "\u0000" + mlLocale.toString() + "\u0000" + mlText.getValue(mlLocale));
-                    }
-                    // mltext@m__sort@* has no copyField source, unlike text@s__sort@*, so the
-                    // indexer writes it and the fixture has to as well. It is single-valued: one
-                    // locale only.
-                    mlText.getLocales().stream().findFirst().ifPresent(sortLocale ->
-                            dataModel2.getQueryableFields(propQName, null, FieldUse.SORT).getFields()
-                                    .forEach(field -> doc.addField(field.getField(),
-                                            "\u0000" + sortLocale.toString() + "\u0000" + mlText.getValue(sortLocale))));
-                }
+                addPropertyValue(doc, dataModel2, entry.getKey(), entry.getValue(),
+                        storeTextProperties, sortWritten);
             }
             if (content != null)
             {
