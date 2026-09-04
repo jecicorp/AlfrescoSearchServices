@@ -34,8 +34,15 @@ artifacts.alfresco.com, and `mvn deploy` authenticates with the ephemeral
 
 Example for `1.0.0`, starting from an up-to-date `develop`.
 
+`CHANGELOG.md` is curated by hand, in Keep a Changelog form. `mise run
+changelog:unreleased` renders the conventional commits since the last tag and is
+meant as a *draft* to pick from — not as the final text. Do not run `mise run
+changelog` before `1.0.0` is tagged: with no tag in the history it regenerates the
+whole file from every commit of the fork and drops the curated entries.
+
 ```bash
 # 1. Close the changelog: move the entries under a real version heading and date.
+mise run changelog:unreleased    # draft, to be edited down
 vim CHANGELOG.md
 
 # 2. Merge into stable.
