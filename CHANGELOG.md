@@ -7,9 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Version numbers are plain, without a `v` prefix, matching the Git tags.
 
-## [Unreleased]
 
-## [1.0.0] - unreleased
+## [1.0.0] - 2026-09-04
 
 First release under the **Pristy Search Services** name. The project is a community
 fork of Alfresco Search Services, rebuilt around vanilla Solr 9 with the indexing
@@ -117,5 +116,4 @@ from any Alfresco Search Services release: Lucene 9 cannot read a Lucene 6 index
   `MINHASH` field is written at index time since the trackers moved out. Planned as part of
   tracker-side content enrichment, disabled by default.
 
-[Unreleased]: https://gitlab.com/pristy-oss/pristy-search-services/-/compare/1.0.0...develop
 [1.0.0]: https://gitlab.com/pristy-oss/pristy-search-services/-/releases/1.0.0

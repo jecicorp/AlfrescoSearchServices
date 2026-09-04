@@ -3,7 +3,7 @@
    <parent>
       <groupId>fr.pristy</groupId>
       <artifactId>pristy-search-parent</artifactId>
-      <version>1.0.0-SNAPSHOT</version>
+      <version>1.0.0</version>
    </parent>
    <groupId>fr.pristy</groupId>
    <artifactId>pristy-search-e2e-test</artifactId>

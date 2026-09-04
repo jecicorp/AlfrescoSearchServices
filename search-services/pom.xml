@@ -4,10 +4,10 @@
     <parent>
         <groupId>fr.pristy</groupId>
         <artifactId>pristy-search-parent</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
+        <version>1.0.0</version>
     </parent>
     <artifactId>pristy-solr-search-parent</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>pom</packaging>
     <name>Pristy Solr Search parent</name>
     <properties>
