@@ -64,6 +64,36 @@ distinguish the concrete class, or Lucene's `BooleanQuery.rewrite` collapses
 `+AUTHSET -DENYSET` into `MatchNoDocsQuery`. See the corresponding section of
 [solr6-to-solr9-migration.md](solr6-to-solr9-migration.md#queryequals-must-compare-the-class).
 
+## AFTS query results
+
+### A conjunction returns nothing while each term alone matches
+
+`a AND b` returning `numFound=0` when `a` and `b` each return the very same document is a
+field-resolution problem, not an indexing one. Bisect it with the API, in this order — the
+first step that returns the document names the culprit:
+
+| Query | What it tells you |
+|-------|-------------------|
+| `a` then `b` alone | which documents each term reaches, and through which property (`include: ["properties"]` shows whether the hit came from `cm:name`, `cm:title`, …) |
+| `cm:name:a AND cm:title:b` | qualified fields, no field resolution involved |
+| `TEXT:a AND TEXT:b` | the aggregate text field |
+| `a AND b` | unqualified terms, resolved through the default field |
+| same, with `templates` + `defaults.defaultFieldName` | the path a repository request actually takes |
+
+The last two matter because an unqualified term is **not** sent to `TEXT`: the repository
+registers a query template (`%(cm:name cm:title cm:description TEXT TAG)`) and points
+`defaultFieldName` at it, so `FTSQueryParser` substitutes that template into every term node.
+Pass `templates` and `defaults.defaultFieldName` in the search body to reproduce a repository
+request exactly, and check the template is honoured before trusting the result — a template
+restricted to `%(cm:name)` must stop matching a term that only lives in `cm:title`.
+
+Observed on a production instance: with an explicit `%(cm:name cm:title)` template,
+`cerfa AND contrat` returned nothing although `cerfa` sat in `cm:name` and `contrat` in
+`cm:title` of the same node, while `contrat AND maintenance` (both in `cm:name`) matched.
+`AFTSDefaultFieldConjunctionIT` covers both paths; its untemplated assertions pass.
+
+A front end that qualifies its fields never takes the templated path, so it is unaffected.
+
 ## Tracker startup issues
 
 ### The trackers re-index everything on every restart
