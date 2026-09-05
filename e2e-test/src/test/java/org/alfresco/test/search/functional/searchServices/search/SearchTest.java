@@ -41,7 +41,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.alfresco.rest.model.body.RestNodeLockBodyModel;
+import org.alfresco.rest.search.RestRequestFieldsModel;
 import org.alfresco.rest.search.RestRequestFilterQueryModel;
+import org.alfresco.rest.search.RestRequestHighlightModel;
 import org.alfresco.rest.search.RestRequestQueryModel;
 import org.alfresco.rest.search.SearchNodeModel;
 import org.alfresco.rest.search.SearchRequest;
@@ -77,11 +79,32 @@ public class SearchTest extends AbstractSearchServicesE2ETest
         SearchResponse nodes =  query("cm:content:" + unique_searchString);
         restClient.assertStatusCodeIs(HttpStatus.OK);
         nodes.assertThat().entriesListIsNotEmpty();
-        
+
         SearchNodeModel entity = nodes.getEntryByIndex(0);
+        Assert.assertEquals(entity.getName(),"pangram.txt");
+    }
+
+    @Test
+    @TestRail(section = {TestGroup.REST_API, TestGroup.SEARCH}, executionType = ExecutionType.REGRESSION,
+            description = "Checks the relevance score is reported for a matching node")
+    public void searchReportsRelevanceScore() throws Exception
+    {
+        RestRequestQueryModel queryReq = new RestRequestQueryModel();
+        queryReq.setQuery("cm:content:" + unique_searchString);
+
+        RestRequestHighlightModel highlight = new RestRequestHighlightModel();
+        List<RestRequestFieldsModel> highlightedFields = new ArrayList<>();
+        highlightedFields.add(new RestRequestFieldsModel("cm:content"));
+        highlight.setFields(highlightedFields);
+
+        SearchResponse nodes = query(queryReq, highlight);
+        restClient.assertStatusCodeIs(HttpStatus.OK);
+        nodes.assertThat().entriesListIsNotEmpty();
+
+        SearchNodeModel entity = nodes.getEntryByIndex(0);
+        Assert.assertEquals(entity.getName(),"pangram.txt");
         entity.assertThat().field("search").contains("score");
         entity.getSearch().assertThat().field("score").isNotNull();
-        Assert.assertEquals(entity.getName(),"pangram.txt");
     }
     
     @Test

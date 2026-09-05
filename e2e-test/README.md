@@ -78,3 +78,20 @@ mvn test -pl e2e-test
 ```bash
 mvn test -pl e2e-test -Dtest=CustomModelTest
 ```
+
+## Repository behaviour that the suite depends on
+
+### `entry.search.score` is only returned when highlighting is requested (ACS 26+)
+
+Up to ACS 25.3.0, `ResultMapper.toCollectionWithPagingInfo` set the `search` block —
+which carries `score` and `highlight` — on every result row. ACS 26.2.0 wraps that
+`setSearch` call in a `results.getHighlighting().isEmpty()` guard, so a query that asks
+for no highlighting now comes back with no `search` block at all, score included.
+
+The failure mode is not an assertion error: `ModelAssertion` calls `toString()` on the
+missing field, so the test dies with `NullPointerException: Cannot invoke
+"Object.toString()" because "this.fieldValue" is null`.
+
+`SearchTest` is therefore split in two: `searchOnIndexedData` checks that the indexed
+node is found, and `searchReportsRelevanceScore` asks for a `cm:content` highlight and
+checks the score. Any new assertion on `entry.search` must request highlighting.
