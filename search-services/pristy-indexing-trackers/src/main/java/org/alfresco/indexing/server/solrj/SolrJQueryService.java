@@ -97,7 +97,6 @@ public class SolrJQueryService
     static final String PREFIX_ERROR = "ERROR-";
 
     static final String DOC_TYPE_STATE = "State";
-    static final String DOC_TYPE_UNINDEXED_NODE = "UnindexedNode";
 
     private static final String AND = " AND ";
     private static final int BATCH_FACET_TXS = 4096;
@@ -765,8 +764,8 @@ public class SolrJQueryService
         report.setErrorDocCountInIndex(getSafeCount(docTypeCounts, DOC_TYPE_ERROR_NODE));
 
         // UNINDEXED duplicates
-        setDuplicates(DOC_TYPE_UNINDEXED_NODE, report::setDuplicatedUnindexedInIndex);
-        report.setUnindexedDocCountInIndex(getSafeCount(docTypeCounts, DOC_TYPE_UNINDEXED_NODE));
+        setDuplicates(SolrDocumentMapper.DOC_TYPE_UNINDEXED_NODE, report::setDuplicatedUnindexedInIndex);
+        report.setUnindexedDocCountInIndex(getSafeCount(docTypeCounts, SolrDocumentMapper.DOC_TYPE_UNINDEXED_NODE));
 
         return report;
     }
@@ -819,7 +818,7 @@ public class SolrJQueryService
         stats.put("Alfresco Transactions in Index", getSafeCount(docTypeCounts, DOC_TYPE_TX));
         stats.put("Alfresco Acl Transactions in Index", getSafeCount(docTypeCounts, DOC_TYPE_ACL_TX));
         stats.put("Alfresco States in Index", getSafeCount(docTypeCounts, DOC_TYPE_STATE));
-        stats.put("Alfresco Unindexed Nodes", getSafeCount(docTypeCounts, DOC_TYPE_UNINDEXED_NODE));
+        stats.put("Alfresco Unindexed Nodes", getSafeCount(docTypeCounts, SolrDocumentMapper.DOC_TYPE_UNINDEXED_NODE));
         stats.put("Alfresco Error Nodes in Index", getSafeCount(docTypeCounts, DOC_TYPE_ERROR_NODE));
 
         return stats.entrySet();

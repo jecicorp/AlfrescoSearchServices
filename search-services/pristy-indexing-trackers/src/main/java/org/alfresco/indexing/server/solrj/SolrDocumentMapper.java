@@ -148,6 +148,7 @@ public class SolrDocumentMapper
     public static final String DOC_TYPE_ACL = "Acl";
     public static final String DOC_TYPE_NODE = "Node";
     public static final String DOC_TYPE_ERROR_NODE = "ErrorNode";
+    public static final String DOC_TYPE_UNINDEXED_NODE = "UnindexedNode";
 
     // ---------------------------------------------------------------------------
     // ID format constants — mirrors AlfrescoSolrDataModel

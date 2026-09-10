@@ -9,9 +9,10 @@ kept vanilla** and these actions live in the trackers service instead.
 ## Where it runs
 
 - Base URL: `http://<trackers-host>:8085` (the trackers `server.port`, default `8085`).
-- Two equivalent interfaces:
+- Three interfaces:
   - **Clean REST API** — idiomatic Spring routes under `/api/admin/*` (this document's primary form).
   - **Solr-compat alias** — `GET /solr/admin/cores?action=<ACTION>&…`, same response envelope as the old Solr admin, for tools/scripts that still target it.
+  - **Pristy indexing API v1** — `/api/v1/*`, a new contract that is not a rewrite of the two above (see [below](#pristy-indexing-api-v1-read-only-get)).
 - The actuator endpoint `GET /actuator/repairreport` complements these (see [RepairTracker](#error-nodes--repairtracker)).
 
 > The Alfresco control-plane actions (`SUMMARY`, `REPORT`, `REINDEX`, …) are **not**
@@ -62,6 +63,76 @@ curl -s "http://localhost:8085/api/admin/node-report?nodeid=15695&core=alfresco"
 # Solr-compat equivalent
 curl -s "http://localhost:8085/solr/admin/cores?action=NODEREPORT&nodeid=15695&core=alfresco" | python3 -m json.tool
 ```
+
+## Pristy indexing API v1 (read-only, `GET`)
+
+A second, additive surface under `/api/v1`. It is **not** an alias of the routes
+above: `/api/admin/*` and the Solr-compat action names delegate to the same
+`AdminService` and therefore carry the legacy contract unchanged, while `/api/v1`
+answers a *verdict* computed from the index and the repository database at once.
+
+### `GET /api/v1/index/node`
+
+| Param | Required | Value |
+|-------|----------|-------|
+| `ref` | yes | a node DBID, a node UUID, or a full node reference (`workspace://SpacesStore/<uuid>`) |
+
+A UUID or node reference is resolved to a DBID **inside the trackers service**, by
+querying the indexed `LID` field — no round trip to the repository REST API. A bare
+UUID is looked up in `workspace://SpacesStore/` then `archive://SpacesStore/`.
+
+```json
+{
+  "reference": { "input": "15695", "dbid": 15695, "resolvedBy": "DBID" },
+  "database":  { "status": "updated", "tx": 4711 },
+  "cores": {
+    "alfresco": { "state": "indexed", "docType": "Node", "indexTx": 4711, "aclId": 42, "docCount": 1 },
+    "archive":  { "state": "absent",  "docType": null,   "indexTx": null, "aclId": null, "docCount": 0 }
+  },
+  "verdict": "indexed"
+}
+```
+
+Per-core `state`, read from the document's `DOC_TYPE` and `INTXID`:
+
+| `state` | Meaning |
+|---------|---------|
+| `indexed` | a `Node` document exists and its `INTXID` matches the database transaction |
+| `stale` | a `Node` document exists but lags the database transaction |
+| `error` | the core holds an `ErrorNode` document — indexing failed, the RepairTracker retries it |
+| `unindexed` | the core holds an `UnindexedNode` document — the tracker deliberately did not index it |
+| `absent` | the core holds no document for this node |
+
+`database.status` is `updated`, `deleted`, `unknown` (no such node) or
+`unreachable` (the repository lookup itself failed). `verdict` is the most
+informative core state by the precedence `indexed > stale > error > unindexed`,
+falling back to `missing`, or `unresolved` when `ref` matched no node.
+
+**Status codes.** A `ref` matching no node is answered `200` with
+`verdict: "unresolved"`, never `404`: `404` on this path is reserved for a
+trackers service that predates this API, so a caller can tell "no such node"
+from "no such API". A malformed `ref` is `400`.
+
+```bash
+# By DBID, UUID or noderef — same answer
+curl -s "http://localhost:8085/api/v1/index/node?ref=15695" | python3 -m json.tool
+curl -s "http://localhost:8085/api/v1/index/node?ref=3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b" | python3 -m json.tool
+curl -s "http://localhost:8085/api/v1/index/node?ref=workspace://SpacesStore/3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b" | python3 -m json.tool
+```
+
+### Why not `NODEREPORT`
+
+`NODEREPORT` returns `Node DBID`, `dbTx`, `dbNodeStatus`, `indexedNodeDocCount`
+and four fields that are **always `null`** — `indexLeafDoc`, `indexAuxDoc`,
+`indexLeafTx`, `indexAuxTx`. Those are Solr 4 leaf/aux leftovers declared in
+`org.alfresco.solr.NodeReport`; their setters are called nowhere in this fork
+**nor in upstream Alfresco**, whose `SolrInformationServer.addCommonNodeReportInfo`
+is identical to this fork's and sets `indexedNodeDocCount` alone.
+
+A consumer reading `indexLeafDoc` therefore gets `null`, and one that coerces it
+to `0` concludes "absent from the index" for *every* node. `NODEREPORT` is left
+exactly as it is — changing it would break the compatibility it exists to
+provide — and callers wanting a usable answer should use `/api/v1/index/node`.
 
 ## Maintenance (mutating, `POST`)
 
