@@ -95,26 +95,60 @@ mise run bench:sample
 - `--stable-for` ends a phase when the document count has not moved for that long:
   without it, a stalled tracker would keep the run alive until `--timeout`.
 
-## What the scenario is looking for
+## What the scenario has found
 
-Three properties of the current indexing path make large folders the interesting
-case. The benchmark exists to quantify them, and to prove any fix.
+### The transaction cursor stall (fixed)
 
-1. `SolrJIndexingService.indexNodes` iterates and calls `indexNode(node)` per node,
-   each one issuing its own `getNodesMetaData` call with `maxResults=1`. A batch of
-   50 nodes prepared by the MetadataTracker therefore becomes 50 repository round
-   trips. Expected signal: an ingestion rate that tracks repository latency rather
-   than Solr throughput, and CPU that stays low on both sides while the lag grows.
-2. Those calls use the `NodeMetaDataParameters` defaults, all of them `true` —
-   `includeChildIds`, `includeChildAssociations`, `includeParentAssociations`,
-   `includePaths`. Indexing the large folder itself makes the repository serialise
-   every child association into a single response. Expected signal: a memory spike
-   on the trackers, concentrated on the transaction holding the folder, and a
-   visible gap between the `flat` and `deep` profiles at equal node count.
-3. `SolrJQueryService.getDescendantNodeIds` queries Solr with
-   `rows=Integer.MAX_VALUE` and materialises the whole descendant set at once.
-   Not exercised by phases `a` and `b` — it needs a rename or a move of the large
-   folder, which the scenario does not currently trigger.
+The first run of this benchmark found a complete, silent indexing stall. Creating
+30 000 files produced 30 000 transactions in four minutes; the MetadataTracker
+indexed **none** of them, and would not have recovered on its own under sustained
+ingestion.
+
+`txnsFound` is the tracker's read cursor — `getTxFromCommitTime` returns the commit
+time of its last entry, falling back to `lastGoodTxCommitTimeInIndex`, which
+`continueState` pins one hole retention hour before now. The tracker recorded a
+transaction in `txnsFound` only *after* the `isTransactionToBeIndexed` filter, so a
+fetch window filled entirely with already-indexed transactions left the cursor
+untouched and the cycle broke out immediately. The same window was then read again
+five seconds later, indefinitely.
+
+**Trigger: more than `alfresco.metadata.tracker.maxNumberOfTransactions` (2000)
+transactions committed inside the hole retention hour.** Roughly 2000 file
+creations per hour — any bulk import clears it.
+
+**Signature in the logs**: an identical `Found 2000 transactions after
+lastTxCommitTime …, transactions from Transaction [id=1 …]` line every five
+seconds, while `SUMMARY` shows `Approx transactions remaining` climbing. No error,
+no exception, no warning.
+
+Measured on a 30 000-child folder, before and after the fix: index never
+converging → converging 14 s after the last node was created; peak tracker lag
+422 s → 7 s; cold re-index 65 s → 35 s.
+
+### Metadata fetched one node at a time (fixed)
+
+`SolrJIndexingService.indexNodes` delegated per node, each issuing its own
+`getNodesMetaData` call with `maxResults=1` and every `NodeMetaDataParameters`
+default left at `true`. A 30 000-node import meant 30 000 repository round trips,
+and indexing the large folder itself made the repository serialise its 30 000
+child references into one response.
+
+The batch is now fetched in a single call, with `includeChildIds` and
+`includeChildAssociations` disabled — `SolrDocumentMapper.toNodeDoc` reads
+neither. A failed batch call falls back to one call per node.
+
+### Still open
+
+- **The Solr write is still one request per document.** `indexNode` ends on
+  `addDocument`, which calls `solrClient.add(collection, doc)`; `addDocuments(List)`
+  exists next to it and is used for ACLs. A batch of 50 nodes is still 50 update
+  requests.
+- **Cascade is not exercised.** `SolrJQueryService.getDescendantNodeIds` queries
+  Solr with `rows=Integer.MAX_VALUE` and materialises the whole descendant set at
+  once. Reaching it needs a rename or a move of the large folder, which phases `a`
+  and `b` do not trigger.
+- **`flat` versus `deep` at equal node count** has not been run. It is what
+  separates the cost of width from the cost of depth.
 
 Findings are recorded per run in `summary.md`; the run directories themselves are
 git-ignored.
