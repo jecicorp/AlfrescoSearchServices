@@ -156,7 +156,7 @@
       <dependency.spring.version>6.2.19</dependency.spring.version>
       <dependency.spring-e2e-test.version>5.3.39</dependency.spring-e2e-test.version>
       <dependency.zookeeper.version>3.9.5</dependency.zookeeper.version>
-      <dependency.netty.version>4.1.136.Final</dependency.netty.version>
+      <dependency.netty.version>4.1.138.Final</dependency.netty.version>
       <dependency.httpcore5.version>5.4.3</dependency.httpcore5.version>
       <dependency.httpclient5.version>5.6.4</dependency.httpclient5.version>
       <dependency.quartz.version>2.5.2</dependency.quartz.version>
