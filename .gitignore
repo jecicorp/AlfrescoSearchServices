@@ -47,3 +47,14 @@ keystore/*.srl
 keystore/out/
 
 trivy-*.json
+
+#####################
+# Benchmark results #
+#####################
+bench/large-folder/runs/
+
+##########
+# Python #
+##########
+__pycache__/
+*.py[cod]

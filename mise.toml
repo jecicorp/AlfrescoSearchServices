@@ -200,3 +200,19 @@ run = "trivy sbom --quiet --severity CRITICAL --exit-code 1 target/bom-runtime.j
 description = "Report CVEs on the whole runtime tree, Solr and Alfresco included (never fails)"
 depends = ["sbom"]
 run = "trivy sbom --quiet --severity HIGH,CRITICAL target/bom-full.json"
+
+[tasks."bench:plan"]
+description = "Print the shape of a benchmark tree without touching the repository (usage: mise run bench:plan -- --profile mixed --total 30000)"
+run = "python3 bench/large-folder/generate_tree.py --dry-run"
+
+[tasks."bench:scenario"]
+description = "Run the large-folder indexing benchmark (usage: mise run bench:scenario -- --label before-fix --profile flat --total 30000)"
+run = "bench/large-folder/scenario.sh"
+
+[tasks."bench:sample"]
+description = "Print one indexing sample as JSON (index counts, tracker lag, container memory)"
+run = "python3 bench/large-folder/sample_index.py --once"
+
+[tasks."bench:report"]
+description = "Compare benchmark runs (usage: mise run bench:report -- bench/large-folder/runs/before-fix bench/large-folder/runs/after-fix)"
+run = "python3 bench/large-folder/report.py"

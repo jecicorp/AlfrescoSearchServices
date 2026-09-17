@@ -13,6 +13,7 @@ standalone indexing trackers) running on Alfresco Community Edition.
 | [tracker-admin-endpoints.md](tracker-admin-endpoints.md) | Operational REST API of the trackers service (`:8085`): index reports (`summary`, `report`, `node-report`), on-demand reindex of a node/transaction/query, error-node retry, and the Solr-compat `/solr/admin/cores?action=…` alias. |
 | [debugging.md](debugging.md) | Debugging guide — ACL deny filtering (`processedDenies`), the log4j2 recipe for the query/ACL diagnostic logs, zero-results-on-permission-filtered-queries, plus tracker startup issues (full re-index on restart, `ModelTracker` namespace errors). |
 | [secure-comms-https.md](secure-comms-https.md) | Operator guide for `secureComms=https` (mTLS): the four TLS links, certificate generation with `keystore/generate-keystores.sh`, exact env vars for Solr / trackers / Alfresco, and the Caddy `:8984` dev-proxy caveat. |
+| [bench-large-folder.md](bench-large-folder.md) | Indexing benchmark for very large folders (30k+ children): tree profiles (`flat` / `deep` / `mixed`), the two phases (live ingestion, purge + full re-index), what is sampled (Solr doc counts, tracker lag, container memory / OOM kills) and how to compare two runs before and after a change. |
 
 ## About this fork
 
