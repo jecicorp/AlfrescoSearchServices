@@ -65,6 +65,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -107,6 +108,55 @@ public class MetadataTrackerTest
         TrackerRegistry registry = new TrackerRegistry();
         registry.setModelTracker(modelTracker);
         metadataTracker.state = trackerState;
+    }
+
+    @Test
+    public void trackTransactionsAdvancesPastAlreadyIndexedTransactions()
+            throws Exception
+    {
+        final long start = 1_000_000_000_000L;
+        final long alreadyIndexedA = start + 1_000L;
+        final long alreadyIndexedB = start + 2_000L;
+        final long pending = start + 3_000L;
+
+        TrackerState state = new TrackerState();
+        state.setLastGoodTxCommitTimeInIndex(start);
+        state.setLastIndexedTxCommitTime(alreadyIndexedB);
+        state.setLastIndexedTxId(2L);
+        state.setTimeToStopIndexing(start + 10_000L);
+        doReturn(state).when(metadataTracker).getTrackerState();
+
+        Transaction first = transaction(1L, alreadyIndexedA);
+        Transaction second = transaction(2L, alreadyIndexedB);
+        Transaction third = transaction(3L, pending);
+
+        when(srv.txnInIndex(eq(1L), anyBoolean())).thenReturn(true);
+        when(srv.txnInIndex(eq(2L), anyBoolean())).thenReturn(true);
+
+        when(repositoryClient.getTransactions(eq(start), isNull(), anyLong(), isNull(), anyInt()))
+                .thenReturn(new Transactions(List.of(first, second), pending, 3L));
+        when(repositoryClient.getTransactions(eq(alreadyIndexedB), isNull(), anyLong(), isNull(), anyInt()))
+                .thenReturn(new Transactions(List.of(third), pending, 3L));
+        lenient().when(repositoryClient.getTransactions(eq(pending), isNull(), anyLong(), isNull(), anyInt()))
+                .thenReturn(new Transactions(Collections.emptyList(), pending, 3L));
+
+        List<Node> nodes = List.of(new Node());
+        when(repositoryClient.getNodes(any(GetNodesParameters.class), anyInt())).thenReturn(nodes);
+
+        metadataTracker.trackTransactions();
+
+        verify(repositoryClient).getTransactions(eq(alreadyIndexedB), isNull(), anyLong(), isNull(), anyInt());
+        verify(srv).indexTransaction(third, true);
+    }
+
+    private static Transaction transaction(long id, long commitTimeMs)
+    {
+        Transaction transaction = new Transaction();
+        transaction.setId(id);
+        transaction.setCommitTimeMs(commitTimeMs);
+        transaction.setUpdates(1);
+        transaction.setDeletes(0);
+        return transaction;
     }
 
     @Test

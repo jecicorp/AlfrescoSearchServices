@@ -793,8 +793,8 @@ public class MetadataTracker extends ActivatableTracker
 
                 List<Transaction> lagEligibleTransactions = transactions.getTransactions().stream()
                         .filter(transaction -> transaction.getCommitTimeMs() <= lagCutoff)
-                        .filter(this::isTransactionToBeIndexed)
                         .peek(txnsFound::add)
+                        .filter(this::isTransactionToBeIndexed)
                         .collect(Collectors.toList());
 
                 hitLagBoundary.set(!deferredTransactions.isEmpty());
@@ -820,10 +820,7 @@ public class MetadataTracker extends ActivatableTracker
                     }
                     else
                     {
-                        // Nothing left to index in this cycle — all fetched transactions are already indexed.
-                        // Advance the tracker state and stop.
                         setLastTxCommitTimeAndTxIdInTrackerState(transactions);
-                        break;
                     }
                 }
 
