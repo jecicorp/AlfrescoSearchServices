@@ -20,7 +20,7 @@ Edition, and works with a stock Alfresco Community repository just as well.
 >   fork. It is **not** supported on **Alfresco Enterprise** and has no
 >   relationship with Hyland.
 > - **Built for Alfresco Community.** It was developed as part of the
->   [Pristy](https://pristy.net) project and is **fully compatible with Alfresco
+>   [Pristy](https://pristy.fr) project and is **fully compatible with Alfresco
 >   Community Edition**.
 > - **Support available.** [Jeci](https://jeci.fr) offers commercial support on
 >   Alfresco Community Edition, and more specifically on this search module if
@@ -167,7 +167,7 @@ building. The Docker image source is in `search-services/packaging/src/docker`.
 ## Support & About
 
 This fork was created and is maintained by **[Jeci](https://jeci.fr)**, the company
-behind **[Pristy](https://pristy.net)**, an open-source ECM suite built on Alfresco
+behind **[Pristy](https://pristy.fr)**, an open-source ECM suite built on Alfresco
 Community Edition. Jeci offers commercial support on Alfresco Community Edition and,
 more specifically, on this search module.
 

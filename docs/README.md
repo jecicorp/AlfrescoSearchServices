@@ -19,7 +19,7 @@ standalone indexing trackers) running on Alfresco Community Edition.
 This fork of Alfresco Search Services was created and is maintained by
 **[Jeci](https://jeci.fr)**.
 
-Jeci is the company behind **[Pristy](https://pristy.net)**, an open-source
+Jeci is the company behind **[Pristy](https://pristy.fr)**, an open-source
 Enterprise Content Management (ECM) suite built on Alfresco Community Edition.
 Jeci specializes in consulting, integration and support around Alfresco Community
 and the Pristy ecosystem, and offers commercial support both on Alfresco Community
