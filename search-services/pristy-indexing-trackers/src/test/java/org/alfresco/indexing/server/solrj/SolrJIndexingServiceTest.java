@@ -23,6 +23,7 @@
 package org.alfresco.indexing.server.solrj;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,6 +31,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -549,5 +551,85 @@ public class SolrJIndexingServiceTest
 
         // No documents should have been indexed
         verify(solrClient, never()).add(eq(COLLECTION), any(SolrInputDocument.class));
+    }
+
+    // =========================================================================
+    // Batched metadata fetch
+    // =========================================================================
+
+    @Test
+    public void indexNodes_shouldFetchMetadataForTheWholeBatchInOneCall() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Arrays.asList(metaDataOf(1L), metaDataOf(2L), metaDataOf(3L)));
+
+        serviceWithDeps.indexNodes(Arrays.asList(updatedNode(1L), updatedNode(2L), updatedNode(3L)), true);
+
+        ArgumentCaptor<NodeMetaDataParameters> captor =
+                ArgumentCaptor.forClass(NodeMetaDataParameters.class);
+        verify(repositoryClient, times(1)).getNodesMetaData(captor.capture());
+        assertEquals(Arrays.asList(1L, 2L, 3L), captor.getValue().getNodeIds());
+    }
+
+    @Test
+    public void indexNodes_shouldNotRequestChildIdsOrChildAssociations() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Collections.singletonList(metaDataOf(1L)));
+
+        serviceWithDeps.indexNodes(Collections.singletonList(updatedNode(1L)), true);
+
+        ArgumentCaptor<NodeMetaDataParameters> captor =
+                ArgumentCaptor.forClass(NodeMetaDataParameters.class);
+        verify(repositoryClient).getNodesMetaData(captor.capture());
+        assertFalse(captor.getValue().isIncludeChildIds());
+        assertFalse(captor.getValue().isIncludeChildAssociations());
+    }
+
+    @Test
+    public void indexNodes_shouldFallBackToOneCallPerNodeWhenTheBatchCallFails() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenAnswer(invocation -> {
+                    NodeMetaDataParameters params = invocation.getArgument(0);
+                    if (params.getNodeIds().size() > 1)
+                    {
+                        throw new IOException("repository unavailable");
+                    }
+                    return Collections.singletonList(metaDataOf(params.getNodeIds().get(0)));
+                });
+
+        serviceWithDeps.indexNodes(Arrays.asList(updatedNode(1L), updatedNode(2L)), true);
+
+        verify(repositoryClient, times(3)).getNodesMetaData(any(NodeMetaDataParameters.class));
+    }
+
+    @Test
+    public void indexNodes_shouldDeleteDeletedNodesWithoutFetchingMetadata() throws Exception
+    {
+        Node deleted = new Node();
+        deleted.setId(7L);
+        deleted.setStatus(SolrApiNodeStatus.DELETED);
+
+        serviceWithDeps.indexNodes(Collections.singletonList(deleted), true);
+
+        verify(repositoryClient, never()).getNodesMetaData(any(NodeMetaDataParameters.class));
+        verify(solrClient).deleteByQuery(eq(COLLECTION), eq("DBID:7"));
+    }
+
+    private static Node updatedNode(long id)
+    {
+        Node node = new Node();
+        node.setId(id);
+        node.setStatus(SolrApiNodeStatus.UPDATED);
+        return node;
+    }
+
+    private static NodeMetaData metaDataOf(long id)
+    {
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(id);
+        metadata.setTxnId(1L);
+        return metadata;
     }
 }

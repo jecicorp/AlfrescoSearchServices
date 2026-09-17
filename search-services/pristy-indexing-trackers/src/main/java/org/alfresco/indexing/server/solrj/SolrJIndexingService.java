@@ -29,7 +29,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -249,9 +251,7 @@ public class SolrJIndexingService
             return;
         }
 
-        NodeMetaDataParameters nmdp = new NodeMetaDataParameters();
-        nmdp.setNodeIds(Collections.singletonList(node.getId()));
-        nmdp.setMaxResults(1);
+        NodeMetaDataParameters nmdp = metaDataParameters(Collections.singletonList(node.getId()));
 
         try
         {
@@ -301,8 +301,22 @@ public class SolrJIndexingService
     }
 
     /**
-     * Batch indexes nodes. Delegates to {@link #indexNode(Node, boolean)} for each node.
+     * Builds the metadata request for the given nodes.
+     *
+     * <p>Child ids and child associations are excluded: {@link SolrDocumentMapper#toNodeDoc}
+     * reads neither, and a folder with many children would otherwise carry every child
+     * reference in its metadata response.</p>
      */
+    private static NodeMetaDataParameters metaDataParameters(List<Long> nodeIds)
+    {
+        NodeMetaDataParameters nmdp = new NodeMetaDataParameters();
+        nmdp.setNodeIds(nodeIds);
+        nmdp.setMaxResults(nodeIds.size());
+        nmdp.setIncludeChildIds(false);
+        nmdp.setIncludeChildAssociations(false);
+        return nmdp;
+    }
+
     /**
      * Checks whether a node should be indexed based on the {@code cm:isIndexed} property.
      * Mirrors upstream {@code SolrInformationServer} index control check.
@@ -324,7 +338,96 @@ public class SolrJIndexingService
         return true;
     }
 
+    /**
+     * Indexes a batch of nodes, fetching the metadata of the whole batch from the
+     * repository in a single call. Falls back to one call per node when the batch
+     * call fails, so a single unreadable node cannot drop the whole batch.
+     */
     public void indexNodes(List<Node> nodes, boolean overwrite) throws IOException
+    {
+        if (nodes == null || nodes.isEmpty())
+        {
+            return;
+        }
+
+        Map<Long, Node> pending = new LinkedHashMap<>();
+        for (Node node : nodes)
+        {
+            Node.SolrApiNodeStatus status = node.getStatus();
+            if (status == Node.SolrApiNodeStatus.DELETED
+                    || status == Node.SolrApiNodeStatus.NON_SHARD_DELETED)
+            {
+                try
+                {
+                    deleteByNodeId(node.getId());
+                }
+                catch (Exception e)
+                {
+                    LOGGER.warn("Failed to delete node {} — skipping: {}", node.getId(), e.getMessage(), e);
+                }
+            }
+            else
+            {
+                pending.put(node.getId(), node);
+            }
+        }
+
+        if (pending.isEmpty())
+        {
+            return;
+        }
+
+        if (repositoryClient == null)
+        {
+            LOGGER.warn("indexNodes: repositoryClient is null — cannot fetch metadata for {} nodes.",
+                    pending.size());
+            return;
+        }
+
+        List<NodeMetaData> metadatas;
+        try
+        {
+            metadatas = repositoryClient.getNodesMetaData(
+                    metaDataParameters(new ArrayList<>(pending.keySet())));
+        }
+        catch (Exception e)
+        {
+            LOGGER.warn("Batch metadata fetch failed for {} nodes, falling back to one node at a time: {}",
+                    pending.size(), e.getMessage(), e);
+            indexNodesIndividually(pending.values(), overwrite);
+            return;
+        }
+
+        if (metadatas == null)
+        {
+            LOGGER.warn("No metadata returned for a batch of {} nodes", pending.size());
+            return;
+        }
+
+        for (NodeMetaData metadata : metadatas)
+        {
+            Node node = pending.remove(metadata.getId());
+            if (node == null)
+            {
+                continue;
+            }
+            try
+            {
+                indexNode(node, metadata, overwrite);
+            }
+            catch (Exception e)
+            {
+                LOGGER.warn("Failed to index node {} — skipping: {}", node.getId(), e.getMessage(), e);
+            }
+        }
+
+        for (Long nodeId : pending.keySet())
+        {
+            LOGGER.warn("No metadata returned for node {}", nodeId);
+        }
+    }
+
+    private void indexNodesIndividually(Collection<Node> nodes, boolean overwrite)
     {
         for (Node node : nodes)
         {
@@ -461,9 +564,7 @@ public class SolrJIndexingService
         {
             List<Long> batch = childDbIds.subList(i, Math.min(i + batchSize, childDbIds.size()));
 
-            NodeMetaDataParameters nmdp = new NodeMetaDataParameters();
-            nmdp.setNodeIds(batch);
-            nmdp.setMaxResults(batch.size());
+            NodeMetaDataParameters nmdp = metaDataParameters(batch);
 
             List<NodeMetaData> metadatas;
             try
