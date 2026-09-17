@@ -1,0 +1,15 @@
+{
+  "APP_ROOT": "/espaces/",
+  "APP_ROOT_TITLE": "Pristy Espaces",
+  "ALFRESCO_HOST": "http://localhost:8080",
+  "PORTAIL_HOST": "http://localhost:8080",
+  "ESPACES_HOST": "http://localhost:8080",
+  "ACA_HOST": "http://localhost:8080",
+  "ALFRESCO_AUTH": "BASIC",
+  "ALFRESCO_ROOT": "alfresco",
+  "AUTH": "basic",
+  "BREADCRUMB_ROOT_URL": "/mes-espaces",
+  "DEFAULT_ELEMENT_PER_PAGE": 10,
+  "ROW_PER_PAGE_OPTIONS": [5, 10, 20, 40],
+  "EDIT_WITH_MSOFFICE": true
+}

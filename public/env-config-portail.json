@@ -1,0 +1,15 @@
+{
+  "APP_ROOT": "/portail/",
+  "APP_ROOT_TITLE": "Pristy Portail",
+  "ALFRESCO_HOST": "http://localhost:8080",
+  "PORTAIL_HOST": "http://localhost:8080",
+  "ESPACES_HOST": "http://localhost:8080",
+  "ACA_HOST": "http://localhost:8080",
+  "ALFRESCO_AUTH": "BASIC",
+  "ALFRESCO_ROOT": "alfresco",
+  "MENU_ESPACES": true,
+  "MENU_ACTES": false,
+  "MENU_MARCHES": false,
+  "MENU_SOCIAL": false,
+  "AUTH": "basic"
+}
