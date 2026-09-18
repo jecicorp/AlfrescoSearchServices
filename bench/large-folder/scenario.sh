@@ -106,8 +106,20 @@ if remaining:
 CHECK
 
 BASELINE_NODES="$(json_field "${RUN_DIR}/baseline.json" Node)"
-TARGET=$(( BASELINE_NODES + TOTAL + 1 ))
-echo "    baseline Node docs: ${BASELINE_NODES}; target after creation: ${TARGET}"
+case ",${PHASES}," in
+  *,a,*)
+    TARGET=$(( BASELINE_NODES + TOTAL + 1 ))
+    echo "    baseline Node docs: ${BASELINE_NODES}; target after creation: ${TARGET}"
+    ;;
+  *)
+    TARGET=${BASELINE_NODES}
+    echo "    baseline Node docs: ${BASELINE_NODES}; re-indexing an existing tree, target: ${TARGET}"
+    if [ "${TARGET}" -le 1 ]; then
+      echo "    the index is empty and no tree is being created — nothing to re-index" >&2
+      exit 1
+    fi
+    ;;
+esac
 
 case ",${PHASES}," in
   *,a,*)
