@@ -86,6 +86,31 @@ tracker wakes up*; it does not by itself guarantee a commit (see commit settings
 |----------|---------|--------|
 | `alfresco.tracker.batch-count` | `5000` | Number of nodes/ACLs fetched per metadata/ACL tracking call to the Repository. Higher = fewer round-trips and faster bulk/initial indexing, but larger memory spikes and longer single transactions. |
 
+Everything under `alfresco.tracker.tuning.*` has a **per-core override** of the same
+name under `alfresco.tracker.cores.<core>.tuning.*`; an unset override inherits the
+global value. The resolved set is logged per core at startup on a `tuning:` line —
+check it there rather than assuming a value took effect.
+
+| Property (`alfresco.tracker.tuning.*`) | Default | Impact |
+|----------------------------------------|---------|--------|
+| `node-batch-size` | `50` | Nodes per batch. Drives **both** the metadata request to the Repository and the Solr update: one round trip each per batch. Higher = fewer round trips, larger responses and more metadata held in memory at once, multiplied by `metadata-parallelism`. |
+| `transaction-docs-batch-size` | `2000` | Documents per transaction batch, used to group transactions before their nodes are fetched. |
+| `max-transactions-per-cycle` | `2000` | Transactions fetched per tracking cycle. |
+| `metadata-parallelism` | `32` | `ForkJoinPool` size indexing node batches. These threads write concurrently to a single Solr core, so raising it increases queueing at Solr rather than throughput — measure before increasing. |
+| `metadata-time-step` | `3600000` ms | Width of the time window scanned for new transactions. |
+| `acl-batch-size` | `100` | ACLs per batch. |
+| `change-set-acls-batch-size` | `2000` | ACLs per change-set batch. |
+| `max-acl-change-sets-per-cycle` | `2000` | ACL change sets fetched per cycle. |
+| `acl-parallelism` | `32` | `ForkJoinPool` size indexing ACL batches. |
+| `acl-time-step` | `3600000` ms | Time window scanned for new ACL change sets. |
+| `content-batch-size` | `2000` | Partition size for parallel content extraction within one cycle. |
+| `content-parallelism` | `8` | `ForkJoinPool` size extracting content. Higher = faster bulk extraction, more concurrent load on the transform service. |
+| `cascade-node-batch-size` | `10` | Parent nodes per cascade worker. |
+| `cascade-parallelism` | `32` | `ForkJoinPool` size processing cascade updates. |
+| `cascade-commit-interval` | `30` | Batches processed between two cascade commits. |
+| `lag` | `1000` ms | Transactions committed more recently than this are deferred to the next cycle. |
+| `hole-retention` | `3600000` ms | How far back each cycle rewinds to catch transactions committed out of order. Together with `max-transactions-per-cycle` it bounds how much history a cycle re-reads. |
+
 ### Other settings
 
 | Property | Default | Impact |
@@ -124,16 +149,12 @@ of re-tracking the whole repository (which can take days on a large index).
 
 ### Internal content settings (not externally configurable today)
 
-The ContentTracker reads two extra knobs, but they are **not currently wired to
-Spring properties**, so they always use their compiled defaults. Changing them
-requires a code change (adding them to `TrackerProperties` / `TrackerBootstrap`):
+Both ContentTracker knobs are now configurable as
+`alfresco.tracker.tuning.content-batch-size` and
+`alfresco.tracker.tuning.content-parallelism` — see
+[Throughput & batching](#throughput--batching).
 
-| Property (legacy `Properties` key) | Default | Impact |
-|------------------------------------|---------|--------|
-| `alfresco.contentUpdateBatchSize` | `2000` | Partition size for parallel content extraction within one cycle. |
-| `alfresco.content.tracker.maxParallelism` | `8` | Size of the `ForkJoinPool` extracting content in parallel. Higher = faster bulk extraction, more concurrent load on the transform service. |
-
-In addition, each ContentTracker cycle pulls at most **2000** outdated documents
+Each ContentTracker cycle pulls at most **2000** outdated documents
 from Solr (hardcoded in `SolrJQueryService#getDocsWithUncleanContent`). With a
 large backlog, full re-indexing therefore progresses 2000 documents per
 `cron.content` tick.
@@ -210,7 +231,18 @@ alfresco:
           metadata: "0 0/5 * * * ?"      # every 5 min instead of every 5 s
           content:  "0 0/30 * * * ?"
           acl:      "0 0/5 * * * ?"
+        tuning:
+          metadata-parallelism: 4        # leave threads to the live core
+          acl-parallelism: 4
+          cascade-parallelism: 4
+          content-parallelism: 2
 ```
+
+The shipped `application.yml` already deprioritises `archive` this way: its
+metadata and ACL trackers run every minute, content every five minutes, cascade
+every two, and its four pools are cut to 4/4/4/2 so the live core keeps the
+Repository and Solr capacity. Raise them back if archived content has to be
+searchable promptly.
 
 The equivalent with environment variables (no image rebuild):
 

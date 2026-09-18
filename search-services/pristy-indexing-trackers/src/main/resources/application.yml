@@ -33,6 +33,37 @@ alfresco:
       cascade: "0/10 * * * * ?"
     batch-count: 5000
     cascade-tracking-enabled: true
+    tuning:
+      node-batch-size: 50
+      transaction-docs-batch-size: 2000
+      max-transactions-per-cycle: 2000
+      metadata-parallelism: 32
+      metadata-time-step: 3600000
+      acl-batch-size: 100
+      change-set-acls-batch-size: 2000
+      max-acl-change-sets-per-cycle: 2000
+      acl-parallelism: 32
+      acl-time-step: 3600000
+      content-batch-size: 2000
+      content-parallelism: 8
+      cascade-node-batch-size: 10
+      cascade-parallelism: 32
+      cascade-commit-interval: 30
+      lag: 1000
+      hole-retention: 3600000
+    cores:
+      archive:
+        cron:
+          metadata: "0 0/1 * * * ?"
+          acl: "0 0/1 * * * ?"
+          content: "0 0/5 * * * ?"
+          cascade: "0 0/2 * * * ?"
+          commit: "0/30 * * * * ?"
+        tuning:
+          metadata-parallelism: 4
+          acl-parallelism: 4
+          cascade-parallelism: 4
+          content-parallelism: 2
     solr-home: /opt/solr/data
     health:
       connect-timeout: 5000   # ms — repository health probe (/actuator/health)

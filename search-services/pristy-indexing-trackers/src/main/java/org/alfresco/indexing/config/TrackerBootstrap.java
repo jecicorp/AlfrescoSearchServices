@@ -197,6 +197,14 @@ public class TrackerBootstrap implements ApplicationRunner
                     c.getBatchCount(), c.getMaxLiveSearchers());
             LOGGER.info("  [core '{}'] commitInterval={} ms, newSearcherInterval={} ms",
                     coreName, c.getCommitInterval(), c.getNewSearcherInterval());
+            LOGGER.info("  [core '{}'] tuning: nodeBatch={} txDocsBatch={} maxTxPerCycle={} "
+                            + "metadataThreads={} aclBatch={} aclThreads={} contentBatch={} contentThreads={} "
+                            + "cascadeBatch={} cascadeThreads={} lag={} ms holeRetention={} ms",
+                    coreName, c.getNodeBatchSize(), c.getTransactionDocsBatchSize(),
+                    c.getMaxTransactionsPerCycle(), c.getMetadataParallelism(), c.getAclBatchSize(),
+                    c.getAclParallelism(), c.getContentBatchSize(), c.getContentParallelism(),
+                    c.getCascadeNodeBatchSize(), c.getCascadeParallelism(), c.getLag(),
+                    c.getHoleRetention());
             LOGGER.info("  [core '{}'] cron: metadata={} acl={} content={} commit={} cascade={} repair={} (model={}, shared)",
                     coreName, c.getCronMetadata(), c.getCronAcl(), c.getCronContent(),
                     c.getCronCommit(), c.getCronCascade(), c.getCronRepair(), c.getCronModel());
@@ -316,6 +324,24 @@ public class TrackerBootstrap implements ApplicationRunner
         p.setProperty("alfresco.model.tracker.cron", core.getCronModel());
         p.setProperty("alfresco.cascade.tracker.cron", core.getCronCascade());
         p.setProperty("alfresco.repair.tracker.cron", core.getCronRepair());
+
+        p.setProperty("alfresco.nodeBatchSize", String.valueOf(core.getNodeBatchSize()));
+        p.setProperty("alfresco.transactionDocsBatchSize", String.valueOf(core.getTransactionDocsBatchSize()));
+        p.setProperty("alfresco.metadata.tracker.maxNumberOfTransactions", String.valueOf(core.getMaxTransactionsPerCycle()));
+        p.setProperty("alfresco.metadata.tracker.maxParallelism", String.valueOf(core.getMetadataParallelism()));
+        p.setProperty("alfresco.metadata.tracker.timestep", String.valueOf(core.getMetadataTimeStep()));
+        p.setProperty("alfresco.aclBatchSize", String.valueOf(core.getAclBatchSize()));
+        p.setProperty("alfresco.changeSetAclsBatchSize", String.valueOf(core.getChangeSetAclsBatchSize()));
+        p.setProperty("alfresco.acl.tracker.maxNumberOfAclChangeSets", String.valueOf(core.getMaxAclChangeSetsPerCycle()));
+        p.setProperty("alfresco.acl.tracker.maxParallelism", String.valueOf(core.getAclParallelism()));
+        p.setProperty("alfresco.acl.tracker.timestep", String.valueOf(core.getAclTimeStep()));
+        p.setProperty("alfresco.contentUpdateBatchSize", String.valueOf(core.getContentBatchSize()));
+        p.setProperty("alfresco.content.tracker.maxParallelism", String.valueOf(core.getContentParallelism()));
+        p.setProperty("alfresco.cascade.tracker.nodeBatchSize", String.valueOf(core.getCascadeNodeBatchSize()));
+        p.setProperty("alfresco.cascade.tracker.maxParallelism", String.valueOf(core.getCascadeParallelism()));
+        p.setProperty("alfresco.cascade.tracker.commitInterval", String.valueOf(core.getCascadeCommitInterval()));
+        p.setProperty("alfresco.lag", String.valueOf(core.getLag()));
+        p.setProperty("alfresco.hole.retention", String.valueOf(core.getHoleRetention()));
 
         return p;
     }

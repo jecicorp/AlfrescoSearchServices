@@ -72,6 +72,41 @@ public class TrackerBootstrapTest
     }
 
     @Test
+    public void buildTrackerProperties_bridgesTuningKnobs()
+    {
+        props.getTuning().setNodeBatchSize(120);
+        props.getTuning().setMetadataParallelism(16);
+        props.getTuning().setHoleRetention(600000L);
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
+
+        Properties result = bootstrap.buildTrackerProperties("test-core");
+
+        assertEquals("120", result.getProperty("alfresco.nodeBatchSize"));
+        assertEquals("16", result.getProperty("alfresco.metadata.tracker.maxParallelism"));
+        assertEquals("600000", result.getProperty("alfresco.hole.retention"));
+        assertEquals("2000", result.getProperty("alfresco.transactionDocsBatchSize"));
+        assertEquals("8", result.getProperty("alfresco.content.tracker.maxParallelism"));
+    }
+
+    @Test
+    public void buildTrackerProperties_perCoreTuningOverridesTheGlobalValue()
+    {
+        props.getTuning().setMetadataParallelism(32);
+        props.getTuning().setNodeBatchSize(50);
+        TrackerProperties.CoreConfig archive = new TrackerProperties.CoreConfig();
+        archive.getTuning().setMetadataParallelism(4);
+        props.getCores().put("archive", archive);
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
+
+        Properties liveCore = bootstrap.buildTrackerProperties("alfresco");
+        Properties archiveCore = bootstrap.buildTrackerProperties("archive");
+
+        assertEquals("32", liveCore.getProperty("alfresco.metadata.tracker.maxParallelism"));
+        assertEquals("4", archiveCore.getProperty("alfresco.metadata.tracker.maxParallelism"));
+        assertEquals("50", archiveCore.getProperty("alfresco.nodeBatchSize"));
+    }
+
+    @Test
     public void buildTrackerProperties_bridgesCronSchedules()
     {
         TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);

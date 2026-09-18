@@ -57,6 +57,7 @@ public class TrackerProperties
      * global value above. Secondary cores (e.g. {@code archive}) can thus be
      * tracked less aggressively than the primary {@code alfresco} core.
      */
+    private TuningConfig tuning = new TuningConfig();
     private Map<String, CoreConfig> cores = new LinkedHashMap<>();
     private HealthConfig health = new HealthConfig();
     private BackupConfig backup = new BackupConfig();
@@ -151,6 +152,16 @@ public class TrackerProperties
         this.transformContent = transformContent;
     }
 
+    public TuningConfig getTuning()
+    {
+        return tuning;
+    }
+
+    public void setTuning(TuningConfig tuning)
+    {
+        this.tuning = tuning;
+    }
+
     public Map<String, CoreConfig> getCores()
     {
         return cores;
@@ -222,6 +233,25 @@ public class TrackerProperties
         r.backupCron = ob.getCron() != null ? ob.getCron() : backup.getCron();
         r.backupLocation = ob.getLocation() != null ? ob.getLocation() : backup.getLocation();
         r.backupNumberToKeep = ob.getNumberToKeep() != null ? ob.getNumberToKeep() : backup.getNumberToKeep();
+
+        TuningOverride ot = o.getTuning();
+        r.nodeBatchSize = ot.getNodeBatchSize() != null ? ot.getNodeBatchSize() : tuning.getNodeBatchSize();
+        r.transactionDocsBatchSize = ot.getTransactionDocsBatchSize() != null ? ot.getTransactionDocsBatchSize() : tuning.getTransactionDocsBatchSize();
+        r.maxTransactionsPerCycle = ot.getMaxTransactionsPerCycle() != null ? ot.getMaxTransactionsPerCycle() : tuning.getMaxTransactionsPerCycle();
+        r.metadataParallelism = ot.getMetadataParallelism() != null ? ot.getMetadataParallelism() : tuning.getMetadataParallelism();
+        r.metadataTimeStep = ot.getMetadataTimeStep() != null ? ot.getMetadataTimeStep() : tuning.getMetadataTimeStep();
+        r.aclBatchSize = ot.getAclBatchSize() != null ? ot.getAclBatchSize() : tuning.getAclBatchSize();
+        r.changeSetAclsBatchSize = ot.getChangeSetAclsBatchSize() != null ? ot.getChangeSetAclsBatchSize() : tuning.getChangeSetAclsBatchSize();
+        r.maxAclChangeSetsPerCycle = ot.getMaxAclChangeSetsPerCycle() != null ? ot.getMaxAclChangeSetsPerCycle() : tuning.getMaxAclChangeSetsPerCycle();
+        r.aclParallelism = ot.getAclParallelism() != null ? ot.getAclParallelism() : tuning.getAclParallelism();
+        r.aclTimeStep = ot.getAclTimeStep() != null ? ot.getAclTimeStep() : tuning.getAclTimeStep();
+        r.contentBatchSize = ot.getContentBatchSize() != null ? ot.getContentBatchSize() : tuning.getContentBatchSize();
+        r.contentParallelism = ot.getContentParallelism() != null ? ot.getContentParallelism() : tuning.getContentParallelism();
+        r.cascadeNodeBatchSize = ot.getCascadeNodeBatchSize() != null ? ot.getCascadeNodeBatchSize() : tuning.getCascadeNodeBatchSize();
+        r.cascadeParallelism = ot.getCascadeParallelism() != null ? ot.getCascadeParallelism() : tuning.getCascadeParallelism();
+        r.cascadeCommitInterval = ot.getCascadeCommitInterval() != null ? ot.getCascadeCommitInterval() : tuning.getCascadeCommitInterval();
+        r.lag = ot.getLag() != null ? ot.getLag() : tuning.getLag();
+        r.holeRetention = ot.getHoleRetention() != null ? ot.getHoleRetention() : tuning.getHoleRetention();
         return r;
     }
 
@@ -535,6 +565,159 @@ public class TrackerProperties
      * "not overridden — inherit the global default". Bound from
      * {@code alfresco.tracker.cores.<coreName>.*}.
      */
+
+    /**
+     * Throughput tuning. Every value has a per-core override in
+     * {@link CoreConfig#getTuning()}; an unset override inherits the value here.
+     */
+    public static class TuningConfig
+    {
+        private int nodeBatchSize = 50;
+        private int transactionDocsBatchSize = 2000;
+        private int maxTransactionsPerCycle = 2000;
+        private int metadataParallelism = 32;
+        private long metadataTimeStep = 3600000;
+        private int aclBatchSize = 100;
+        private int changeSetAclsBatchSize = 2000;
+        private int maxAclChangeSetsPerCycle = 2000;
+        private int aclParallelism = 32;
+        private long aclTimeStep = 3600000;
+        private int contentBatchSize = 2000;
+        private int contentParallelism = 8;
+        private int cascadeNodeBatchSize = 10;
+        private int cascadeParallelism = 32;
+        private int cascadeCommitInterval = 30;
+        private long lag = 1000;
+        private long holeRetention = 3600000;
+
+        public int getNodeBatchSize() { return nodeBatchSize; }
+        public void setNodeBatchSize(int nodeBatchSize) { this.nodeBatchSize = nodeBatchSize; }
+
+        public int getTransactionDocsBatchSize() { return transactionDocsBatchSize; }
+        public void setTransactionDocsBatchSize(int transactionDocsBatchSize) { this.transactionDocsBatchSize = transactionDocsBatchSize; }
+
+        public int getMaxTransactionsPerCycle() { return maxTransactionsPerCycle; }
+        public void setMaxTransactionsPerCycle(int maxTransactionsPerCycle) { this.maxTransactionsPerCycle = maxTransactionsPerCycle; }
+
+        public int getMetadataParallelism() { return metadataParallelism; }
+        public void setMetadataParallelism(int metadataParallelism) { this.metadataParallelism = metadataParallelism; }
+
+        public long getMetadataTimeStep() { return metadataTimeStep; }
+        public void setMetadataTimeStep(long metadataTimeStep) { this.metadataTimeStep = metadataTimeStep; }
+
+        public int getAclBatchSize() { return aclBatchSize; }
+        public void setAclBatchSize(int aclBatchSize) { this.aclBatchSize = aclBatchSize; }
+
+        public int getChangeSetAclsBatchSize() { return changeSetAclsBatchSize; }
+        public void setChangeSetAclsBatchSize(int changeSetAclsBatchSize) { this.changeSetAclsBatchSize = changeSetAclsBatchSize; }
+
+        public int getMaxAclChangeSetsPerCycle() { return maxAclChangeSetsPerCycle; }
+        public void setMaxAclChangeSetsPerCycle(int maxAclChangeSetsPerCycle) { this.maxAclChangeSetsPerCycle = maxAclChangeSetsPerCycle; }
+
+        public int getAclParallelism() { return aclParallelism; }
+        public void setAclParallelism(int aclParallelism) { this.aclParallelism = aclParallelism; }
+
+        public long getAclTimeStep() { return aclTimeStep; }
+        public void setAclTimeStep(long aclTimeStep) { this.aclTimeStep = aclTimeStep; }
+
+        public int getContentBatchSize() { return contentBatchSize; }
+        public void setContentBatchSize(int contentBatchSize) { this.contentBatchSize = contentBatchSize; }
+
+        public int getContentParallelism() { return contentParallelism; }
+        public void setContentParallelism(int contentParallelism) { this.contentParallelism = contentParallelism; }
+
+        public int getCascadeNodeBatchSize() { return cascadeNodeBatchSize; }
+        public void setCascadeNodeBatchSize(int cascadeNodeBatchSize) { this.cascadeNodeBatchSize = cascadeNodeBatchSize; }
+
+        public int getCascadeParallelism() { return cascadeParallelism; }
+        public void setCascadeParallelism(int cascadeParallelism) { this.cascadeParallelism = cascadeParallelism; }
+
+        public int getCascadeCommitInterval() { return cascadeCommitInterval; }
+        public void setCascadeCommitInterval(int cascadeCommitInterval) { this.cascadeCommitInterval = cascadeCommitInterval; }
+
+        public long getLag() { return lag; }
+        public void setLag(long lag) { this.lag = lag; }
+
+        public long getHoleRetention() { return holeRetention; }
+        public void setHoleRetention(long holeRetention) { this.holeRetention = holeRetention; }
+    }
+
+    /**
+     * Per-core tuning overrides. Every field defaults to {@code null} so that an
+     * unset value inherits the global one.
+     */
+    public static class TuningOverride
+    {
+        private Integer nodeBatchSize;
+        private Integer transactionDocsBatchSize;
+        private Integer maxTransactionsPerCycle;
+        private Integer metadataParallelism;
+        private Long metadataTimeStep;
+        private Integer aclBatchSize;
+        private Integer changeSetAclsBatchSize;
+        private Integer maxAclChangeSetsPerCycle;
+        private Integer aclParallelism;
+        private Long aclTimeStep;
+        private Integer contentBatchSize;
+        private Integer contentParallelism;
+        private Integer cascadeNodeBatchSize;
+        private Integer cascadeParallelism;
+        private Integer cascadeCommitInterval;
+        private Long lag;
+        private Long holeRetention;
+
+        public Integer getNodeBatchSize() { return nodeBatchSize; }
+        public void setNodeBatchSize(Integer nodeBatchSize) { this.nodeBatchSize = nodeBatchSize; }
+
+        public Integer getTransactionDocsBatchSize() { return transactionDocsBatchSize; }
+        public void setTransactionDocsBatchSize(Integer transactionDocsBatchSize) { this.transactionDocsBatchSize = transactionDocsBatchSize; }
+
+        public Integer getMaxTransactionsPerCycle() { return maxTransactionsPerCycle; }
+        public void setMaxTransactionsPerCycle(Integer maxTransactionsPerCycle) { this.maxTransactionsPerCycle = maxTransactionsPerCycle; }
+
+        public Integer getMetadataParallelism() { return metadataParallelism; }
+        public void setMetadataParallelism(Integer metadataParallelism) { this.metadataParallelism = metadataParallelism; }
+
+        public Long getMetadataTimeStep() { return metadataTimeStep; }
+        public void setMetadataTimeStep(Long metadataTimeStep) { this.metadataTimeStep = metadataTimeStep; }
+
+        public Integer getAclBatchSize() { return aclBatchSize; }
+        public void setAclBatchSize(Integer aclBatchSize) { this.aclBatchSize = aclBatchSize; }
+
+        public Integer getChangeSetAclsBatchSize() { return changeSetAclsBatchSize; }
+        public void setChangeSetAclsBatchSize(Integer changeSetAclsBatchSize) { this.changeSetAclsBatchSize = changeSetAclsBatchSize; }
+
+        public Integer getMaxAclChangeSetsPerCycle() { return maxAclChangeSetsPerCycle; }
+        public void setMaxAclChangeSetsPerCycle(Integer maxAclChangeSetsPerCycle) { this.maxAclChangeSetsPerCycle = maxAclChangeSetsPerCycle; }
+
+        public Integer getAclParallelism() { return aclParallelism; }
+        public void setAclParallelism(Integer aclParallelism) { this.aclParallelism = aclParallelism; }
+
+        public Long getAclTimeStep() { return aclTimeStep; }
+        public void setAclTimeStep(Long aclTimeStep) { this.aclTimeStep = aclTimeStep; }
+
+        public Integer getContentBatchSize() { return contentBatchSize; }
+        public void setContentBatchSize(Integer contentBatchSize) { this.contentBatchSize = contentBatchSize; }
+
+        public Integer getContentParallelism() { return contentParallelism; }
+        public void setContentParallelism(Integer contentParallelism) { this.contentParallelism = contentParallelism; }
+
+        public Integer getCascadeNodeBatchSize() { return cascadeNodeBatchSize; }
+        public void setCascadeNodeBatchSize(Integer cascadeNodeBatchSize) { this.cascadeNodeBatchSize = cascadeNodeBatchSize; }
+
+        public Integer getCascadeParallelism() { return cascadeParallelism; }
+        public void setCascadeParallelism(Integer cascadeParallelism) { this.cascadeParallelism = cascadeParallelism; }
+
+        public Integer getCascadeCommitInterval() { return cascadeCommitInterval; }
+        public void setCascadeCommitInterval(Integer cascadeCommitInterval) { this.cascadeCommitInterval = cascadeCommitInterval; }
+
+        public Long getLag() { return lag; }
+        public void setLag(Long lag) { this.lag = lag; }
+
+        public Long getHoleRetention() { return holeRetention; }
+        public void setHoleRetention(Long holeRetention) { this.holeRetention = holeRetention; }
+    }
+
     public static class CoreConfig
     {
         private String store;
@@ -545,6 +728,7 @@ public class TrackerProperties
         private Long commitInterval;
         private Long newSearcherInterval;
         private CronOverride cron = new CronOverride();
+        private TuningOverride tuning = new TuningOverride();
         private BackupOverride backup = new BackupOverride();
 
         public String getStore() { return store; }
@@ -567,6 +751,9 @@ public class TrackerProperties
 
         public Long getNewSearcherInterval() { return newSearcherInterval; }
         public void setNewSearcherInterval(Long newSearcherInterval) { this.newSearcherInterval = newSearcherInterval; }
+
+        public TuningOverride getTuning() { return tuning; }
+        public void setTuning(TuningOverride tuning) { this.tuning = tuning; }
 
         public CronOverride getCron() { return cron; }
         public void setCron(CronOverride cron) { this.cron = cron; }
@@ -635,6 +822,23 @@ public class TrackerProperties
         private String backupCron;
         private String backupLocation;
         private int backupNumberToKeep;
+        private int nodeBatchSize;
+        private int transactionDocsBatchSize;
+        private int maxTransactionsPerCycle;
+        private int metadataParallelism;
+        private long metadataTimeStep;
+        private int aclBatchSize;
+        private int changeSetAclsBatchSize;
+        private int maxAclChangeSetsPerCycle;
+        private int aclParallelism;
+        private long aclTimeStep;
+        private int contentBatchSize;
+        private int contentParallelism;
+        private int cascadeNodeBatchSize;
+        private int cascadeParallelism;
+        private int cascadeCommitInterval;
+        private long lag;
+        private long holeRetention;
 
         public String getStore() { return store; }
         public int getBatchCount() { return batchCount; }
@@ -654,5 +858,22 @@ public class TrackerProperties
         public String getBackupCron() { return backupCron; }
         public String getBackupLocation() { return backupLocation; }
         public int getBackupNumberToKeep() { return backupNumberToKeep; }
+        public int getNodeBatchSize() { return nodeBatchSize; }
+        public int getTransactionDocsBatchSize() { return transactionDocsBatchSize; }
+        public int getMaxTransactionsPerCycle() { return maxTransactionsPerCycle; }
+        public int getMetadataParallelism() { return metadataParallelism; }
+        public long getMetadataTimeStep() { return metadataTimeStep; }
+        public int getAclBatchSize() { return aclBatchSize; }
+        public int getChangeSetAclsBatchSize() { return changeSetAclsBatchSize; }
+        public int getMaxAclChangeSetsPerCycle() { return maxAclChangeSetsPerCycle; }
+        public int getAclParallelism() { return aclParallelism; }
+        public long getAclTimeStep() { return aclTimeStep; }
+        public int getContentBatchSize() { return contentBatchSize; }
+        public int getContentParallelism() { return contentParallelism; }
+        public int getCascadeNodeBatchSize() { return cascadeNodeBatchSize; }
+        public int getCascadeParallelism() { return cascadeParallelism; }
+        public int getCascadeCommitInterval() { return cascadeCommitInterval; }
+        public long getLag() { return lag; }
+        public long getHoleRetention() { return holeRetention; }
     }
 }
