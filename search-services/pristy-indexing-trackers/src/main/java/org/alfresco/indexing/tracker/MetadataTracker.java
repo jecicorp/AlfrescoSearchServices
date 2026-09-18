@@ -852,11 +852,15 @@ public class MetadataTracker extends ActivatableTracker
                 trackerStats.addElapsedNodeTime(updatedDocs, System.nanoTime() - nodeIndexingStart);
                 totalUpdatedDocs += updatedDocs;
 
+                long txIndexingStart = System.nanoTime();
+                int indexedTxCount = 0;
                 for (List<Transaction> batch : eligibleTransactionBatches)
                 {
+                    indexedTxCount += batch.size();
                     // Index the transactions
                     indexTransactionsAfterWorker(batch);
                 }
+                trackerStats.addElapsedTransactionTime(indexedTxCount, System.nanoTime() - txIndexingStart);
 
                 // Set the tracker state only for transactions we actually indexed in this cycle
                 List<Transaction> indexedTransactions = eligibleTransactionBatches.stream()

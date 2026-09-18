@@ -426,6 +426,7 @@ public class AdminService
                     statsReport.put("MeanModelSyncTimeMs", trackerStats.getMeanModelSyncTime());
                     statsReport.put("MeanNodeIndexTimeMs", trackerStats.getMeanNodeIndexTime());
                     statsReport.put("MeanNodeElapsedIndexTimeMs", trackerStats.getMeanNodeElapsedIndexTime());
+                    statsReport.put("MeanTxElapsedIndexTimeMs", trackerStats.getMeanTransactionElapsedIndexTime());
                     statsReport.put("MeanAclElapsedIndexTimeMs", trackerStats.getMeanAclElapsedIndexTime());
                     statsReport.put("MeanContentElapsedIndexTimeMs", trackerStats.getMeanContentElapsedIndexTime());
                     coreReport.put("TrackerStats", statsReport);

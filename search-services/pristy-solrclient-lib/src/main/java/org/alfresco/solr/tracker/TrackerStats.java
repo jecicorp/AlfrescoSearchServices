@@ -63,6 +63,8 @@ public class TrackerStats
     
     ConcurrentHashMap<String, IncrementalStats> elapsedContentTimes = new ConcurrentHashMap<String, IncrementalStats>();
 
+    ConcurrentHashMap<String, IncrementalStats> elapsedTransactionTimes = new ConcurrentHashMap<String, IncrementalStats>();
+
     private InformationServerCollectionProvider infoSrv;
     
     public TrackerStats(InformationServerCollectionProvider server)
@@ -194,6 +196,11 @@ public class TrackerStats
     public double getMeanContentElapsedIndexTime()
     {
         return aggregateResults(elapsedContentTimes).getMean();
+    }
+
+    public double getMeanTransactionElapsedIndexTime()
+    {
+        return aggregateResults(elapsedTransactionTimes).getMean();
     }
 
     public double getNodeIndexingThreadCount()
@@ -868,6 +875,31 @@ public class TrackerStats
         
     }
     
+    /**
+     * Records the wall clock time spent writing transaction documents, per document.
+     *
+     * @param docCount number of transaction documents written
+     * @param time elapsed nanoseconds
+     */
+    public void addElapsedTransactionTime(int docCount, long time)
+    {
+        if (docCount < 1)
+        {
+            return;
+        }
+        IncrementalStats stats = elapsedTransactionTimes.get(Thread.currentThread().getName());
+        if (stats == null)
+        {
+            stats = new IncrementalStats(TIME_SCALE, 50, this.infoSrv);
+            elapsedTransactionTimes.put(Thread.currentThread().getName(), stats);
+        }
+        long meanTime = time / docCount;
+        for (int i = 0; i < docCount; i++)
+        {
+            stats.add(meanTime);
+        }
+    }
+
     /**
      * @param docCount int
      * @param time long
