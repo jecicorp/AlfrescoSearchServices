@@ -26,6 +26,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -58,6 +59,7 @@ import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.NodeMetaDataParameters;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.Transaction;
+import org.alfresco.solr.tracker.TrackerStats;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
@@ -615,6 +617,19 @@ public class SolrJIndexingServiceTest
 
         verify(repositoryClient, never()).getNodesMetaData(any(NodeMetaDataParameters.class));
         verify(solrClient).deleteByQuery(eq(COLLECTION), eq("DBID:7"));
+    }
+
+    @Test
+    public void indexNodes_shouldRecordPerNodeIndexingTime() throws Exception
+    {
+        TrackerStats stats = mock(TrackerStats.class);
+        serviceWithDeps.setTrackerStats(stats);
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Arrays.asList(metaDataOf(1L), metaDataOf(2L)));
+
+        serviceWithDeps.indexNodes(Arrays.asList(updatedNode(1L), updatedNode(2L)), true);
+
+        verify(stats, times(2)).addNodeTime(anyLong());
     }
 
     private static Node updatedNode(long id)

@@ -51,6 +51,7 @@ import org.alfresco.solr.client.StringPropertyValue;
 import org.alfresco.solr.client.NodeMetaDataParameters;
 import org.alfresco.solr.client.PropertyValue;
 import org.alfresco.solr.client.SOLRAPIClient;
+import org.alfresco.solr.tracker.TrackerStats;
 import org.alfresco.solr.client.SOLRAPIClient.GetTextContentResponse;
 import org.alfresco.solr.client.SOLRAPIClient.SolrApiContentStatus;
 import org.alfresco.solr.client.TenantDbId;
@@ -91,6 +92,7 @@ public class SolrJIndexingService
     private final SolrJQueryService queryService;
     private final LocalDictionaryService dictionaryService;
     private long contentStreamLimit = DEFAULT_CONTENT_STREAM_LIMIT;
+    private TrackerStats trackerStats;
 
     public SolrJIndexingService(SolrClient solrClient, String collection)
     {
@@ -118,6 +120,15 @@ public class SolrJIndexingService
         this.repositoryClient = repositoryClient;
         this.queryService = queryService;
         this.dictionaryService = dictionaryService;
+    }
+
+    /**
+     * Sets the statistics collector fed with the per-node indexing time reported by
+     * {@code SUMMARY} as {@code MeanNodeIndexTimeMs}. Timing is skipped when unset.
+     */
+    public void setTrackerStats(TrackerStats trackerStats)
+    {
+        this.trackerStats = trackerStats;
     }
 
     // =========================================================================
@@ -296,8 +307,13 @@ public class SolrJIndexingService
             return;
         }
 
+        long start = System.nanoTime();
         SolrInputDocument doc = documentMapper.toNodeDoc(node, metadata);
         addDocument(doc);
+        if (trackerStats != null)
+        {
+            trackerStats.addNodeTime(System.nanoTime() - start);
+        }
     }
 
     /**

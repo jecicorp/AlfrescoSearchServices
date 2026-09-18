@@ -719,8 +719,6 @@ public class MetadataTracker extends ActivatableTracker
      */
     protected void trackTransactions() throws IOException, JSONException
     {
-        long startElapsed = System.nanoTime();
-
         Transactions transactions;
         BoundedDeque<Transaction> txnsFound = new BoundedDeque<>(METADATA_TRANSACTIONS_FOUND_QUEUE_SIZE);
         int totalUpdatedDocs = 0;
@@ -837,7 +835,8 @@ public class MetadataTracker extends ActivatableTracker
                 // Counter used to identify the worker inside the parallel stream processing
                 final AtomicInteger counterBatch = new AtomicInteger(0);
                 long idThread = Thread.currentThread().getId();
-                totalUpdatedDocs += forkJoinPool.submit(() ->
+                long nodeIndexingStart = System.nanoTime();
+                int updatedDocs = forkJoinPool.submit(() ->
                         nodeBatches.parallelStream().map(batch -> {
                             int count = counterBatch.addAndGet(1);
                             if (LOGGER.isTraceEnabled())
@@ -850,13 +849,13 @@ public class MetadataTracker extends ActivatableTracker
                             return batch.size();
                         }).reduce(0, Integer::sum)).get();
 
+                trackerStats.addElapsedNodeTime(updatedDocs, System.nanoTime() - nodeIndexingStart);
+                totalUpdatedDocs += updatedDocs;
+
                 for (List<Transaction> batch : eligibleTransactionBatches)
                 {
                     // Index the transactions
                     indexTransactionsAfterWorker(batch);
-                    long endElapsed = System.nanoTime();
-                    trackerStats.addElapsedNodeTime(totalUpdatedDocs, endElapsed - startElapsed);
-                    startElapsed = endElapsed;
                 }
 
                 // Set the tracker state only for transactions we actually indexed in this cycle
