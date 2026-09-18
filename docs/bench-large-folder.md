@@ -161,5 +161,39 @@ neither. A failed batch call falls back to one call per node.
 - **`flat` versus `deep` at equal node count** has not been run. It is what
   separates the cost of width from the cost of depth.
 
+### Tuning sweep: parallelism and batch size do not move throughput
+
+Measured on the `flat` 30 000 profile, 20 cold re-indexes of 30 781 documents,
+each on a **virgin Solr index** (the `solr-data` and `solr-solrhome` volumes are
+removed and the core recreated, which takes ~9s and leaves the repository tree
+intact, so a sweep does not have to recreate the tree between points):
+
+| `metadata-parallelism` | `node-batch-size` | mean | sd | `MeanNodeIndexTimeMs` |
+|---|---|---|---|---|
+| 32 | 50 | 13.17s | 0.41 | 4.74 |
+| 16 | 50 | 12.62s | 0.37 | 2.61 |
+| 8 | 50 | 12.88s | 0.26 | 1.27 |
+| 4 | 50 | 12.85s | 0.50 | 0.52 |
+| 16 | 100 | 12.92s | 0.32 | 2.10 |
+
+All twenty runs: mean 12.89s, sd 0.38s, range 12.1–13.7s. The spread between
+configuration means is the same size as the noise, over an eightfold change in
+thread count. **Neither knob changes throughput on this profile.**
+
+`MeanNodeIndexTimeMs` meanwhile scales almost exactly with `1/threads` — the
+product stays near 0.15 ms across the whole range. It measures **queueing, not
+work**: four threads already saturate whatever the real bottleneck is, and adding
+twenty-eight more only makes each of them wait longer. Read it as a contention
+indicator, never as a throughput one.
+
+The practical consequence is not "tune it faster" but "tune it smaller": eight
+threads index as fast as thirty-two while leaving CPU and heap to the other core.
+That is why the shipped `archive` overrides cut the pools without costing archive
+anything measurable.
+
+A first sweep at 2s sampling resolution appeared to show a clear ranking, and was
+wrong — the quantisation was ±17% of a 12s measurement. Sample at 0.5s or finer,
+and report the spread, not a single run.
+
 Findings are recorded per run in `summary.md`; the run directories themselves are
 git-ignored.
