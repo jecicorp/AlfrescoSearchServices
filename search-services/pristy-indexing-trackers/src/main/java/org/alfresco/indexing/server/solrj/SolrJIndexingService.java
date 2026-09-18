@@ -290,13 +290,29 @@ public class SolrJIndexingService
      */
     public void indexNode(Node node, NodeMetaData metadata, boolean overwrite) throws IOException
     {
+        long start = System.nanoTime();
+        SolrInputDocument doc = buildNodeDoc(node, metadata);
+        if (doc == null)
+        {
+            return;
+        }
+        addDocument(doc);
+        recordNodeTimes(System.nanoTime() - start, 1);
+    }
+
+    /**
+     * Builds the Solr document for a node, or returns {@code null} when the node must not
+     * be indexed. A deleted node is removed from the index as a side effect.
+     */
+    private SolrInputDocument buildNodeDoc(Node node, NodeMetaData metadata) throws IOException
+    {
         Node.SolrApiNodeStatus status = node.getStatus();
 
         if (status == Node.SolrApiNodeStatus.DELETED
                 || status == Node.SolrApiNodeStatus.NON_SHARD_DELETED)
         {
             deleteByNodeId(node.getId());
-            return;
+            return null;
         }
 
         // Check index control — mirrors upstream SolrInformationServer (line 1764-1777).
@@ -304,15 +320,27 @@ public class SolrJIndexingService
         if (!isNodeIndexable(metadata))
         {
             LOGGER.debug("Node {} has cm:isIndexed=false — skipping indexing", node.getId());
-            return;
+            return null;
         }
 
-        long start = System.nanoTime();
-        SolrInputDocument doc = documentMapper.toNodeDoc(node, metadata);
-        addDocument(doc);
-        if (trackerStats != null)
+        return documentMapper.toNodeDoc(node, metadata);
+    }
+
+    /**
+     * Spreads the time taken to build and write {@code docCount} node documents over
+     * that many samples, so {@code MeanNodeIndexTimeMs} stays a per-node figure whether
+     * the documents were written one by one or as a batch.
+     */
+    private void recordNodeTimes(long elapsed, int docCount)
+    {
+        if (trackerStats == null || docCount < 1)
         {
-            trackerStats.addNodeTime(System.nanoTime() - start);
+            return;
+        }
+        long perNode = elapsed / docCount;
+        for (int i = 0; i < docCount; i++)
+        {
+            trackerStats.addNodeTime(perNode);
         }
     }
 
@@ -420,6 +448,8 @@ public class SolrJIndexingService
             return;
         }
 
+        long start = System.nanoTime();
+        List<SolrInputDocument> docs = new ArrayList<>();
         for (NodeMetaData metadata : metadatas)
         {
             Node node = pending.remove(metadata.getId());
@@ -429,7 +459,11 @@ public class SolrJIndexingService
             }
             try
             {
-                indexNode(node, metadata, overwrite);
+                SolrInputDocument doc = buildNodeDoc(node, metadata);
+                if (doc != null)
+                {
+                    docs.add(doc);
+                }
             }
             catch (Exception e)
             {
@@ -437,9 +471,46 @@ public class SolrJIndexingService
             }
         }
 
+        if (!docs.isEmpty())
+        {
+            writeNodeDocs(docs);
+            recordNodeTimes(System.nanoTime() - start, docs.size());
+        }
+
         for (Long nodeId : pending.keySet())
         {
             LOGGER.warn("No metadata returned for node {}", nodeId);
+        }
+    }
+
+    /**
+     * Writes the batch in a single Solr update, falling back to one update per document
+     * when that fails, so one rejected document cannot drop its neighbours.
+     */
+    private void writeNodeDocs(List<SolrInputDocument> docs) throws IOException
+    {
+        try
+        {
+            addDocuments(docs);
+            return;
+        }
+        catch (Exception e)
+        {
+            LOGGER.warn("Batch write of {} node documents failed, falling back to one write per document: {}",
+                    docs.size(), e.getMessage(), e);
+        }
+
+        for (SolrInputDocument doc : docs)
+        {
+            try
+            {
+                addDocument(doc);
+            }
+            catch (Exception e)
+            {
+                LOGGER.warn("Failed to write node document {} — skipping: {}",
+                        doc.getFieldValue(SolrDocumentMapper.FIELD_DBID), e.getMessage(), e);
+            }
         }
     }
 

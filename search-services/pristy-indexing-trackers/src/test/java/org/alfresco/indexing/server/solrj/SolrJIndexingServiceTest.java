@@ -29,6 +29,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -630,6 +631,34 @@ public class SolrJIndexingServiceTest
         serviceWithDeps.indexNodes(Arrays.asList(updatedNode(1L), updatedNode(2L)), true);
 
         verify(stats, times(2)).addNodeTime(anyLong());
+    }
+
+    @Test
+    public void indexNodes_shouldWriteTheWholeBatchInOneSolrUpdate() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Arrays.asList(metaDataOf(1L), metaDataOf(2L), metaDataOf(3L)));
+
+        serviceWithDeps.indexNodes(
+                Arrays.asList(updatedNode(1L), updatedNode(2L), updatedNode(3L)), true);
+
+        ArgumentCaptor<List<SolrInputDocument>> captor = ArgumentCaptor.forClass(List.class);
+        verify(solrClient, times(1)).add(eq(COLLECTION), captor.capture());
+        assertEquals(3, captor.getValue().size());
+        verify(solrClient, never()).add(eq(COLLECTION), any(SolrInputDocument.class));
+    }
+
+    @Test
+    public void indexNodes_shouldFallBackToSingleWritesWhenTheBatchWriteFails() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Arrays.asList(metaDataOf(1L), metaDataOf(2L)));
+        doThrow(new SolrServerException("update rejected"))
+                .when(solrClient).add(eq(COLLECTION), anyList());
+
+        serviceWithDeps.indexNodes(Arrays.asList(updatedNode(1L), updatedNode(2L)), true);
+
+        verify(solrClient, times(2)).add(eq(COLLECTION), any(SolrInputDocument.class));
     }
 
     private static Node updatedNode(long id)
