@@ -94,6 +94,14 @@ mise run bench:sample
   `--search-secret <value>`.
 - `--stable-for` ends a phase when the document count has not moved for that long:
   without it, a stalled tracker would keep the run alive until `--timeout`.
+- **Compare runs of equal rank on a stack.** A second purge-and-re-index on a stack
+  that has already done one is consistently far slower — measured at ~27s then ~44s
+  for the same 30 781 documents, on the same build. The effect is larger than most
+  changes being measured, so comparing the first run of one build against the second
+  run of another inverts the verdict. Either restart the stack between measurements,
+  or take the same rank on both sides. The per-node and per-transaction figures in
+  `SUMMARY` drift the same way: `MeanNodeIndexTimeMs` went 6.84ms to 14.49ms between
+  two runs of one unchanged build.
 
 ## What the scenario has found
 
@@ -139,10 +147,13 @@ neither. A failed batch call falls back to one call per node.
 
 ### Still open
 
-- **The Solr write is still one request per document.** `indexNode` ends on
-  `addDocument`, which calls `solrClient.add(collection, doc)`; `addDocuments(List)`
-  exists next to it and is used for ACLs. A batch of 50 nodes is still 50 update
-  requests.
+- **Where the time goes is now instrumented.** `SUMMARY` reports
+  `MeanNodeIndexTimeMs`, `MeanNodeElapsedIndexTimeMs` and `MeanTxElapsedIndexTimeMs`;
+  the first two were broken until `0b00b424c` and the third did not exist. On a fresh
+  stack a cold re-index of 30 781 documents splits into roughly 7s of node indexing
+  and 3s of transaction documents, with no unexplained remainder — an earlier estimate
+  of a large missing chunk turned out to be an artefact of measuring from the benchmark
+  phase, which includes the tracker container restart.
 - **Cascade is not exercised.** `SolrJQueryService.getDescendantNodeIds` queries
   Solr with `rows=Integer.MAX_VALUE` and materialises the whole descendant set at
   once. Reaching it needs a rename or a move of the large folder, which phases `a`
