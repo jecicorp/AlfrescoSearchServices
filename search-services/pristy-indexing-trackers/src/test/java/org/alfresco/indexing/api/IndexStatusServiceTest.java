@@ -40,6 +40,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.LinkedHashSet;
@@ -129,6 +130,11 @@ public class IndexStatusServiceTest
         return doc;
     }
 
+    private static String escaped(String value)
+    {
+        return org.apache.solr.client.solrj.util.ClientUtils.escapeQueryChars(value);
+    }
+
     private void indexHolds(String core, SolrDocumentList docs) throws Exception
     {
         QueryResponse response = mock(QueryResponse.class);
@@ -167,12 +173,12 @@ public class IndexStatusServiceTest
         ArgumentCaptor<SolrQuery> queries = ArgumentCaptor.forClass(SolrQuery.class);
         verify(solrClient, org.mockito.Mockito.atLeastOnce()).query(eq("alfresco"), queries.capture());
         String resolutionQuery = queries.getAllValues().get(0).getQuery();
-        assertTrue(resolutionQuery, resolutionQuery.contains("workspace://SpacesStore/" + UUID));
-        assertTrue(resolutionQuery, resolutionQuery.contains("archive://SpacesStore/" + UUID));
+        assertTrue(resolutionQuery, resolutionQuery.contains(escaped("workspace://SpacesStore/" + UUID)));
+        assertTrue(resolutionQuery, resolutionQuery.contains(escaped("archive://SpacesStore/" + UUID)));
     }
 
     @Test
-    public void aFullNodeReferenceIsUsedVerbatim() throws Exception
+    public void aFullNodeReferenceIsQueriedAsAnExactValue() throws Exception
     {
         SolrDocument resolution = new SolrDocument();
         resolution.addField(FIELD_DBID, DBID);
@@ -186,8 +192,8 @@ public class IndexStatusServiceTest
         ArgumentCaptor<SolrQuery> queries = ArgumentCaptor.forClass(SolrQuery.class);
         verify(solrClient, org.mockito.Mockito.atLeastOnce()).query(eq("alfresco"), queries.capture());
         String resolutionQuery = queries.getAllValues().get(0).getQuery();
-        assertTrue(resolutionQuery, resolutionQuery.contains("archive://SpacesStore/" + UUID));
-        assertTrue(resolutionQuery, !resolutionQuery.contains("workspace://SpacesStore/"));
+        assertTrue(resolutionQuery, resolutionQuery.contains(escaped("archive://SpacesStore/" + UUID)));
+        assertTrue(resolutionQuery, !resolutionQuery.contains("workspace"));
     }
 
     @Test
@@ -195,6 +201,38 @@ public class IndexStatusServiceTest
     {
         assertThrows(IllegalArgumentException.class, () -> service.status("not-a-node"));
         assertThrows(IllegalArgumentException.class, () -> service.status("   "));
+    }
+
+    @Test
+    public void aReferenceCarryingQuerySyntaxIsRejectedRatherThanInterpolated()
+    {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.status("workspace://SpacesStore/x\" OR DOC_TYPE:Node OR LID:\""));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.status("workspace://SpacesStore/" + UUID + "\""));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.status("workspace://Spaces Store/" + UUID));
+        assertThrows(IllegalArgumentException.class, () -> service.status("://" + UUID));
+        verifyNoInteractions(solrClient);
+    }
+
+    @Test
+    public void theResolutionQueryEscapesTheSeparatorsOfTheReference() throws Exception
+    {
+        SolrDocument resolution = new SolrDocument();
+        resolution.addField(FIELD_DBID, DBID);
+        QueryResponse response = mock(QueryResponse.class);
+        when(response.getResults()).thenReturn(documents(resolution), documents());
+        when(solrClient.query(eq("alfresco"), any(SolrQuery.class))).thenReturn(response);
+        databaseHolds(4711L, SolrApiNodeStatus.UPDATED);
+
+        service.status("archive://SpacesStore/" + UUID);
+
+        ArgumentCaptor<SolrQuery> queries = ArgumentCaptor.forClass(SolrQuery.class);
+        verify(solrClient, org.mockito.Mockito.atLeastOnce()).query(eq("alfresco"), queries.capture());
+        String resolutionQuery = queries.getAllValues().get(0).getQuery();
+        assertTrue(resolutionQuery, resolutionQuery.contains(escaped("archive://SpacesStore/" + UUID)));
+        assertTrue(resolutionQuery, !resolutionQuery.contains("\""));
     }
 
     @Test

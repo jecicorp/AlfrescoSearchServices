@@ -81,6 +81,12 @@ A UUID or node reference is resolved to a DBID **inside the trackers service**, 
 querying the indexed `LID` field — no round trip to the repository REST API. A bare
 UUID is looked up in `workspace://SpacesStore/` then `archive://SpacesStore/`.
 
+`ref` must match one of three shapes exactly: `\d{1,18}`, a UUID, or
+`<protocol>://<store>/<uuid>` where the protocol and store are limited to
+`[A-Za-z0-9_-]` and `[A-Za-z0-9_.-]`. Anything else is `400`, and the value that does
+match is still escaped before it reaches the query — it is a caller-supplied string
+interpolated into a Lucene query, so both guards stay.
+
 ```json
 {
   "reference": { "input": "15695", "dbid": 15695, "resolvedBy": "DBID" },

@@ -53,6 +53,7 @@ import org.alfresco.solr.client.Node.SolrApiNodeStatus;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.util.ClientUtils;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.slf4j.Logger;
@@ -73,8 +74,10 @@ public class IndexStatusService
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexStatusService.class);
 
     private static final Pattern DBID_PATTERN = Pattern.compile("\\d{1,18}");
-    private static final Pattern UUID_PATTERN =
-            Pattern.compile("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}");
+    private static final String UUID_REGEX = "[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}";
+    private static final Pattern UUID_PATTERN = Pattern.compile(UUID_REGEX);
+    private static final Pattern NODEREF_PATTERN =
+            Pattern.compile("[A-Za-z0-9_-]{1,32}://[A-Za-z0-9_.-]{1,64}/" + UUID_REGEX);
     private static final List<String> UUID_STORES = List.of("workspace://SpacesStore/", "archive://SpacesStore/");
 
     private static final String RESOLVED_BY_DBID = "DBID";
@@ -159,9 +162,9 @@ public class IndexStatusService
 
     private static String nodeRefClause(String input)
     {
-        if (input.contains("://"))
+        if (NODEREF_PATTERN.matcher(input).matches())
         {
-            return FIELD_LID + ":\"" + input + "\"";
+            return FIELD_LID + ":" + ClientUtils.escapeQueryChars(input);
         }
         if (!UUID_PATTERN.matcher(input).matches())
         {
@@ -171,7 +174,7 @@ public class IndexStatusService
         List<String> clauses = new ArrayList<>(UUID_STORES.size());
         for (String store : UUID_STORES)
         {
-            clauses.add("\"" + store + input + "\"");
+            clauses.add(ClientUtils.escapeQueryChars(store + input));
         }
         return FIELD_LID + ":(" + String.join(" OR ", clauses) + ")";
     }
