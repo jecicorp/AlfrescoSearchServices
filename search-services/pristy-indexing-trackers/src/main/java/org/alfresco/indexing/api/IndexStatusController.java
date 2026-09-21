@@ -23,6 +23,7 @@
 
 package org.alfresco.indexing.api;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,18 +47,22 @@ public class IndexStatusController
     }
 
     /**
-     * A reference matching no node is answered with the {@code unresolved}
-     * verdict and HTTP 200, never 404: 404 on this path is reserved for a
-     * trackers service that predates this API, so that a caller can tell the
-     * two apart.
+     * A reference that resolves to no node is answered {@code 404}, carrying the same
+     * body as any other answer so the caller still gets the diagnosis. A node that is
+     * merely absent from every core is {@code 200}: it resolved, and "known to the
+     * repository, missing from the index" is the answer, not a missing resource.
      *
      * @param ref a node DBID, a node UUID, or a full node reference
      * @return the node's indexing status across every tracked core
      */
     @GetMapping("/node")
-    public NodeIndexStatus node(@RequestParam("ref") String ref)
+    public ResponseEntity<NodeIndexStatus> node(@RequestParam("ref") String ref)
     {
-        return indexStatusService.status(ref);
+        NodeIndexStatus status = indexStatusService.status(ref);
+        HttpStatus code = status.verdict() == NodeIndexStatus.Verdict.UNRESOLVED
+                ? HttpStatus.NOT_FOUND
+                : HttpStatus.OK;
+        return ResponseEntity.status(code).body(status);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

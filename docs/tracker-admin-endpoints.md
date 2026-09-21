@@ -87,8 +87,8 @@ never has to map a version number to a feature set:
 ```
 
 - **`404` on this path means the trackers service predates the API** — that is the whole
-  point of having it: it replaces guessing from a version string, and it is why
-  `/api/v1/index/node` answers `200 / unresolved` rather than `404` for an unknown node.
+  point of having it: it replaces guessing from a version string, and it frees the other
+  endpoints to use `404` for its ordinary meaning.
 - `since` is the service version a capability first shipped in; `version` is the running
   build, read from `build-info.properties` (`unknown` if the jar carries none).
 - **`enabled` is not the same as present.** `admin.backup` above is compiled in but turned
@@ -158,10 +158,23 @@ encodes that as `dbTx <= -2`, while `-1` is the `unknown` case). `verdict` is th
 than the best is deliberate: a core lagging behind must not be hidden by another
 core that is up to date.
 
-**Status codes.** A `ref` matching no node is answered `200` with
-`verdict: "unresolved"`, never `404`: `404` on this path is reserved for a
-trackers service that predates this API, so a caller can tell "no such node"
-from "no such API". A malformed `ref` is `400`.
+**Status codes.**
+
+| Code | When | Body |
+|------|------|------|
+| `400` | `ref` does not match one of the three accepted shapes | the reason, as text |
+| `404` | `ref` is well-formed but resolves to no node (`verdict: "unresolved"`) | the full status document |
+| `200` | anything else, **including a node the index does not hold** (`verdict: "missing"`) | the full status document |
+
+`missing` is an answer, not an absent resource: the node resolved and the repository
+knows it, so "known to the database, absent from the index" is precisely the diagnosis
+being asked for. `unresolved` means the reference itself matched nothing, which is what
+`404` is for — and the body travels with it, so the code carries no information the
+caller has to trade the diagnosis for.
+
+Distinguishing "no such node" from "no such API" no longer relies on this endpoint's
+status code: a client asks `GET /api/v1` for that, where a `404` means the service
+predates the API. That is the whole reason the descriptor exists.
 
 ```bash
 # By DBID, UUID or noderef — same answer

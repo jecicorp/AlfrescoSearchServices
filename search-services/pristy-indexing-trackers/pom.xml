@@ -190,6 +190,7 @@
                             <exclude>**/org/alfresco/indexing/api/IndexStatusService.java</exclude>
                             <exclude>**/org/alfresco/indexing/api/NodeIndexStatus.java</exclude>
                             <exclude>**/org/alfresco/indexing/api/IndexStatusServiceTest.java</exclude>
+                            <exclude>**/org/alfresco/indexing/api/IndexStatusControllerTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/RepairReportEndpoint.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/RepositoryClientConfig.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/SolrJConfig.java</exclude>
@@ -273,6 +274,7 @@
                             <include>**/org/alfresco/indexing/api/IndexStatusService.java</include>
                             <include>**/org/alfresco/indexing/api/NodeIndexStatus.java</include>
                             <include>**/org/alfresco/indexing/api/IndexStatusServiceTest.java</include>
+                            <include>**/org/alfresco/indexing/api/IndexStatusControllerTest.java</include>
                             <include>**/org/alfresco/indexing/config/RepairReportEndpoint.java</include>
                             <include>**/org/alfresco/indexing/config/RepositoryClientConfig.java</include>
                             <include>**/org/alfresco/indexing/config/SolrJConfig.java</include>
