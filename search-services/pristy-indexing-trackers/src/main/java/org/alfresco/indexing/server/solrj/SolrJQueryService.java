@@ -393,6 +393,48 @@ public class SolrJQueryService
     // -------------------------------------------------------------------------
 
     /**
+     * Returns the nodes an {@code ErrorNode} document stands for: those whose indexing threw,
+     * so no node document was written at all. Unlike {@link #getDocsWithIndexingError()},
+     * which reads the flag borne by an existing node document, these nodes are absent from
+     * the index entirely.
+     */
+    public List<org.alfresco.solr.client.TenantDbId> getErrorNodeDocs(int batchSize) throws IOException
+    {
+        List<org.alfresco.solr.client.TenantDbId> result = new ArrayList<>();
+        try
+        {
+            SolrQuery query = luceneQuery(FIELD_DOC_TYPE + ":" + DOC_TYPE_ERROR_NODE);
+            query.setRows(batchSize);
+            query.addSort(FIELD_DBID, SolrQuery.ORDER.asc);
+            query.setFields(FIELD_DBID, FIELD_TENANT);
+
+            QueryResponse response = solrClient.query(collection, query);
+            SolrDocumentList docs = response.getResults();
+            if (docs != null)
+            {
+                for (SolrDocument doc : docs)
+                {
+                    Long dbId = getFieldValueLong(doc, FIELD_DBID);
+                    if (dbId == null)
+                    {
+                        continue;
+                    }
+                    org.alfresco.solr.client.TenantDbId tenantDbId = new org.alfresco.solr.client.TenantDbId();
+                    tenantDbId.dbId = dbId;
+                    Object tenantValue = doc.getFieldValue(FIELD_TENANT);
+                    tenantDbId.tenant = tenantValue != null ? tenantValue.toString() : "";
+                    result.add(tenantDbId);
+                }
+            }
+        }
+        catch (SolrServerException e)
+        {
+            throw new IOException("Failed to get error node documents", e);
+        }
+        return result;
+    }
+
+    /**
      * Returns the set of node IDs that have error documents in the index.
      */
     public Set<Long> getErrorDocIds() throws IOException

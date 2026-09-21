@@ -171,6 +171,9 @@ public interface InformationServer extends InformationServerCollectionProvider
     /** Returns nodes marked with HAS_INDEXING_ERROR:true */
     List<TenantDbId> getDocsWithIndexingError() throws IOException;
 
+    /** Returns the nodes an ErrorNode document stands for — nothing of them is indexed */
+    List<TenantDbId> getErrorNodeDocs() throws IOException;
+
     /** Marks a node with HAS_INDEXING_ERROR:true via atomic update */
     void markIndexingError(long dbId, String tenant) throws IOException;
 

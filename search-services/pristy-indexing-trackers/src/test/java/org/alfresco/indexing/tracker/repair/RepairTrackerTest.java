@@ -140,4 +140,61 @@ public class RepairTrackerTest
         verify(infoSrv).clearIndexingError(42L, "");
         assertEquals(0, tracker.getReport().getPendingErrors().size());
     }
+
+    @Test
+    public void doTrack_repairsTheNodesAnErrorNodeDocumentStandsFor() throws Throwable
+    {
+        when(infoSrv.getDocsWithIndexingError()).thenReturn(Collections.emptyList());
+        when(infoSrv.getErrorNodeDocs()).thenReturn(List.of(docRef(7L)));
+        when(strategy.tryRepair(any(), any())).thenReturn(
+                new RepairResult(7L, true, "UNRESOLVED_MODEL", "Re-indexed"));
+
+        tracker.doTrack("error-node-1");
+
+        verify(strategy).tryRepair(isNull(), any(TenantDbId.class));
+        assertEquals(1, tracker.getReport().getRecentRepairs().size());
+    }
+
+    @Test
+    public void doTrack_doesNotClearTheFlagOfANodeThatHasNoDocument() throws Throwable
+    {
+        when(infoSrv.getDocsWithIndexingError()).thenReturn(Collections.emptyList());
+        when(infoSrv.getErrorNodeDocs()).thenReturn(List.of(docRef(7L)));
+        when(strategy.tryRepair(any(), any())).thenReturn(
+                new RepairResult(7L, true, "UNRESOLVED_MODEL", "Re-indexed"));
+
+        tracker.doTrack("error-node-2");
+
+        verify(infoSrv, never()).clearIndexingError(anyLong(), anyString());
+    }
+
+    @Test
+    public void doTrack_stopsRetryingAnErrorNodeOnceItHasBeenGivenUpOn() throws Throwable
+    {
+        tracker = new RepairTracker(props, client, "alfresco", infoSrv,
+                List.of(strategy), registry, 2);
+
+        when(infoSrv.getDocsWithIndexingError()).thenReturn(Collections.emptyList());
+        when(infoSrv.getErrorNodeDocs()).thenReturn(List.of(docRef(7L)));
+        when(strategy.tryRepair(any(), any())).thenReturn(
+                new RepairResult(7L, false, "UNRESOLVED_MODEL", "Model still missing"));
+
+        tracker.doTrack("error-node-3a");
+        tracker.doTrack("error-node-3b");
+        assertEquals(1, tracker.getReport().getPermanentlyFailedCount());
+
+        tracker.doTrack("error-node-3c");
+        tracker.doTrack("error-node-3d");
+
+        verify(strategy, times(2)).tryRepair(any(), any());
+        verify(infoSrv, never()).clearIndexingError(anyLong(), anyString());
+    }
+
+    private static TenantDbId docRef(long dbId)
+    {
+        TenantDbId docRef = new TenantDbId();
+        docRef.dbId = dbId;
+        docRef.tenant = "";
+        return docRef;
+    }
 }

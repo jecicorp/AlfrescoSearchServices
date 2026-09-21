@@ -39,9 +39,11 @@ public class RepairReport
 
     private static final int MAX_RECENT_REPAIRS = 100;
     private static final int MAX_PENDING_ERRORS = 500;
+    private static final int MAX_PERMANENT_FAILURES = 5000;
 
     private final ConcurrentHashMap<Long, PendingError> pendingByDbId = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<RecentRepair> recentRepairs = new CopyOnWriteArrayList<>();
+    private final Set<Long> permanentlyFailed = ConcurrentHashMap.newKeySet();
 
     private volatile Instant lastCycleTimestamp;
     private volatile int repairedThisCycle;
@@ -78,7 +80,25 @@ public class RepairReport
         }
     }
 
-    public void markPermanentlyFailed(long dbId) { pendingByDbId.remove(dbId); }
+    /**
+     * Gives up on a node. The node stays on the list so that {@link #isPermanentlyFailed(long)}
+     * can keep the RepairTracker from retrying it forever: an {@code ErrorNode} document is not
+     * removed when the retries run out, so nothing else would stop it coming back every cycle.
+     * The list is bounded and lives in memory only — a restart retries everything, which is
+     * what makes a node repairable once a missing content model finally loads.
+     */
+    public void markPermanentlyFailed(long dbId)
+    {
+        pendingByDbId.remove(dbId);
+        if (permanentlyFailed.size() < MAX_PERMANENT_FAILURES)
+        {
+            permanentlyFailed.add(dbId);
+        }
+    }
+
+    public boolean isPermanentlyFailed(long dbId) { return permanentlyFailed.contains(dbId); }
+
+    public int getPermanentlyFailedCount() { return permanentlyFailed.size(); }
 
     public int getAttemptCount(long dbId)
     {

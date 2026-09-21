@@ -57,6 +57,7 @@ public class RepairReportEndpoint
         result.put("lastCycleTimestamp", report.getLastCycleTimestamp());
         result.put("totalErrorNodes", report.getTotalErrorNodes());
         result.put("repairedThisCycle", report.getRepairedThisCycle());
+        result.put("permanentlyFailed", report.getPermanentlyFailedCount());
         result.put("pendingErrors", report.getPendingErrors());
         result.put("recentRepairs", report.getRecentRepairs());
         result.put("summary", report.getSummary());

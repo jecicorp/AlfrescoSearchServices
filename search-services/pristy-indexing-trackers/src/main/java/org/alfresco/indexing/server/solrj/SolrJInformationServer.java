@@ -68,6 +68,8 @@ public class SolrJInformationServer implements InformationServer
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(SolrJInformationServer.class);
 
+    private static final int ERROR_NODE_BATCH_SIZE = 100;
+
     private final SolrClient solrClient;
     private final String collection;
     private final Properties props;
@@ -578,6 +580,12 @@ public class SolrJInformationServer implements InformationServer
     public List<TenantDbId> getDocsWithIndexingError() throws IOException
     {
         return queryService.getDocsWithIndexingError();
+    }
+
+    @Override
+    public List<TenantDbId> getErrorNodeDocs() throws IOException
+    {
+        return queryService.getErrorNodeDocs(ERROR_NODE_BATCH_SIZE);
     }
 
     @Override

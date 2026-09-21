@@ -209,8 +209,14 @@ it is queued, not synchronous.
 
 ## Error nodes & RepairTracker
 
-Nodes that fail to index are (when recorded) flagged `HAS_INDEXING_ERROR` in the
-index and picked up by the **RepairTracker**. Inspect them with:
+A failed node is recorded in one of two ways, and the **RepairTracker** reads both:
+
+| Trace | Written when | What the index holds |
+|-------|--------------|----------------------|
+| `HAS_INDEXING_ERROR:true` on the node document | the document was built and written, but a property could not be resolved | the node is indexed and searchable, minus that property |
+| an `ErrorNode` document (`id = ERROR-<dbid>`) | building or fetching the node threw — including a type the repository reports as unindexable (`… is not registered in DictionaryService`), which fails the batch metadata call and then the per-node retry | nothing of the node at all; the error document carries `EXCEPTIONMESSAGE` and `EXCEPTIONSTACK` |
+
+Inspect both with:
 
 ```bash
 curl -s "http://localhost:8085/actuator/repairreport" | python3 -m json.tool
@@ -220,15 +226,23 @@ curl -s "http://localhost:8085/actuator/repairreport" | python3 -m json.tool
 [tracker-configuration.md](tracker-configuration.md) for the repair cron and
 `repair-max-retries`.
 
-> **Known limitation.** A node the repository reports as *unindexable* — e.g. a
-> node whose type was removed from a content model
-> (`… type {…}documentMarche … is not registered in DictionaryService`) — is
-> currently **skipped with a WARN log only** (`SolrJIndexingService.indexNodes`),
-> **not** recorded as an error node. Such nodes therefore do **not** appear in
-> `report`/`repairreport` and are **not** picked up by `retry`; the only trace is
-> the `Failed to index node <id> — skipping` line in the trackers log. Reindexing
-> them explicitly will keep failing until the model/data is fixed (re-add the type
-> as deprecated, or delete the orphaned nodes in the repository).
+Two things follow from the second form having no node document:
+
+- **Nothing is cleared on success.** Repairing it means re-indexing the node, and the
+  indexer deletes the error document itself at the start of that attempt. The flag is
+  never cleared for such a node — an atomic update on a document that does not exist
+  would *create* one, holding nothing but an id and a flag.
+- **Giving up is remembered in memory only.** An error document is not removed when
+  `repair-max-retries` runs out, so the RepairTracker keeps a list of the nodes it has
+  given up on (`permanentlyFailed` in the report) to stop retrying them every cycle.
+  Restarting the trackers clears that list and retries everything, which is exactly
+  what makes such a node repairable once a missing content model finally loads.
+
+A node still in error after the retries therefore stays visible in `report`,
+`repairreport` and `GET /api/v1/index/node` — the previous behaviour, where an
+unindexable node left nothing but a `Failed to index node <id> — skipping` line in the
+log, is gone. Fixing the underlying cause (re-adding the type as deprecated, or deleting
+the orphaned nodes in the repository) then takes effect on the next restart or reindex.
 
 ## Common recipes
 

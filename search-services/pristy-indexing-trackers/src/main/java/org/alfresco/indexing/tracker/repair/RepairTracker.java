@@ -87,15 +87,19 @@ public class RepairTracker extends ActivatableTracker
     {
         report.startCycle();
 
-        List<TenantDbId> errorDocs = infoSrv.getDocsWithIndexingError();
-        if (errorDocs == null || errorDocs.isEmpty())
+        List<TenantDbId> flaggedDocs = infoSrv.getDocsWithIndexingError();
+        List<TenantDbId> errorNodeDocs = infoSrv.getErrorNodeDocs();
+        flaggedDocs = flaggedDocs != null ? flaggedDocs : List.of();
+        errorNodeDocs = errorNodeDocs != null ? errorNodeDocs : List.of();
+
+        if (flaggedDocs.isEmpty() && errorNodeDocs.isEmpty())
         {
             LOGGER.trace("No documents with indexing errors found.");
             return;
         }
 
-        LOGGER.info("{}-[CORE {}] Found {} documents with indexing errors",
-                Thread.currentThread().getId(), coreName, errorDocs.size());
+        LOGGER.info("{}-[CORE {}] Found {} flagged node documents and {} error node documents",
+                Thread.currentThread().getId(), coreName, flaggedDocs.size(), errorNodeDocs.size());
 
         MetadataTracker metadataTracker = registry.getTrackerForCore(coreName, MetadataTracker.class);
         Semaphore metadataWriteLock = (metadataTracker != null) ? metadataTracker.getWriteLock() : null;
@@ -107,10 +111,16 @@ public class RepairTracker extends ActivatableTracker
                 metadataWriteLock.acquire();
             }
 
-            for (TenantDbId docRef : errorDocs)
+            for (TenantDbId docRef : flaggedDocs)
             {
                 checkShutdown();
-                processErrorNode(docRef);
+                processErrorNode(docRef, true);
+            }
+
+            for (TenantDbId docRef : errorNodeDocs)
+            {
+                checkShutdown();
+                processErrorNode(docRef, false);
             }
         }
         finally
@@ -128,8 +138,21 @@ public class RepairTracker extends ActivatableTracker
                 report.getRepairedThisCycle(), report.getTotalErrorNodes());
     }
 
-    private void processErrorNode(TenantDbId docRef)
+    /**
+     * @param docRef            the node to repair
+     * @param hasNodeDocument   whether the index holds a node document for it. When it does
+     *                          not, the error is recorded by an {@code ErrorNode} document,
+     *                          which the indexer itself deletes on its next attempt — and
+     *                          clearing the flag would then create an empty node document,
+     *                          since an atomic update on a missing document creates one.
+     */
+    private void processErrorNode(TenantDbId docRef, boolean hasNodeDocument)
     {
+        if (report.isPermanentlyFailed(docRef.dbId))
+        {
+            return;
+        }
+
         try
         {
             RepairResult result = null;
@@ -153,7 +176,10 @@ public class RepairTracker extends ActivatableTracker
 
             if (result.success())
             {
-                infoSrv.clearIndexingError(docRef.dbId, docRef.tenant);
+                if (hasNodeDocument)
+                {
+                    infoSrv.clearIndexingError(docRef.dbId, docRef.tenant);
+                }
                 LOGGER.info("[CORE {}] Repaired DBID={}: {}", coreName, docRef.dbId, result.message());
             }
             else
@@ -164,7 +190,10 @@ public class RepairTracker extends ActivatableTracker
                     LOGGER.warn("[CORE {}] DBID={} permanently failed after {} attempts: {}",
                             coreName, docRef.dbId, attempts, result.message());
                     report.markPermanentlyFailed(docRef.dbId);
-                    infoSrv.clearIndexingError(docRef.dbId, docRef.tenant);
+                    if (hasNodeDocument)
+                    {
+                        infoSrv.clearIndexingError(docRef.dbId, docRef.tenant);
+                    }
                 }
                 else
                 {
