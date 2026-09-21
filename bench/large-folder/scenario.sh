@@ -9,6 +9,8 @@ PROFILE="flat"
 TOTAL=30000
 WORKERS=8
 PHASES="a,b"
+TUNING=""
+ACL_COUNT=500
 REPO_URL="http://localhost:8080/alfresco"
 SOLR_URL="http://localhost:8984/solr"
 TRACKERS_URL="http://localhost:8085"
@@ -30,7 +32,12 @@ Usage: scenario.sh --label <name> [options]
   --profile NAME        flat | deep | mixed            (default: flat)
   --total N             nodes to create                (default: 30000)
   --workers N           parallel creation workers      (default: 8)
-  --phases LIST         a=initial indexing, b=purge + full reindex (default: a,b)
+  --phases LIST         a=initial indexing, b=purge + full reindex,
+                        c=ACL churn, d=folder rename (cascade)   (default: a,b)
+  --tuning LIST         comma-separated tracker tuning overrides applied to the trackers
+                        container for this run, e.g.
+                        --tuning acl-parallelism=8,cascade-parallelism=8
+  --acl-count N         phase c: nodes given a distinct local permission (default: 500)
   --repo-url URL        (default: http://localhost:8080/alfresco)
   --solr-url URL        (default: http://localhost:8984/solr, Caddy injects the secret)
   --trackers-url URL    (default: http://localhost:8085)
@@ -51,6 +58,8 @@ while [ $# -gt 0 ]; do
     --total) TOTAL="$2"; shift 2;;
     --workers) WORKERS="$2"; shift 2;;
     --phases) PHASES="$2"; shift 2;;
+    --tuning) TUNING="$2"; shift 2;;
+    --acl-count) ACL_COUNT="$2"; shift 2;;
     --repo-url) REPO_URL="$2"; shift 2;;
     --solr-url) SOLR_URL="$2"; shift 2;;
     --trackers-url) TRACKERS_URL="$2"; shift 2;;
@@ -79,6 +88,45 @@ fi
 
 RUN_DIR="${BENCH_DIR}/runs/${LABEL}"
 mkdir -p "${RUN_DIR}"
+
+# Tracker tuning is bound from the environment by Spring's relaxed binding, so a run can
+# set it without rebuilding the image: alfresco.tracker.tuning.acl-parallelism becomes
+# ALFRESCO_TRACKER_TUNING_ACL_PARALLELISM. The values land in a compose override so the
+# report records what was actually measured.
+if [ -n "${TUNING}" ]; then
+  OVERRIDE="${RUN_DIR}/compose-override.yml"
+  {
+    echo "services:"
+    echo "  trackers:"
+    echo "    environment:"
+  } > "${OVERRIDE}"
+  echo "{" > "${RUN_DIR}/tuning.json"
+  FIRST=1
+  IFS=',' read -r -a SETTINGS <<< "${TUNING}"
+  for setting in "${SETTINGS[@]}"; do
+    key="${setting%%=*}"
+    value="${setting#*=}"
+    if [ "${key}" = "${setting}" ] || [ -z "${value}" ]; then
+      echo "--tuning expects key=value, got '${setting}'" >&2
+      exit 2
+    fi
+    env_key="ALFRESCO_TRACKER_TUNING_$(echo "${key}" | tr 'a-z-' 'A-Z_')"
+    echo "      ${env_key}: \"${value}\"" >> "${OVERRIDE}"
+    if [ ${FIRST} -eq 0 ]; then
+      echo "," >> "${RUN_DIR}/tuning.json"
+    fi
+    printf '  "%s": "%s"' "${key}" "${value}" >> "${RUN_DIR}/tuning.json"
+    FIRST=0
+  done
+  printf '\n}\n' >> "${RUN_DIR}/tuning.json"
+
+  echo "==> applying tuning: ${TUNING}"
+  cat "${OVERRIDE}"
+  ( cd "${REPO_ROOT}" && docker compose -f "${COMPOSE_FILE}" -f "${OVERRIDE}" up -d trackers )
+  echo "    trackers recreated; check the startup 'tuning:' line to confirm it took effect:"
+  echo "    docker compose -f ${COMPOSE_FILE} logs trackers | grep -m1 'tuning:'"
+  sleep 5
+fi
 
 sampler_args() {
   echo "--solr-url ${SOLR_URL} --trackers-url ${TRACKERS_URL} --core ${CORE}" \
@@ -150,6 +198,54 @@ case ",${PHASES}," in
     python3 "${BENCH_DIR}/sample_index.py" $(sampler_args) \
       --until-nodes "${TARGET}" --stable-for "${STABLE_FOR}" \
       --out "${RUN_DIR}/phase-b.csv" || echo "    sampler exited with status $? (see phase-b.csv)"
+    ;;
+esac
+
+case ",${PHASES}," in
+  *,c,*)
+    echo "==> phase C — ACL churn on ${ACL_COUNT} nodes"
+    BASELINE_ACLS="$(json_field "${RUN_DIR}/baseline.json" Acl)"
+    TARGET_ACLS=$(( BASELINE_ACLS + ACL_COUNT ))
+    echo "    baseline Acl docs: ${BASELINE_ACLS}; target: ${TARGET_ACLS}"
+
+    python3 "${BENCH_DIR}/sample_index.py" $(sampler_args) \
+      --until-acls "${TARGET_ACLS}" --stable-for "${STABLE_FOR}" \
+      --out "${RUN_DIR}/phase-c.csv" &
+    SAMPLER_PID=$!
+    trap 'kill ${SAMPLER_PID} 2>/dev/null || true' EXIT
+
+    python3 "${BENCH_DIR}/churn.py" acl \
+      --manifest "${RUN_DIR}/manifest.json" --repo-url "${REPO_URL}" \
+      --user "${USER_NAME}" --password "${PASSWORD}" \
+      --count "${ACL_COUNT}" --workers "${WORKERS}" \
+      --out "${RUN_DIR}/acl-churn.json"
+
+    echo "    permissions applied; waiting for the AclTracker to catch up"
+    wait ${SAMPLER_PID} || echo "    sampler exited with status $? (see phase-c.csv)"
+    trap - EXIT
+    ;;
+esac
+
+case ",${PHASES}," in
+  *,d,*)
+    echo "==> phase D — rename the benchmark root (cascade)"
+    python3 "${BENCH_DIR}/churn.py" rename \
+      --manifest "${RUN_DIR}/manifest.json" --repo-url "${REPO_URL}" \
+      --user "${USER_NAME}" --password "${PASSWORD}" \
+      --out "${RUN_DIR}/rename.json"
+    NEW_NAME="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["new_name"])' "${RUN_DIR}/rename.json")"
+    echo "    renamed to ${NEW_NAME}; waiting for the CascadeTracker to rewrite the paths"
+
+    python3 "${BENCH_DIR}/sample_index.py" $(sampler_args) \
+      --stable-for "${STABLE_FOR}" --out "${RUN_DIR}/phase-d.csv" \
+      || echo "    sampler exited with status $? (see phase-d.csv)"
+
+    echo "    verifying the cascade actually propagated"
+    python3 "${BENCH_DIR}/churn.py" verify \
+      --manifest "${RUN_DIR}/manifest.json" --name "${NEW_NAME}" \
+      --solr-url "${SOLR_URL}" --core "${CORE}" \
+      --out "${RUN_DIR}/cascade-verify.json" \
+      || echo "    WARNING: the cascade did not reach every descendant (see cascade-verify.json)"
     ;;
 esac
 

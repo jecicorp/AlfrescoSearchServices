@@ -79,6 +79,17 @@ public class TuningDefaultsTest
                 tuning.getMetadataParallelism() > 4);
     }
 
+    @Test
+    public void theOtherTrackerPoolsAreAlignedOnTheMetadataOne()
+    {
+        TrackerProperties.TuningConfig tuning = new TrackerProperties.TuningConfig();
+
+        assertEquals("aligned by analogy, pending bench/large-folder phase c",
+                tuning.getMetadataParallelism(), tuning.getAclParallelism());
+        assertEquals("aligned by analogy, pending bench/large-folder phase d",
+                tuning.getMetadataParallelism(), tuning.getCascadeParallelism());
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> trackerSection() throws Exception
     {

@@ -161,8 +161,11 @@ def main(argv=None):
     parser.add_argument("--http-timeout", type=float, default=30.0)
     parser.add_argument("--until-nodes", type=int, default=None,
                         help="stop once the Node document count reaches this value")
+    parser.add_argument("--until-acls", type=int, default=None,
+                        help="stop once the Acl document count reaches this value; for an ACL churn "
+                             "run, where the Node count never moves")
     parser.add_argument("--stable-for", type=float, default=None,
-                        help="stop after this many seconds without any change in the Node count")
+                        help="stop after this many seconds without any change in the watched count")
     parser.add_argument("--timeout", type=float, default=7200.0)
     parser.add_argument("--containers", default="",
                         help="comma-separated container names to sample with docker stats")
@@ -171,6 +174,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     containers = [name for name in args.containers.split(",") if name]
+    watched = "Acl" if args.until_acls is not None else "Node"
+    until = args.until_acls if args.until_acls is not None else args.until_nodes
 
     if args.once:
         json.dump(sample(args, containers), sys.stdout, indent=2, sort_keys=True)
@@ -182,7 +187,7 @@ def main(argv=None):
     writer.writeheader()
 
     started = time.monotonic()
-    last_nodes = None
+    last_count = None
     last_change = started
     exit_code = 0
 
@@ -194,23 +199,24 @@ def main(argv=None):
             writer.writerow(row)
             handle.flush()
 
-            nodes = row.get("Node")
-            if nodes is not None and nodes != last_nodes:
+            count = row.get(watched)
+            if count is not None and count != last_count:
                 last_change = now
-                last_nodes = nodes
+                last_count = count
 
-            if args.until_nodes is not None and nodes is not None and nodes >= args.until_nodes:
-                sys.stderr.write("reached {} Node docs after {:.0f}s\n".format(nodes, now - started))
+            if until is not None and count is not None and count >= until:
+                sys.stderr.write("reached {} {} docs after {:.0f}s\n".format(
+                    count, watched, now - started))
                 break
-            if args.stable_for is not None and last_nodes is not None \
+            if args.stable_for is not None and last_count is not None \
                     and now - last_change >= args.stable_for:
-                sys.stderr.write("Node count stable at {} for {:.0f}s — stopping\n".format(
-                    last_nodes, args.stable_for))
-                exit_code = 2 if args.until_nodes is not None else 0
+                sys.stderr.write("{} count stable at {} for {:.0f}s — stopping\n".format(
+                    watched, last_count, args.stable_for))
+                exit_code = 2 if until is not None else 0
                 break
             if now - started >= args.timeout:
-                sys.stderr.write("timeout after {:.0f}s at {} Node docs\n".format(
-                    now - started, last_nodes))
+                sys.stderr.write("timeout after {:.0f}s at {} {} docs\n".format(
+                    now - started, last_count, watched))
                 exit_code = 3
                 break
             time.sleep(args.interval)

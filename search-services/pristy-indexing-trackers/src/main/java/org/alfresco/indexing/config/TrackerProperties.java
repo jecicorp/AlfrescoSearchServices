@@ -592,12 +592,12 @@ public class TrackerProperties
         private int aclBatchSize = 100;
         private int changeSetAclsBatchSize = 2000;
         private int maxAclChangeSetsPerCycle = 2000;
-        private int aclParallelism = 32;
+        private int aclParallelism = 8;
         private long aclTimeStep = 3600000;
         private int contentBatchSize = 2000;
         private int contentParallelism = 8;
         private int cascadeNodeBatchSize = 10;
-        private int cascadeParallelism = 32;
+        private int cascadeParallelism = 8;
         private int cascadeCommitInterval = 30;
         private long lag = 1000;
         private long holeRetention = 3600000;

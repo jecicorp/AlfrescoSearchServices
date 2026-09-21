@@ -12,12 +12,18 @@ creates real content in a real repository and takes tens of minutes.
 
 ## What it measures
 
-Two phases, selectable with `--phases`:
+Four phases, selectable with `--phases`:
 
 | Phase | What happens | What it exercises |
 |-------|--------------|-------------------|
 | `a` | The tree is created over the public REST API while the trackers run | Steady-state ingestion: the repository emits transactions, the MetadataTracker follows |
 | `b` | `scripts/purgeIndex.sh` empties the core and restarts the trackers | Cold full re-index of an already-large repository, from transaction 0 |
+| `c` | `--acl-count` nodes are each given a distinct local permission | The **AclTracker**: one `Acl` document per new ACL, plus the readers of every node it covers |
+| `d` | The benchmark root folder is renamed | The **CascadeTracker**: the `PATH` of every descendant has to be rewritten |
+
+Phases `c` and `d` exist because `a` and `b` only exercise the MetadataTracker.
+Measuring `acl-parallelism` or `cascade-parallelism` without them measures nothing —
+the knobs would change while no work reaches the tracker they govern.
 
 Each phase samples, every `--interval` seconds:
 
@@ -31,6 +37,15 @@ Each phase samples, every `--interval` seconds:
 `report.py` reduces the samples to: time to reach the expected document count,
 mean and peak indexing rate, peak tracker memory, whether a container was
 OOM-killed or restarted, and the number of error nodes left behind.
+
+**Which metric to read depends on the phase.** In `c` and `d` the `Node` count never
+moves, so `mean_nodes_per_s` is legitimately `0.0` and means nothing:
+
+| Phase | Read this |
+|-------|-----------|
+| `a`, `b` | `time_to_target_s`, `mean_nodes_per_s`, `peak_nodes_per_s` |
+| `c` | `mean_acls_per_s`, `acl_docs_start`/`acl_docs_end`, `tx_settled_s` |
+| `d` | `tx_settled_s` only — a cascade rewrites existing documents, so **no** `DOC_TYPE` count changes; the sole signal that the work finished is the transaction backlog draining back to zero. `cascade-verify.json` then confirms the new path actually reached the descendants, rather than the tracker merely going quiet. |
 
 ## Tree profiles
 
@@ -59,11 +74,30 @@ mise run bench:scenario -- --label before-fix --profile flat --total 30000
 
 # Ingestion only, smaller tree, more creation workers
 mise run bench:scenario -- --label smoke --profile mixed --total 2000 --phases a --workers 16
+
+# ACL and cascade load on a tree that already exists (reuses its manifest)
+mise run bench:scenario -- --label acl-8 --phases c,d --acl-count 2000 \
+  --tuning acl-parallelism=8,cascade-parallelism=8
+```
+
+`--tuning key=value[,key=value]` writes a compose override for the `trackers` service and
+recreates it, mapping each knob to its Spring environment variable
+(`acl-parallelism` → `ALFRESCO_TRACKER_TUNING_ACL_PARALLELISM`). No image rebuild, and the
+values are saved as `tuning.json` so the report states what was measured. **Confirm the
+override took effect** on the startup line rather than assuming it did:
+
+```bash
+docker compose -f docker-compose.dev.yml logs trackers | grep -m1 'tuning:'
 ```
 
 A run directory holds `baseline.json` (index state before anything was created),
-`manifest.json` (what was created and how fast), `phase-a.csv`, `phase-b.csv` and
-`summary.md`.
+`manifest.json` (what was created and how fast), one `phase-*.csv` per phase run, and
+`summary.md`. A run using `--tuning` also holds `compose-override.yml` and `tuning.json`;
+phase `c` writes `acl-churn.json`, phase `d` writes `rename.json` and
+`cascade-verify.json`.
+
+Phases `c` and `d` need the `manifest.json` of the tree they act on, so run them either in
+the same invocation as `a`, or with the same `--label` afterwards.
 
 Compare two runs:
 
@@ -190,6 +224,23 @@ The practical consequence is not "tune it faster" but "tune it smaller": eight
 threads index as fast as thirty-two while leaving CPU and heap to the other core.
 That is why the shipped `archive` overrides cut the pools without costing archive
 anything measurable.
+
+`metadata-parallelism` therefore defaults to 8 since `2ca0b5fb9`.
+`acl-parallelism` and `cascade-parallelism` were set to 8 at the same time **by analogy,
+not by measurement** — their threads contend for the same single Solr core, so the same
+argument should hold, but no run has shown it. Phases `c` and `d` exist to settle that:
+
+```bash
+for threads in 32 8 4; do
+  mise run bench:scenario -- --label acl-${threads} --phases c,d --acl-count 2000 \
+    --tuning acl-parallelism=${threads},cascade-parallelism=${threads}
+done
+mise run bench:report -- bench/large-folder/runs/acl-32 bench/large-folder/runs/acl-8 \
+  bench/large-folder/runs/acl-4
+```
+
+Compare `mean_acls_per_s` and `tx_settled_s` across the runs, and mind the rank effect
+documented above: take the same run rank on both sides, or reset the index between points.
 
 A first sweep at 2s sampling resolution appeared to show a clear ranking, and was
 wrong — the quantisation was ±17% of a 12s measurement. Sample at 0.5s or finer,

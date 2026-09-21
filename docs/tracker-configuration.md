@@ -104,17 +104,17 @@ says `0/10` for metadata and the yml says `0/5`, and only the yml ever runs.
 | `node-batch-size` | `50` | Nodes per batch. Drives **both** the metadata request to the Repository and the Solr update: one round trip each per batch. Higher = fewer round trips, larger responses and more metadata held in memory at once, multiplied by `metadata-parallelism`. |
 | `transaction-docs-batch-size` | `2000` | Documents per transaction batch, used to group transactions before their nodes are fetched. |
 | `max-transactions-per-cycle` | `2000` | Transactions fetched per tracking cycle. |
-| `metadata-parallelism` | `8` | `ForkJoinPool` size indexing node batches. These threads write concurrently to a single Solr core, so raising it increases queueing at Solr rather than throughput. Measured: 32, 16, 8 and 4 threads all index a 30 000-node folder in the same time to within the noise (`docs/bench-large-folder.md` §*Tuning sweep*). The default is the value that sweep recommends — eight is as fast as thirty-two while leaving CPU and heap to the other core — and four is left as the per-core override the `archive` core already uses. `acl-parallelism` and `cascade-parallelism` are still `32`: the same reasoning applies to them, but nothing has measured them. |
+| `metadata-parallelism` | `8` | `ForkJoinPool` size indexing node batches. These threads write concurrently to a single Solr core, so raising it increases queueing at Solr rather than throughput. Measured: 32, 16, 8 and 4 threads all index a 30 000-node folder in the same time to within the noise (`docs/bench-large-folder.md` §*Tuning sweep*). The default is the value that sweep recommends — eight is as fast as thirty-two while leaving CPU and heap to the other core — and four is left as the per-core override the `archive` core already uses. |
 | `metadata-time-step` | `3600000` ms | Width of the time window scanned for new transactions. |
 | `acl-batch-size` | `100` | ACLs per batch. |
 | `change-set-acls-batch-size` | `2000` | ACLs per change-set batch. |
 | `max-acl-change-sets-per-cycle` | `2000` | ACL change sets fetched per cycle. |
-| `acl-parallelism` | `32` | `ForkJoinPool` size indexing ACL batches. |
+| `acl-parallelism` | `8` | `ForkJoinPool` size indexing ACL batches. Aligned on `metadata-parallelism` **by analogy** — these threads contend for the same single Solr core — but no run has measured it. `bench/large-folder` phase `c` exists to settle it; see `docs/bench-large-folder.md` §*Tuning sweep*. |
 | `acl-time-step` | `3600000` ms | Time window scanned for new ACL change sets. |
 | `content-batch-size` | `2000` | Partition size for parallel content extraction within one cycle. |
 | `content-parallelism` | `8` | `ForkJoinPool` size extracting content. Higher = faster bulk extraction, more concurrent load on the transform service. |
 | `cascade-node-batch-size` | `10` | Parent nodes per cascade worker. |
-| `cascade-parallelism` | `32` | `ForkJoinPool` size processing cascade updates. |
+| `cascade-parallelism` | `8` | `ForkJoinPool` size processing cascade updates. Same reasoning, and same lack of measurement, as `acl-parallelism`; phase `d` of the benchmark covers it. |
 | `cascade-commit-interval` | `30` | Batches processed between two cascade commits. |
 | `lag` | `1000` ms | Transactions committed more recently than this are deferred to the next cycle. |
 | `hole-retention` | `3600000` ms | How far back each cycle rewinds to catch transactions committed out of order. Together with `max-transactions-per-cycle` it bounds how much history a cycle re-reads. |

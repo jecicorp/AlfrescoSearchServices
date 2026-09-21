@@ -216,3 +216,7 @@ run = "python3 bench/large-folder/sample_index.py --once"
 [tasks."bench:report"]
 description = "Compare benchmark runs (usage: mise run bench:report -- bench/large-folder/runs/before-fix bench/large-folder/runs/after-fix)"
 run = "python3 bench/large-folder/report.py"
+
+[tasks."bench:churn"]
+description = "Generate ACL or cascade load on an existing benchmark tree (usage: mise run bench:churn -- acl --manifest bench/large-folder/runs/<label>/manifest.json --count 2000)"
+run = "python3 bench/large-folder/churn.py"

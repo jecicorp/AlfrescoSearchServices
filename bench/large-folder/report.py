@@ -48,6 +48,16 @@ def container_names(rows):
     return sorted(names)
 
 
+def read_json(path):
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return json.load(handle)
+    except (ValueError, OSError):
+        return None
+
+
 def phase_metrics(rows, target):
     metrics = {}
     if not rows:
@@ -89,6 +99,31 @@ def phase_metrics(rows, target):
     remaining = [value for value in remaining if value is not None]
     metrics["max_tx_remaining"] = int(max(remaining)) if remaining else None
 
+    acls = [(to_number(row["elapsed_s"]), to_number(row.get("Acl"))) for row in rows]
+    acls = [(time, count) for time, count in acls if time is not None and count is not None]
+    if acls and acls[-1][1] != acls[0][1]:
+        gained_acls = acls[-1][1] - acls[0][1]
+        acl_span = acls[-1][0] - acls[0][0]
+        metrics["acl_docs_start"] = int(acls[0][1])
+        metrics["acl_docs_end"] = int(acls[-1][1])
+        metrics["mean_acls_per_s"] = round(gained_acls / acl_span, 1) if acl_span > 0 else None
+
+    # A cascade rewrites existing documents, so no DOC_TYPE count moves: the only signal
+    # that the work is done is the transaction backlog draining back to zero.
+    settled = None
+    seen_backlog = False
+    for row in rows:
+        elapsed = to_number(row["elapsed_s"])
+        pending = to_number(row.get("tx_remaining"))
+        if elapsed is None or pending is None:
+            continue
+        if pending > 0:
+            seen_backlog = True
+        elif seen_backlog and settled is None:
+            settled = elapsed
+    if settled is not None:
+        metrics["tx_settled_s"] = round(settled, 1)
+
     errors = to_number(rows[-1].get("ErrorNode"))
     metrics["error_nodes_end"] = int(errors) if errors is not None else None
 
@@ -127,6 +162,9 @@ def collect(run_dir):
         "manifest": manifest,
         "target": target,
         "phases": {},
+        "tuning": read_json(os.path.join(run_dir, "tuning.json")),
+        "acl_churn": read_json(os.path.join(run_dir, "acl-churn.json")),
+        "cascade": read_json(os.path.join(run_dir, "cascade-verify.json")),
     }
     for path in sorted(glob.glob(os.path.join(run_dir, "phase-*.csv"))):
         name = os.path.basename(path)[len("phase-"):-len(".csv")]
@@ -180,8 +218,29 @@ def main(argv=None):
                 phase_names.append(name)
 
     lines = ["# Large-folder indexing benchmark", ""]
+
+    if any(run.get("tuning") for run in runs):
+        lines += ["### Tracker tuning applied", "",
+                  "| knob | " + " | ".join(run["label"] for run in runs) + " |",
+                  "|---|" + "---|" * len(runs)]
+        knobs = []
+        for run in runs:
+            for knob in (run.get("tuning") or {}):
+                if knob not in knobs:
+                    knobs.append(knob)
+        for knob in sorted(knobs):
+            values = [str((run.get("tuning") or {}).get(knob, "default")) for run in runs]
+            lines.append("| `{}` | {} |".format(knob, " | ".join(values)))
+        lines += ["", "Knobs left out of the table kept their shipped default.", ""]
+
     lines += render_table("Tree creation (repository side)", runs,
                           lambda run: creation_metrics(run["manifest"]))
+    if any(run.get("acl_churn") for run in runs):
+        lines += render_table("ACL churn (repository side)", runs,
+                              lambda run: run.get("acl_churn") or {})
+    if any(run.get("cascade") for run in runs):
+        lines += render_table("Cascade verification (Solr side)", runs,
+                              lambda run: run.get("cascade") or {})
     for name in phase_names:
         lines += render_table("Phase {}".format(name), runs,
                               lambda run, name=name: run["phases"].get(name, {}))
