@@ -61,6 +61,9 @@ RUN chmod +x $DIST_DIR/solr/bin/search_config_setup.sh
 COPY solr-init-core.sh $DIST_DIR/
 RUN chmod +x $DIST_DIR/solr-init-core.sh
 
+COPY solr-healthcheck.sh $DIST_DIR/
+RUN chmod +x $DIST_DIR/solr-healthcheck.sh
+
 # Add the licenses to a root directory.
 RUN mv $DIST_DIR/licenses /licenses
 
@@ -89,4 +92,9 @@ ENV SOLR_SSL_KEY_STORE_TYPE=PKCS12 \
 EXPOSE 8983
 
 USER ${USERNAME}
+
+# "Up" says nothing about Solr: Jetty keeps serving when the CoreContainer fails to start.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD $DIST_DIR/solr-healthcheck.sh
+
 CMD $DIST_DIR/solr/bin/search_config_setup.sh "$DIST_DIR/solr/bin/solr start -f"

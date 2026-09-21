@@ -280,8 +280,23 @@ You do **not** need to relearn day-to-day search administration:
 | Index count stuck at 0 | Trackers service not running or not pointed at the right cores (`ALFRESCO_TRACKER_SOLR_COLLECTIONS`). |
 | `alfresco` and `archive` cores show identical document counts | The `archive` core is indexing the live store instead of the trashcan. Check the trackers startup log for `[core 'archive'] store=archive://SpacesStore`; if it shows `workspace://…`, the store was misconfigured. Fixed in current versions (store resolved per core). After fixing, rebuild the archive index in place (see the *Full re-index* section below). |
 | ACL deny filtering questions | See [debugging.md](debugging.md) (`processedDenies`). |
+| Container `Up`, nothing works, requests answer `404` | Solr's `CoreContainer` failed to start while Jetty kept serving — the container healthcheck reports `unhealthy`, `docker ps` alone does not. Read the first 50 log lines: `SOLR_MODE=solrcloud` without `ZK_HOST` fails this way (*Cannot start Solr in cloud mode - no cloud config provided*), as does an unloadable schema. |
 | Admin page / admin action fails with `ConnectException: Connection refused` | `solr.tracker.host` not set (defaults to `localhost`) or the trackers admin port unreachable from ACS. In `https` mode also check `solr.tracker.port.ssl` and that the trackers admin server has TLS enabled. See *Repository side: the `solr9` search subsystem*. |
 | OOTBee "Solr Tracking" page shows *Web Script Status 500* / `coreNames`/`… Active` null | Repository not on the `solr9` subsystem, or an `ootbee-support-tools` build that predates `solr9` support. Set `index.subsystem.name=solr9` and deploy an addon build with `solr9` support. |
+
+## Container health
+
+The image declares a `HEALTHCHECK` (`solr-healthcheck.sh`) calling
+`GET /solr/admin/info/health`, because `Up` says nothing about Solr: Jetty keeps serving
+when the `CoreContainer` fails to start. A 403 counts as healthy — no `secureComms` mode
+exempts a path, and the probe carries no secret.
+
+- **`https` mode may report `unhealthy` legitimately.** The probe presents the node's own
+  keystore as its client certificate; if that certificate is server-only, it cannot pass
+  `clientAuth=need`. Override the check in the orchestrator rather than loosening it.
+- `SOLR_HEALTHCHECK_REQUIRE_HEALTHY_CORES=true` additionally fails the probe while a core
+  is not ACTIVE. Cloud mode only, and off by default: a recovering replica would otherwise
+  invite a restart mid-recovery.
 
 ## Operations: reports & on-demand reindex
 
