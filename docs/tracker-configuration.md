@@ -92,12 +92,19 @@ name under `alfresco.tracker.cores.<core>.tuning.*`; an unset override inherits 
 global value. The resolved set is logged per core at startup on a `tuning:` line —
 check it there rather than assuming a value took effect.
 
+The defaults in the table below live **only** in `TrackerProperties.TuningConfig`. The
+packaged `application.yml` deliberately does not repeat them, and `TuningDefaultsTest`
+fails if it starts to: the yml ships inside the jar and wins over the Java field
+initialisers, so two layers of defaults are free to drift apart without anyone noticing
+— which is exactly what happened to the cron defaults, where `TrackerProperties.Cron`
+says `0/10` for metadata and the yml says `0/5`, and only the yml ever runs.
+
 | Property (`alfresco.tracker.tuning.*`) | Default | Impact |
 |----------------------------------------|---------|--------|
 | `node-batch-size` | `50` | Nodes per batch. Drives **both** the metadata request to the Repository and the Solr update: one round trip each per batch. Higher = fewer round trips, larger responses and more metadata held in memory at once, multiplied by `metadata-parallelism`. |
 | `transaction-docs-batch-size` | `2000` | Documents per transaction batch, used to group transactions before their nodes are fetched. |
 | `max-transactions-per-cycle` | `2000` | Transactions fetched per tracking cycle. |
-| `metadata-parallelism` | `32` | `ForkJoinPool` size indexing node batches. These threads write concurrently to a single Solr core, so raising it increases queueing at Solr rather than throughput — measure before increasing. |
+| `metadata-parallelism` | `8` | `ForkJoinPool` size indexing node batches. These threads write concurrently to a single Solr core, so raising it increases queueing at Solr rather than throughput. Measured: 32, 16, 8 and 4 threads all index a 30 000-node folder in the same time to within the noise (`docs/bench-large-folder.md` §*Tuning sweep*). The default is the value that sweep recommends — eight is as fast as thirty-two while leaving CPU and heap to the other core — and four is left as the per-core override the `archive` core already uses. `acl-parallelism` and `cascade-parallelism` are still `32`: the same reasoning applies to them, but nothing has measured them. |
 | `metadata-time-step` | `3600000` ms | Width of the time window scanned for new transactions. |
 | `acl-batch-size` | `100` | ACLs per batch. |
 | `change-set-acls-batch-size` | `2000` | ACLs per change-set batch. |

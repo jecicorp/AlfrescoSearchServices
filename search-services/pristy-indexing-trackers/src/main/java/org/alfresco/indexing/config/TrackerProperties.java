@@ -587,7 +587,7 @@ public class TrackerProperties
         private int nodeBatchSize = 50;
         private int transactionDocsBatchSize = 2000;
         private int maxTransactionsPerCycle = 2000;
-        private int metadataParallelism = 32;
+        private int metadataParallelism = 8;
         private long metadataTimeStep = 3600000;
         private int aclBatchSize = 100;
         private int changeSetAclsBatchSize = 2000;

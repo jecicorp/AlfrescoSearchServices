@@ -200,6 +200,7 @@
                             <exclude>**/org/alfresco/indexing/config/TrackerBootstrapTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/TrackerProperties.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/TrackerPropertiesSslTest.java</exclude>
+                            <exclude>**/org/alfresco/indexing/config/TuningDefaultsTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/SslParametersFactory.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/SslParametersFactoryTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/health/RepositoryHealthIndicator.java</exclude>
@@ -284,6 +285,7 @@
                             <include>**/org/alfresco/indexing/config/TrackerBootstrapTest.java</include>
                             <include>**/org/alfresco/indexing/config/TrackerProperties.java</include>
                             <include>**/org/alfresco/indexing/config/TrackerPropertiesSslTest.java</include>
+                            <include>**/org/alfresco/indexing/config/TuningDefaultsTest.java</include>
                             <include>**/org/alfresco/indexing/config/SslParametersFactory.java</include>
                             <include>**/org/alfresco/indexing/config/SslParametersFactoryTest.java</include>
                             <include>**/org/alfresco/indexing/health/RepositoryHealthIndicator.java</include>
