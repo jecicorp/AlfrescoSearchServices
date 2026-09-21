@@ -59,6 +59,7 @@ import org.alfresco.solr.client.Node.SolrApiNodeStatus;
 import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.NodeMetaDataParameters;
 import org.alfresco.solr.client.SOLRAPIClient;
+import org.alfresco.solr.client.StringPropertyValue;
 import org.alfresco.solr.client.Transaction;
 import org.alfresco.solr.tracker.TrackerStats;
 import org.apache.solr.client.solrj.SolrClient;
@@ -661,6 +662,78 @@ public class SolrJIndexingServiceTest
         verify(solrClient, times(2)).add(eq(COLLECTION), any(SolrInputDocument.class));
     }
 
+    // =========================================================================
+    // Unindexed and error node documents
+    // =========================================================================
+
+    @Test
+    public void aNodeExcludedByIndexControlLeavesAnUnindexedNodeDocument() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Collections.singletonList(notIndexedMetaDataOf(7L)));
+
+        serviceWithDeps.indexNodes(Collections.singletonList(updatedNode(7L)), true);
+
+        ArgumentCaptor<List<SolrInputDocument>> captor = ArgumentCaptor.forClass(List.class);
+        verify(solrClient).add(eq(COLLECTION), captor.capture());
+        SolrInputDocument doc = captor.getValue().get(0);
+        assertEquals(SolrDocumentMapper.DOC_TYPE_UNINDEXED_NODE,
+                doc.getFieldValue(SolrDocumentMapper.FIELD_DOC_TYPE));
+        assertEquals(7L, doc.getFieldValue(SolrDocumentMapper.FIELD_DBID));
+    }
+
+    @Test
+    public void anExcludedNodeLeavesNoTraceWhenRecordingIsTurnedOff() throws Exception
+    {
+        serviceWithDeps.setRecordUnindexedNodes(false);
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Collections.singletonList(notIndexedMetaDataOf(7L)));
+
+        serviceWithDeps.indexNodes(Collections.singletonList(updatedNode(7L)), true);
+
+        verify(solrClient, never()).add(eq(COLLECTION), anyList());
+        verify(solrClient, never()).add(eq(COLLECTION), any(SolrInputDocument.class));
+    }
+
+    @Test
+    public void aNodeWhoseDocumentCannotBeBuiltLeavesAnErrorNodeDocument() throws Exception
+    {
+        SolrDocumentMapper failing = mock(SolrDocumentMapper.class);
+        when(failing.toNodeDoc(any(Node.class), any(NodeMetaData.class)))
+                .thenThrow(new IllegalStateException("model not loaded"));
+        when(failing.toErrorNodeDoc(any(Node.class), any(Throwable.class)))
+                .thenCallRealMethod();
+        SolrJIndexingService service = new SolrJIndexingService(solrClient, COLLECTION, failing,
+                repositoryClient, queryService, dictionaryService);
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Collections.singletonList(metaDataOf(9L)));
+
+        service.indexNodes(Collections.singletonList(updatedNode(9L)), true);
+
+        ArgumentCaptor<SolrInputDocument> captor = ArgumentCaptor.forClass(SolrInputDocument.class);
+        verify(solrClient).add(eq(COLLECTION), captor.capture());
+        SolrInputDocument doc = captor.getValue();
+        assertEquals(SolrDocumentMapper.DOC_TYPE_ERROR_NODE,
+                doc.getFieldValue(SolrDocumentMapper.FIELD_DOC_TYPE));
+        assertEquals("ERROR-9", doc.getFieldValue(SolrDocumentMapper.FIELD_SOLR4_ID));
+        assertEquals("model not loaded", doc.getFieldValue(SolrDocumentMapper.FIELD_EXCEPTION_MESSAGE));
+        assertTrue(String.valueOf(doc.getFieldValue(SolrDocumentMapper.FIELD_EXCEPTION_STACK))
+                .contains("IllegalStateException"));
+    }
+
+    @Test
+    public void indexingANodeDropsTheErrorDocumentOfThePreviousAttempt() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Arrays.asList(metaDataOf(1L), metaDataOf(2L)));
+
+        serviceWithDeps.indexNodes(Arrays.asList(updatedNode(1L), updatedNode(2L)), true);
+
+        ArgumentCaptor<List<String>> captor = ArgumentCaptor.forClass(List.class);
+        verify(solrClient).deleteById(eq(COLLECTION), captor.capture());
+        assertEquals(Arrays.asList("ERROR-1", "ERROR-2"), captor.getValue());
+    }
+
     private static Node updatedNode(long id)
     {
         Node node = new Node();
@@ -674,6 +747,14 @@ public class SolrJIndexingServiceTest
         NodeMetaData metadata = new NodeMetaData();
         metadata.setId(id);
         metadata.setTxnId(1L);
+        return metadata;
+    }
+
+    private static NodeMetaData notIndexedMetaDataOf(long id)
+    {
+        NodeMetaData metadata = metaDataOf(id);
+        metadata.setProperties(Map.of(
+                org.alfresco.model.ContentModel.PROP_IS_INDEXED, new StringPropertyValue("false")));
         return metadata;
     }
 }

@@ -29,6 +29,7 @@ import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_UNI
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DBID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DOC_TYPE;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_HAS_INDEXING_ERROR;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_INTXID;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -117,6 +118,14 @@ public class IndexStatusServiceTest
             doc.addField(FIELD_INTXID, intxid);
         }
         doc.addField(FIELD_ACLID, 42L);
+        doc.addField(FIELD_HAS_INDEXING_ERROR, "false");
+        return doc;
+    }
+
+    private static SolrDocument nodeDocumentFlaggedInError(Long intxid)
+    {
+        SolrDocument doc = nodeDocument(DOC_TYPE_NODE, intxid);
+        doc.setField(FIELD_HAS_INDEXING_ERROR, "true");
         return doc;
     }
 
@@ -263,30 +272,92 @@ public class IndexStatusServiceTest
     }
 
     @Test
-    public void theNodeDocumentWinsOverAnErrorDocumentOnTheSameCore() throws Exception
+    public void anErrorDocumentWinsOverTheNodeDocumentOnTheSameCore() throws Exception
     {
         databaseHolds(4711L, SolrApiNodeStatus.UPDATED);
         indexHolds("alfresco",
-                documents(nodeDocument(DOC_TYPE_ERROR_NODE, null), nodeDocument(DOC_TYPE_NODE, 4711L)));
+                documents(nodeDocument(DOC_TYPE_NODE, 4711L), nodeDocument(DOC_TYPE_ERROR_NODE, null)));
 
         NodeIndexStatus status = service.status(String.valueOf(DBID));
 
-        assertEquals(NodeIndexStatus.State.INDEXED, status.cores().get("alfresco").state());
+        assertEquals(NodeIndexStatus.State.ERROR, status.cores().get("alfresco").state());
         assertEquals(2L, status.cores().get("alfresco").docCount());
     }
 
     @Test
-    public void theVerdictTakesTheMostInformativeCore() throws Exception
+    public void aNodeDocumentFlaggedWithAnIndexingErrorIsReportedAsError() throws Exception
+    {
+        databaseHolds(4711L, SolrApiNodeStatus.UPDATED);
+        indexHolds("alfresco", documents(nodeDocumentFlaggedInError(4711L)));
+
+        NodeIndexStatus status = service.status(String.valueOf(DBID));
+
+        assertEquals(NodeIndexStatus.Verdict.ERROR, status.verdict());
+        assertEquals(DOC_TYPE_NODE, status.cores().get("alfresco").docType());
+    }
+
+    @Test
+    public void theVerdictTakesTheWorstCoreNotTheBestOne() throws Exception
     {
         cores("archive", "alfresco");
         databaseHolds(4711L, SolrApiNodeStatus.UPDATED);
-        indexHolds("archive", documents());
+        indexHolds("archive", documents(nodeDocument(DOC_TYPE_NODE, 17L)));
         indexHolds("alfresco", documents(nodeDocument(DOC_TYPE_NODE, 4711L)));
 
         NodeIndexStatus status = service.status(String.valueOf(DBID));
 
-        assertEquals(NodeIndexStatus.Verdict.INDEXED, status.verdict());
-        assertEquals(NodeIndexStatus.State.ABSENT, status.cores().get("archive").state());
+        assertEquals(NodeIndexStatus.Verdict.STALE, status.verdict());
+        assertEquals(NodeIndexStatus.State.INDEXED, status.cores().get("alfresco").state());
+        assertEquals(NodeIndexStatus.State.STALE, status.cores().get("archive").state());
+    }
+
+    @Test
+    public void anIndexedNodeTheRepositoryNoLongerKnowsIsAnOrphan() throws Exception
+    {
+        databaseHolds(-1L, SolrApiNodeStatus.UNKNOWN);
+        indexHolds("alfresco", documents(nodeDocument(DOC_TYPE_NODE, 4711L)));
+
+        NodeIndexStatus status = service.status(String.valueOf(DBID));
+
+        assertEquals(NodeIndexStatus.DatabaseStatus.UNKNOWN, status.database().status());
+        assertEquals(NodeIndexStatus.Verdict.ORPHAN, status.verdict());
+    }
+
+    @Test
+    public void anIndexedNodeDeletedFromTheRepositoryIsAnOrphan() throws Exception
+    {
+        databaseHolds(4711L, SolrApiNodeStatus.DELETED);
+        indexHolds("alfresco", documents(nodeDocument(DOC_TYPE_NODE, 4711L)));
+
+        NodeIndexStatus status = service.status(String.valueOf(DBID));
+
+        assertEquals(NodeIndexStatus.DatabaseStatus.DELETED, status.database().status());
+        assertEquals(NodeIndexStatus.Verdict.ORPHAN, status.verdict());
+    }
+
+    @Test
+    public void nothingIsClaimedIndexedWhileTheRepositoryCannotBeReached() throws Exception
+    {
+        databaseHolds(-2L, SolrApiNodeStatus.UNKNOWN);
+        indexHolds("alfresco", documents(nodeDocument(DOC_TYPE_NODE, 4711L)));
+
+        NodeIndexStatus status = service.status(String.valueOf(DBID));
+
+        assertEquals(NodeIndexStatus.DatabaseStatus.UNREACHABLE, status.database().status());
+        assertEquals(NodeIndexStatus.Verdict.UNVERIFIED, status.verdict());
+    }
+
+    @Test
+    public void aCoreThatCannotBeQueriedIsUnverifiedNotAbsent() throws Exception
+    {
+        databaseHolds(4711L, SolrApiNodeStatus.UPDATED);
+        when(solrClient.query(eq("alfresco"), any(SolrQuery.class)))
+                .thenThrow(new java.io.IOException("core down"));
+
+        NodeIndexStatus status = service.status(String.valueOf(DBID));
+
+        assertEquals(NodeIndexStatus.Verdict.UNVERIFIED, status.verdict());
+        assertEquals(NodeIndexStatus.State.UNVERIFIED, status.cores().get("alfresco").state());
     }
 
     @Test
@@ -301,15 +372,4 @@ public class IndexStatusServiceTest
         assertNull(status.database().tx());
     }
 
-    @Test
-    public void aNodeUnknownToTheDatabaseStillReportsItsIndexState() throws Exception
-    {
-        databaseHolds(0L, SolrApiNodeStatus.UNKNOWN);
-        indexHolds("alfresco", documents(nodeDocument(DOC_TYPE_NODE, 4711L)));
-
-        NodeIndexStatus status = service.status(String.valueOf(DBID));
-
-        assertEquals(NodeIndexStatus.DatabaseStatus.UNKNOWN, status.database().status());
-        assertEquals(NodeIndexStatus.State.INDEXED, status.cores().get("alfresco").state());
-    }
 }

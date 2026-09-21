@@ -22,6 +22,8 @@
  */
 package org.alfresco.indexing.server.solrj;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -85,6 +87,9 @@ public class SolrDocumentMapper
     public static final String FIELD_ACLID = "ACLID";
     public static final String FIELD_READER = "READER";
     public static final String FIELD_DENIED = "DENIED";
+    public static final String FIELD_HAS_INDEXING_ERROR = "HAS_INDEXING_ERROR";
+    public static final String FIELD_EXCEPTION_MESSAGE = "EXCEPTIONMESSAGE";
+    public static final String FIELD_EXCEPTION_STACK = "EXCEPTIONSTACK";
     public static final String FIELD_CASCADE_FLAG = "int@s_@cascade";
     public static final String FIELD_S_INTXID = "S_INTXID";
     public static final String FIELD_S_ACLTXID = "S_ACLTXID";
@@ -149,6 +154,10 @@ public class SolrDocumentMapper
     public static final String DOC_TYPE_NODE = "Node";
     public static final String DOC_TYPE_ERROR_NODE = "ErrorNode";
     public static final String DOC_TYPE_UNINDEXED_NODE = "UnindexedNode";
+
+    public static final String PREFIX_ERROR = "ERROR-";
+
+    private static final int MAX_TERM_LENGTH = 32766;
 
     // ---------------------------------------------------------------------------
     // ID format constants — mirrors AlfrescoSolrDataModel
@@ -471,7 +480,7 @@ public class SolrDocumentMapper
 
         if (hasUnresolvedProperty)
         {
-            doc.setField("HAS_INDEXING_ERROR", "true");
+            doc.setField(FIELD_HAS_INDEXING_ERROR, "true");
         }
 
         // Content versioning: mark nodes with content as needing extraction
@@ -487,6 +496,61 @@ public class SolrDocumentMapper
         }
 
         return doc;
+    }
+
+    /**
+     * Builds the document recording that a node was deliberately left out of the index
+     * because it carries {@code cm:isIndexed=false}. It takes the same document id as
+     * the node document, so indexing the node again replaces it.
+     */
+    public SolrInputDocument toUnindexedNodeDoc(NodeMetaData metadata)
+    {
+        SolrInputDocument doc = new SolrInputDocument();
+        doc.setField(FIELD_SOLR4_ID, getNodeDocumentId(metadata.getTenantDomain(), metadata.getId()));
+        doc.setField(FIELD_VERSION, 0);
+        doc.addField(FIELD_DBID, metadata.getId());
+        doc.setField(FIELD_INTXID, metadata.getTxnId());
+        doc.setField(FIELD_DOC_TYPE, DOC_TYPE_UNINDEXED_NODE);
+        doc.setField(FIELD_ACLID, metadata.getAclId());
+        if (metadata.getNodeRef() != null)
+        {
+            doc.setField(FIELD_LID, metadata.getNodeRef().toString());
+        }
+        return doc;
+    }
+
+    /**
+     * Builds the document recording that indexing a node threw. It takes a document id of
+     * its own ({@value #PREFIX_ERROR} followed by the DBID), so it coexists with whatever
+     * the index already holds for the node and must be deleted explicitly.
+     */
+    public SolrInputDocument toErrorNodeDoc(Node node, Throwable exception)
+    {
+        SolrInputDocument doc = new SolrInputDocument();
+        doc.setField(FIELD_SOLR4_ID, getErrorDocumentId(node.getId()));
+        doc.setField(FIELD_VERSION, 0);
+        doc.addField(FIELD_DBID, node.getId());
+        doc.setField(FIELD_INTXID, node.getTxnId());
+        doc.setField(FIELD_DOC_TYPE, DOC_TYPE_ERROR_NODE);
+        doc.setField(FIELD_EXCEPTION_MESSAGE, String.valueOf(exception.getMessage()));
+        doc.setField(FIELD_EXCEPTION_STACK, stackTraceOf(exception));
+        return doc;
+    }
+
+    static String getErrorDocumentId(long dbid)
+    {
+        return PREFIX_ERROR + dbid;
+    }
+
+    private static String stackTraceOf(Throwable exception)
+    {
+        StringWriter stringWriter = new StringWriter(4096);
+        try (PrintWriter printWriter = new PrintWriter(stringWriter, true))
+        {
+            exception.printStackTrace(printWriter);
+        }
+        String stack = stringWriter.toString();
+        return stack.length() < MAX_TERM_LENGTH ? stack : stack.substring(0, MAX_TERM_LENGTH - 1);
     }
 
     /**

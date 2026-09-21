@@ -29,6 +29,7 @@ import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_UNI
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DBID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DOC_TYPE;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_HAS_INDEXING_ERROR;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_INTXID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_LID;
 
@@ -79,8 +80,12 @@ public class IndexStatusService
     private static final String RESOLVED_BY_DBID = "DBID";
     private static final String RESOLVED_BY_LID = "LID";
 
-    private static final List<Verdict> VERDICT_PRECEDENCE =
-            List.of(Verdict.INDEXED, Verdict.STALE, Verdict.ERROR, Verdict.UNINDEXED);
+    private static final long TX_NO_SUCH_NODE = -1L;
+    private static final String INDEXING_ERROR_FLAG = "true";
+
+    private static final List<Verdict> VERDICT_PRECEDENCE = List.of(
+            Verdict.ERROR, Verdict.ORPHAN, Verdict.STALE, Verdict.UNVERIFIED,
+            Verdict.UNINDEXED, Verdict.INDEXED);
 
     private final TrackerBootstrap trackerBootstrap;
     private final SolrClient solrClient;
@@ -125,7 +130,7 @@ public class IndexStatusService
         Map<String, Core> cores = new LinkedHashMap<>(coreNames.size());
         for (String coreName : coreNames)
         {
-            cores.put(coreName, coreStatus(coreName, dbid, database.tx()));
+            cores.put(coreName, coreStatus(coreName, dbid, database));
         }
 
         return new NodeIndexStatus(new Reference(input, dbid, resolvedBy), database, cores, verdict(cores));
@@ -173,7 +178,7 @@ public class IndexStatusService
 
     private Database resolveDatabase(TrackerRegistry registry, List<String> coreNames, long dbid)
     {
-        Database fallback = new Database(DatabaseStatus.UNKNOWN, null);
+        Database best = null;
         for (String coreName : coreNames)
         {
             NodeReport report = databaseReport(registry, coreName, dbid);
@@ -182,13 +187,17 @@ public class IndexStatusService
                 continue;
             }
             Database database = database(report);
-            if (database.status() != DatabaseStatus.UNKNOWN)
+            if (database.status() == DatabaseStatus.UPDATED
+                    || database.status() == DatabaseStatus.DELETED)
             {
                 return database;
             }
-            fallback = database;
+            if (best == null || best.status() == DatabaseStatus.UNREACHABLE)
+            {
+                best = database;
+            }
         }
-        return fallback;
+        return best != null ? best : new Database(DatabaseStatus.UNREACHABLE, null);
     }
 
     private NodeReport databaseReport(TrackerRegistry registry, String coreName, long dbid)
@@ -209,7 +218,7 @@ public class IndexStatusService
     {
         SolrApiNodeStatus status = report.getDbNodeStatus();
         Long tx = report.getDbTx();
-        if (tx != null && tx < 0)
+        if (tx != null && tx < TX_NO_SUCH_NODE)
         {
             return new Database(DatabaseStatus.UNREACHABLE, null);
         }
@@ -224,14 +233,18 @@ public class IndexStatusService
         return new Database(DatabaseStatus.UPDATED, tx);
     }
 
-    private Core coreStatus(String coreName, long dbid, Long databaseTx)
+    private Core coreStatus(String coreName, long dbid, Database database)
     {
         SolrQuery query = luceneQuery(FIELD_DBID + ":" + dbid + " AND " + FIELD_DOC_TYPE + ":("
                 + DOC_TYPE_NODE + " OR " + DOC_TYPE_ERROR_NODE + " OR " + DOC_TYPE_UNINDEXED_NODE + ")");
         query.setRows(10);
-        query.setFields(FIELD_DOC_TYPE, FIELD_INTXID, FIELD_ACLID);
+        query.setFields(FIELD_DOC_TYPE, FIELD_INTXID, FIELD_ACLID, FIELD_HAS_INDEXING_ERROR);
         SolrDocumentList docs = search(coreName, query);
-        if (docs == null || docs.isEmpty())
+        if (docs == null)
+        {
+            return new Core(State.UNVERIFIED, null, null, null, 0L);
+        }
+        if (docs.isEmpty())
         {
             return new Core(State.ABSENT, null, null, null, 0L);
         }
@@ -240,14 +253,22 @@ public class IndexStatusService
         String docType = stringValue(document, FIELD_DOC_TYPE);
         Long indexTx = longValue(document, FIELD_INTXID);
         Long aclId = longValue(document, FIELD_ACLID);
-        return new Core(state(docType, indexTx, databaseTx), docType, indexTx, aclId, docs.getNumFound());
+        boolean indexingError =
+                INDEXING_ERROR_FLAG.equals(stringValue(document, FIELD_HAS_INDEXING_ERROR));
+        return new Core(state(docType, indexTx, indexingError, database), docType, indexTx, aclId,
+                docs.getNumFound());
     }
 
+    /**
+     * Picks the document that decides the state when a core holds several for one node. An
+     * {@code ErrorNode} wins: the indexer deletes it on every successful attempt, so its
+     * presence means the last attempt failed.
+     */
     private static SolrDocument preferred(SolrDocumentList docs)
     {
         for (SolrDocument document : docs)
         {
-            if (DOC_TYPE_NODE.equals(stringValue(document, FIELD_DOC_TYPE)))
+            if (DOC_TYPE_ERROR_NODE.equals(stringValue(document, FIELD_DOC_TYPE)))
             {
                 return document;
             }
@@ -255,9 +276,9 @@ public class IndexStatusService
         return docs.get(0);
     }
 
-    private static State state(String docType, Long indexTx, Long databaseTx)
+    private static State state(String docType, Long indexTx, boolean indexingError, Database database)
     {
-        if (DOC_TYPE_ERROR_NODE.equals(docType))
+        if (DOC_TYPE_ERROR_NODE.equals(docType) || indexingError)
         {
             return State.ERROR;
         }
@@ -269,11 +290,16 @@ public class IndexStatusService
         {
             return State.ABSENT;
         }
-        if (databaseTx == null || indexTx == null || indexTx.equals(databaseTx))
+        if (database.status() == DatabaseStatus.DELETED
+                || database.status() == DatabaseStatus.UNKNOWN)
         {
-            return State.INDEXED;
+            return State.ORPHAN;
         }
-        return State.STALE;
+        if (database.tx() == null || indexTx == null)
+        {
+            return State.UNVERIFIED;
+        }
+        return indexTx.equals(database.tx()) ? State.INDEXED : State.STALE;
     }
 
     private static Verdict verdict(Map<String, Core> cores)
@@ -282,13 +308,27 @@ public class IndexStatusService
         {
             for (Core core : cores.values())
             {
-                if (core.state().value().equals(candidate.value()))
+                if (candidate == verdictOf(core.state()))
                 {
                     return candidate;
                 }
             }
         }
         return Verdict.MISSING;
+    }
+
+    private static Verdict verdictOf(State state)
+    {
+        return switch (state)
+        {
+            case ERROR -> Verdict.ERROR;
+            case ORPHAN -> Verdict.ORPHAN;
+            case STALE -> Verdict.STALE;
+            case UNVERIFIED -> Verdict.UNVERIFIED;
+            case UNINDEXED -> Verdict.UNINDEXED;
+            case INDEXED -> Verdict.INDEXED;
+            case ABSENT -> null;
+        };
     }
 
     private SolrDocumentList search(String coreName, SolrQuery query)

@@ -34,7 +34,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
  * @param reference how the caller designated the node and what it resolved to
  * @param database  the node as the repository database knows it
  * @param cores     the node as each tracked core knows it, keyed by core name
- * @param verdict   the most informative core state, or {@code unresolved}
+ * @param verdict   the worst state any core reports, or {@code unresolved}
  */
 public record NodeIndexStatus(Reference reference, Database database,
                               Map<String, Core> cores, Verdict verdict)
@@ -67,6 +67,8 @@ public record NodeIndexStatus(Reference reference, Database database,
         INDEXED("indexed"),
         STALE("stale"),
         ERROR("error"),
+        ORPHAN("orphan"),
+        UNVERIFIED("unverified"),
         UNINDEXED("unindexed"),
         ABSENT("absent");
 
@@ -109,10 +111,12 @@ public record NodeIndexStatus(Reference reference, Database database,
     /** The overall answer, derived from every core state. */
     public enum Verdict
     {
-        INDEXED("indexed"),
-        STALE("stale"),
         ERROR("error"),
+        ORPHAN("orphan"),
+        STALE("stale"),
+        UNVERIFIED("unverified"),
         UNINDEXED("unindexed"),
+        INDEXED("indexed"),
         MISSING("missing"),
         UNRESOLVED("unresolved");
 

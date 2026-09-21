@@ -39,6 +39,7 @@ public class TrackerProperties
     private CronConfig cron = new CronConfig();
     private int batchCount = 5000;
     private boolean cascadeTrackingEnabled = true;
+    private boolean recordUnindexedNodes = true;
     // Upstream solrcore.properties defaults: alfresco.commitInterval=2000,
     // alfresco.newSearcherInterval=3000. Index visibility (content tracking,
     // e2e waits) depends directly on the effective commit period.
@@ -110,6 +111,16 @@ public class TrackerProperties
     public void setCascadeTrackingEnabled(boolean cascadeTrackingEnabled)
     {
         this.cascadeTrackingEnabled = cascadeTrackingEnabled;
+    }
+
+    public boolean isRecordUnindexedNodes()
+    {
+        return recordUnindexedNodes;
+    }
+
+    public void setRecordUnindexedNodes(boolean recordUnindexedNodes)
+    {
+        this.recordUnindexedNodes = recordUnindexedNodes;
     }
 
     public long getCommitInterval()
@@ -218,6 +229,7 @@ public class TrackerProperties
         r.maxLiveSearchers = o.getMaxLiveSearchers() != null ? o.getMaxLiveSearchers() : maxLiveSearchers;
         r.transformContent = o.getTransformContent() != null ? o.getTransformContent() : transformContent;
         r.cascadeTrackingEnabled = o.getCascadeTrackingEnabled() != null ? o.getCascadeTrackingEnabled() : cascadeTrackingEnabled;
+        r.recordUnindexedNodes = o.getRecordUnindexedNodes() != null ? o.getRecordUnindexedNodes() : recordUnindexedNodes;
         r.commitInterval = o.getCommitInterval() != null ? o.getCommitInterval() : commitInterval;
         r.newSearcherInterval = o.getNewSearcherInterval() != null ? o.getNewSearcherInterval() : newSearcherInterval;
         r.cronMetadata = oc.getMetadata() != null ? oc.getMetadata() : cron.getMetadata();
@@ -725,6 +737,7 @@ public class TrackerProperties
         private Integer maxLiveSearchers;
         private Boolean transformContent;
         private Boolean cascadeTrackingEnabled;
+        private Boolean recordUnindexedNodes;
         private Long commitInterval;
         private Long newSearcherInterval;
         private CronOverride cron = new CronOverride();
@@ -745,6 +758,9 @@ public class TrackerProperties
 
         public Boolean getCascadeTrackingEnabled() { return cascadeTrackingEnabled; }
         public void setCascadeTrackingEnabled(Boolean cascadeTrackingEnabled) { this.cascadeTrackingEnabled = cascadeTrackingEnabled; }
+
+        public Boolean getRecordUnindexedNodes() { return recordUnindexedNodes; }
+        public void setRecordUnindexedNodes(Boolean recordUnindexedNodes) { this.recordUnindexedNodes = recordUnindexedNodes; }
 
         public Long getCommitInterval() { return commitInterval; }
         public void setCommitInterval(Long commitInterval) { this.commitInterval = commitInterval; }
@@ -809,6 +825,7 @@ public class TrackerProperties
         private int maxLiveSearchers;
         private boolean transformContent;
         private boolean cascadeTrackingEnabled;
+        private boolean recordUnindexedNodes;
         private long commitInterval;
         private long newSearcherInterval;
         private String cronMetadata;
@@ -845,6 +862,7 @@ public class TrackerProperties
         public int getMaxLiveSearchers() { return maxLiveSearchers; }
         public boolean isTransformContent() { return transformContent; }
         public boolean isCascadeTrackingEnabled() { return cascadeTrackingEnabled; }
+        public boolean isRecordUnindexedNodes() { return recordUnindexedNodes; }
         public long getCommitInterval() { return commitInterval; }
         public long getNewSearcherInterval() { return newSearcherInterval; }
         public String getCronMetadata() { return cronMetadata; }

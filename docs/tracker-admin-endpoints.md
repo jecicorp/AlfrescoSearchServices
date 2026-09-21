@@ -93,20 +93,31 @@ UUID is looked up in `workspace://SpacesStore/` then `archive://SpacesStore/`.
 }
 ```
 
-Per-core `state`, read from the document's `DOC_TYPE` and `INTXID`:
+Per-core `state`, read from the document's `DOC_TYPE`, its `INTXID` and its
+`HAS_INDEXING_ERROR` flag:
 
 | `state` | Meaning |
 |---------|---------|
 | `indexed` | a `Node` document exists and its `INTXID` matches the database transaction |
 | `stale` | a `Node` document exists but lags the database transaction |
-| `error` | the core holds an `ErrorNode` document — indexing failed, the RepairTracker retries it |
-| `unindexed` | the core holds an `UnindexedNode` document — the tracker deliberately did not index it |
+| `error` | indexing failed. `docType: ErrorNode` means nothing was indexed at all and the document carries `EXCEPTIONMESSAGE`/`EXCEPTIONSTACK`; `docType: Node` means the node is indexed but a property could not be resolved (`HAS_INDEXING_ERROR:true`), which is what the RepairTracker retries |
+| `orphan` | the core holds a `Node` document the repository no longer backs — deleted, or unknown to the database |
+| `unindexed` | the core holds an `UnindexedNode` document — the tracker deliberately did not index it (`cm:isIndexed=false`) |
+| `unverified` | nothing could be compared: the repository was unreachable, or this core did not answer |
 | `absent` | the core holds no document for this node |
 
-`database.status` is `updated`, `deleted`, `unknown` (no such node) or
-`unreachable` (the repository lookup itself failed). `verdict` is the most
-informative core state by the precedence `indexed > stale > error > unindexed`,
-falling back to `missing`, or `unresolved` when `ref` matched no node.
+An `ErrorNode` decides the state when a core holds one alongside a `Node`
+document: the indexer drops it on every successful attempt, so its presence means
+the last attempt failed.
+
+`database.status` is `updated`, `deleted`, `unknown` (the repository answered and
+holds no such node) or `unreachable` (the lookup itself failed — `MetadataTracker`
+encodes that as `dbTx <= -2`, while `-1` is the `unknown` case). `verdict` is the
+**worst** state any core reports, by the precedence
+`error > orphan > stale > unverified > unindexed > indexed`, falling back to
+`missing`, or `unresolved` when `ref` matched no node. Taking the worst rather
+than the best is deliberate: a core lagging behind must not be hidden by another
+core that is up to date.
 
 **Status codes.** A `ref` matching no node is answered `200` with
 `verdict: "unresolved"`, never `404`: `404` on this path is reserved for a

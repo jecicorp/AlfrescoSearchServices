@@ -72,6 +72,20 @@ public class TrackerBootstrapTest
     }
 
     @Test
+    public void buildTrackerProperties_bridgesRecordUnindexedNodes()
+    {
+        TrackerProperties.CoreConfig archive = new TrackerProperties.CoreConfig();
+        archive.setRecordUnindexedNodes(false);
+        props.getCores().put("archive", archive);
+        TrackerBootstrap bootstrap = new TrackerBootstrap(null, props, null, repoProperties, null, null);
+
+        assertEquals("true",
+                bootstrap.buildTrackerProperties("alfresco").getProperty("alfresco.recordUnindexedNodes"));
+        assertEquals("false",
+                bootstrap.buildTrackerProperties("archive").getProperty("alfresco.recordUnindexedNodes"));
+    }
+
+    @Test
     public void buildTrackerProperties_bridgesTuningKnobs()
     {
         props.getTuning().setNodeBatchSize(120);

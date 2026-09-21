@@ -138,6 +138,8 @@ public class SolrJInformationServer implements InformationServer
         this.indexingService = new SolrJIndexingService(solrClient, collection, documentMapper, repositoryClient,
                 this.queryService, this.localDictionaryService);
         this.indexingService.setTrackerStats(this.trackerStats);
+        this.indexingService.setRecordUnindexedNodes(
+                Boolean.parseBoolean(props.getProperty("alfresco.recordUnindexedNodes", "true")));
         this.commitService = new SolrJCommitService(solrClient, collection);
         this.modelService = new SolrJModelService(solrClient, collection);
     }

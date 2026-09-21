@@ -93,6 +93,7 @@ public class SolrJIndexingService
     private final LocalDictionaryService dictionaryService;
     private long contentStreamLimit = DEFAULT_CONTENT_STREAM_LIMIT;
     private TrackerStats trackerStats;
+    private boolean recordUnindexedNodes = true;
 
     public SolrJIndexingService(SolrClient solrClient, String collection)
     {
@@ -129,6 +130,16 @@ public class SolrJIndexingService
     public void setTrackerStats(TrackerStats trackerStats)
     {
         this.trackerStats = trackerStats;
+    }
+
+    /**
+     * Whether a node carrying {@code cm:isIndexed=false} leaves an {@code UnindexedNode}
+     * document behind. When false the node leaves no trace at all, and the index status API
+     * cannot tell a deliberate exclusion from a missing node.
+     */
+    public void setRecordUnindexedNodes(boolean recordUnindexedNodes)
+    {
+        this.recordUnindexedNodes = recordUnindexedNodes;
     }
 
     // =========================================================================
@@ -296,6 +307,7 @@ public class SolrJIndexingService
         {
             return;
         }
+        deleteErrorDocs(Collections.singletonList(node.getId()));
         addDocument(doc);
         recordNodeTimes(System.nanoTime() - start, 1);
     }
@@ -320,10 +332,52 @@ public class SolrJIndexingService
         if (!isNodeIndexable(metadata))
         {
             LOGGER.debug("Node {} has cm:isIndexed=false — skipping indexing", node.getId());
-            return null;
+            return recordUnindexedNodes ? documentMapper.toUnindexedNodeDoc(metadata) : null;
         }
 
         return documentMapper.toNodeDoc(node, metadata);
+    }
+
+    /**
+     * Records that indexing the node threw, so the failure surfaces in {@code REPORT} and in
+     * the index status API instead of living in the logs alone.
+     */
+    private void recordIndexingError(Node node, Exception cause)
+    {
+        try
+        {
+            addDocument(documentMapper.toErrorNodeDoc(node, cause));
+        }
+        catch (Exception e)
+        {
+            LOGGER.warn("Could not record the indexing error of node {}: {}", node.getId(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Drops the error documents of the given nodes in a single update, so a node that indexes
+     * correctly again stops being reported as failed. A node with no error document is not
+     * charged a query first: the delete is issued for the whole batch either way.
+     */
+    private void deleteErrorDocs(Collection<Long> dbIds)
+    {
+        if (dbIds.isEmpty())
+        {
+            return;
+        }
+        List<String> ids = new ArrayList<>(dbIds.size());
+        for (Long dbId : dbIds)
+        {
+            ids.add(SolrDocumentMapper.getErrorDocumentId(dbId));
+        }
+        try
+        {
+            solrClient.deleteById(collection, ids);
+        }
+        catch (Exception e)
+        {
+            LOGGER.warn("Could not delete the error documents of {} nodes: {}", ids.size(), e.getMessage(), e);
+        }
     }
 
     /**
@@ -450,6 +504,7 @@ public class SolrJIndexingService
 
         long start = System.nanoTime();
         List<SolrInputDocument> docs = new ArrayList<>();
+        List<Long> written = new ArrayList<>();
         for (NodeMetaData metadata : metadatas)
         {
             Node node = pending.remove(metadata.getId());
@@ -463,16 +518,20 @@ public class SolrJIndexingService
                 if (doc != null)
                 {
                     docs.add(doc);
+                    written.add(node.getId());
                 }
             }
             catch (Exception e)
             {
-                LOGGER.warn("Failed to index node {} — skipping: {}", node.getId(), e.getMessage(), e);
+                LOGGER.warn("Failed to index node {} — recorded as an error node: {}",
+                        node.getId(), e.getMessage(), e);
+                recordIndexingError(node, e);
             }
         }
 
         if (!docs.isEmpty())
         {
+            deleteErrorDocs(written);
             writeNodeDocs(docs);
             recordNodeTimes(System.nanoTime() - start, docs.size());
         }
@@ -524,7 +583,9 @@ public class SolrJIndexingService
             }
             catch (Exception e)
             {
-                LOGGER.warn("Failed to index node {} — skipping: {}", node.getId(), e.getMessage(), e);
+                LOGGER.warn("Failed to index node {} — recorded as an error node: {}",
+                        node.getId(), e.getMessage(), e);
+                recordIndexingError(node, e);
             }
         }
     }

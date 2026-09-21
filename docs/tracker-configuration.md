@@ -85,6 +85,7 @@ tracker wakes up*; it does not by itself guarantee a commit (see commit settings
 | Property | Default | Impact |
 |----------|---------|--------|
 | `alfresco.tracker.batch-count` | `5000` | Number of nodes/ACLs fetched per metadata/ACL tracking call to the Repository. Higher = fewer round-trips and faster bulk/initial indexing, but larger memory spikes and longer single transactions. |
+| `alfresco.tracker.record-unindexed-nodes` | `true` | Whether a node carrying `cm:isIndexed=false` leaves an `UnindexedNode` document behind (bridged to the core property `alfresco.recordUnindexedNodes`, the name Alfresco uses). Turn it off and such a node leaves no trace: `REPORT` stops counting it and `GET /api/v1/index/node` can no longer tell a deliberate exclusion (`unindexed`) from a node that is simply not there (`absent`). Has a per-core override. |
 
 Everything under `alfresco.tracker.tuning.*` has a **per-core override** of the same
 name under `alfresco.tracker.cores.<core>.tuning.*`; an unset override inherits the

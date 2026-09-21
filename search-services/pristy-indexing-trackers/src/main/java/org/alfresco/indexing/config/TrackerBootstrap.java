@@ -192,9 +192,10 @@ public class TrackerBootstrap implements ApplicationRunner
         for (String coreName : collections)
         {
             TrackerProperties.ResolvedCoreConfig c = props.resolvedCore(coreName);
-            LOGGER.info("  [core '{}'] store={} transformContent={} cascadeEnabled={} batchCount={} maxLiveSearchers={}",
+            LOGGER.info("  [core '{}'] store={} transformContent={} cascadeEnabled={} batchCount={} "
+                            + "maxLiveSearchers={} recordUnindexedNodes={}",
                     coreName, c.getStore(), c.isTransformContent(), c.isCascadeTrackingEnabled(),
-                    c.getBatchCount(), c.getMaxLiveSearchers());
+                    c.getBatchCount(), c.getMaxLiveSearchers(), c.isRecordUnindexedNodes());
             LOGGER.info("  [core '{}'] commitInterval={} ms, newSearcherInterval={} ms",
                     coreName, c.getCommitInterval(), c.getNewSearcherInterval());
             LOGGER.info("  [core '{}'] tuning: nodeBatch={} txDocsBatch={} maxTxPerCycle={} "
@@ -313,6 +314,7 @@ public class TrackerBootstrap implements ApplicationRunner
         p.setProperty("alfresco.maxLiveSearchers", String.valueOf(core.getMaxLiveSearchers()));
         p.setProperty("alfresco.index.transformContent", String.valueOf(core.isTransformContent()));
         p.setProperty("alfresco.cascade.tracker.enabled", String.valueOf(core.isCascadeTrackingEnabled()));
+        p.setProperty("alfresco.recordUnindexedNodes", String.valueOf(core.isRecordUnindexedNodes()));
         p.setProperty("alfresco.commitInterval", String.valueOf(core.getCommitInterval()));
         p.setProperty("alfresco.newSearcherInterval", String.valueOf(core.getNewSearcherInterval()));
 
