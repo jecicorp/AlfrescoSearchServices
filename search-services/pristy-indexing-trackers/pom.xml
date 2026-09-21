@@ -158,6 +158,7 @@
                     <execution>
                         <goals>
                             <goal>repackage</goal>
+                            <goal>build-info</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -180,6 +181,12 @@
                             <exclude>**/org/alfresco/indexing/backup/BackupScheduler.java</exclude>
                             <exclude>**/org/alfresco/indexing/admin/SolrCompatAdminController.java</exclude>
                             <exclude>**/org/alfresco/indexing/api/IndexStatusController.java</exclude>
+                            <exclude>**/org/alfresco/indexing/api/ApiCapabilities.java</exclude>
+                            <exclude>**/org/alfresco/indexing/api/ApiDescriptor.java</exclude>
+                            <exclude>**/org/alfresco/indexing/api/ApiDescriptorController.java</exclude>
+                            <exclude>**/org/alfresco/indexing/api/ApiDescriptorControllerTest.java</exclude>
+                            <exclude>**/org/alfresco/indexing/api/ApiDescriptorContextTest.java</exclude>
+                            <exclude>**/org/alfresco/indexing/api/Capability.java</exclude>
                             <exclude>**/org/alfresco/indexing/api/IndexStatusService.java</exclude>
                             <exclude>**/org/alfresco/indexing/api/NodeIndexStatus.java</exclude>
                             <exclude>**/org/alfresco/indexing/api/IndexStatusServiceTest.java</exclude>
@@ -257,6 +264,12 @@
                             <include>**/org/alfresco/indexing/backup/BackupScheduler.java</include>
                             <include>**/org/alfresco/indexing/admin/SolrCompatAdminController.java</include>
                             <include>**/org/alfresco/indexing/api/IndexStatusController.java</include>
+                            <include>**/org/alfresco/indexing/api/ApiCapabilities.java</include>
+                            <include>**/org/alfresco/indexing/api/ApiDescriptor.java</include>
+                            <include>**/org/alfresco/indexing/api/ApiDescriptorController.java</include>
+                            <include>**/org/alfresco/indexing/api/ApiDescriptorControllerTest.java</include>
+                            <include>**/org/alfresco/indexing/api/ApiDescriptorContextTest.java</include>
+                            <include>**/org/alfresco/indexing/api/Capability.java</include>
                             <include>**/org/alfresco/indexing/api/IndexStatusService.java</include>
                             <include>**/org/alfresco/indexing/api/NodeIndexStatus.java</include>
                             <include>**/org/alfresco/indexing/api/IndexStatusServiceTest.java</include>

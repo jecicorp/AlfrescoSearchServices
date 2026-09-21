@@ -12,7 +12,7 @@ kept vanilla** and these actions live in the trackers service instead.
 - Three interfaces:
   - **Clean REST API** — idiomatic Spring routes under `/api/admin/*` (this document's primary form).
   - **Solr-compat alias** — `GET /solr/admin/cores?action=<ACTION>&…`, same response envelope as the old Solr admin, for tools/scripts that still target it.
-  - **Pristy indexing API v1** — `/api/v1/*`, a new contract that is not a rewrite of the two above (see [below](#pristy-indexing-api-v1-read-only-get)).
+  - **Pristy indexing API v1** — `/api/v1/*`, a new contract that is not a rewrite of the two above (see [below](#pristy-indexing-api-v1-read-only-get)). `GET /api/v1` advertises the capabilities of the running build; start there.
 - The actuator endpoint `GET /actuator/repairreport` complements these (see [RepairTracker](#error-nodes--repairtracker)).
 
 > The Alfresco control-plane actions (`SUMMARY`, `REPORT`, `REINDEX`, …) are **not**
@@ -65,6 +65,39 @@ curl -s "http://localhost:8085/solr/admin/cores?action=NODEREPORT&nodeid=15695&c
 ```
 
 ## Pristy indexing API v1 (read-only, `GET`)
+
+### `GET /api/v1` — what this service is and what it can do
+
+Ask here first. The answer says which capabilities the running build carries, so a client
+never has to map a version number to a feature set:
+
+```json
+{
+  "service": "pristy-indexing-trackers",
+  "version": "1.1.0",
+  "api": "1",
+  "capabilities": {
+    "admin.actions":         { "since": "1.0", "enabled": true  },
+    "admin.backup":          { "since": "1.0", "enabled": false },
+    "index.status":          { "since": "1.1", "enabled": true  },
+    "index.unindexed-nodes": { "since": "1.1", "enabled": true  },
+    "tracker.repair":        { "since": "1.0", "enabled": true  }
+  }
+}
+```
+
+- **`404` on this path means the trackers service predates the API** — that is the whole
+  point of having it: it replaces guessing from a version string, and it is why
+  `/api/v1/index/node` answers `200 / unresolved` rather than `404` for an unknown node.
+- `since` is the service version a capability first shipped in; `version` is the running
+  build, read from `build-info.properties` (`unknown` if the jar carries none).
+- **`enabled` is not the same as present.** `admin.backup` above is compiled in but turned
+  off by configuration; `index.unindexed-nodes` reflects `alfresco.tracker.record-unindexed-nodes`,
+  so a client can tell whether the `unindexed` state can appear at all before relying on it.
+- A capability is contributed as a Spring bean by the feature that serves it
+  (`ApiCapabilities`), and each declaration takes that feature's service as a parameter —
+  removing an implementation breaks the build instead of leaving the endpoint advertising
+  something it no longer serves.
 
 A second, additive surface under `/api/v1`. It is **not** an alias of the routes
 above: `/api/admin/*` and the Solr-compat action names delegate to the same
