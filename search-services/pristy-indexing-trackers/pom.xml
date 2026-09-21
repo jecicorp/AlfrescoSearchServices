@@ -179,6 +179,10 @@
                             <exclude>**/org/alfresco/indexing/backup/BackupServiceTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/backup/BackupScheduler.java</exclude>
                             <exclude>**/org/alfresco/indexing/admin/SolrCompatAdminController.java</exclude>
+                            <exclude>**/org/alfresco/indexing/api/IndexStatusController.java</exclude>
+                            <exclude>**/org/alfresco/indexing/api/IndexStatusService.java</exclude>
+                            <exclude>**/org/alfresco/indexing/api/NodeIndexStatus.java</exclude>
+                            <exclude>**/org/alfresco/indexing/api/IndexStatusServiceTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/RepairReportEndpoint.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/RepositoryClientConfig.java</exclude>
                             <exclude>**/org/alfresco/indexing/config/SolrJConfig.java</exclude>
@@ -252,6 +256,10 @@
                             <include>**/org/alfresco/indexing/backup/BackupServiceTest.java</include>
                             <include>**/org/alfresco/indexing/backup/BackupScheduler.java</include>
                             <include>**/org/alfresco/indexing/admin/SolrCompatAdminController.java</include>
+                            <include>**/org/alfresco/indexing/api/IndexStatusController.java</include>
+                            <include>**/org/alfresco/indexing/api/IndexStatusService.java</include>
+                            <include>**/org/alfresco/indexing/api/NodeIndexStatus.java</include>
+                            <include>**/org/alfresco/indexing/api/IndexStatusServiceTest.java</include>
                             <include>**/org/alfresco/indexing/config/RepairReportEndpoint.java</include>
                             <include>**/org/alfresco/indexing/config/RepositoryClientConfig.java</include>
                             <include>**/org/alfresco/indexing/config/SolrJConfig.java</include>
