@@ -71,10 +71,10 @@ def parse_size(value):
     units = {"B": 1e-6, "KIB": 1e-3, "MIB": 1.0, "GIB": 1024.0,
              "KB": 1e-3, "MB": 1.0, "GB": 1024.0}
     text = value.strip().upper()
-    for unit, factor in units.items():
+    for unit in sorted(units, key=len, reverse=True):
         if text.endswith(unit):
             try:
-                return round(float(text[:-len(unit)]) * factor, 1)
+                return round(float(text[:-len(unit)]) * units[unit], 1)
             except ValueError:
                 return None
     return None
