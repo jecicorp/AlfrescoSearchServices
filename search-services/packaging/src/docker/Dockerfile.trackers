@@ -19,9 +19,11 @@ RUN chown -R trackers:trackers /app /opt/solr/data
 
 USER trackers
 
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75"
+
 EXPOSE 8085
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget -q --spider http://localhost:8085/actuator/health || exit 1
 
-ENTRYPOINT ["java", "-jar", "/app/pristy-indexing-trackers.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/pristy-indexing-trackers.jar \"$@\"", "--"]

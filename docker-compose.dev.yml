@@ -110,7 +110,6 @@ services:
       dockerfile: ../../packaging/src/docker/Dockerfile.trackers
     mem_limit: 2g
     environment:
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
       ALFRESCO_TRACKER_SOLR_URL: http://solr:8983/solr
       ALFRESCO_TRACKER_SOLR_COLLECTION: alfresco
       # L2 (tracker → Solr): secret channel — decoupled from the repo channel (Task 2.4)

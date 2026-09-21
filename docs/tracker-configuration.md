@@ -80,6 +80,33 @@ tracker wakes up*; it does not by itself guarantee a commit (see commit settings
 > the small values above are set explicitly by the trackers' configuration and
 > are what govern the e2e "wait for indexing" behaviour.
 
+### JVM memory
+
+The image sets `JAVA_OPTS=-XX:MaxRAMPercentage=75`, and the entrypoint passes it to the
+JVM. Without it the JVM applies its container default of **25%**, which measurably means
+512 MB of heap in a 2 GB container — regardless of how much memory the operator grants:
+
+```bash
+# in the image, before this was set
+docker run --rm -m 2g --entrypoint sh <image> -c 'java -XX:+PrintFlagsFinal -version | grep MaxHeapSize'
+#   size_t MaxHeapSize = 536870912   (512 MB of 2 GB)
+# with JAVA_OPTS
+#   size_t MaxHeapSize = 1610612736  (1.5 GB of 2 GB)
+```
+
+So the lever an operator has is the **container limit**; the JVM follows it. Sizing starts
+from `node-batch-size` × `metadata-parallelism` node metadata responses held at once, per
+tracked core, plus Solr's own client buffers.
+
+`JAVA_OPTS` replaces the percentage when set, so **add** options through
+`JAVA_TOOL_OPTIONS` instead (the JVM reads both): setting `JAVA_OPTS` to
+`-XX:+HeapDumpOnOutOfMemoryError` alone would silently take the heap back to 25%.
+
+The entrypoint is `sh -c "exec java $JAVA_OPTS -jar … \"$@\""`, so the JVM is still PID 1
+and still receives `SIGTERM`: `docker stop` completes in ~170 ms with the Spring and Quartz
+shutdown hooks run, rather than waiting out the 10 s timeout. Arguments passed to the
+container reach Spring Boot (`--server.port=…` and friends).
+
 ### Throughput & batching
 
 | Property | Default | Impact |
