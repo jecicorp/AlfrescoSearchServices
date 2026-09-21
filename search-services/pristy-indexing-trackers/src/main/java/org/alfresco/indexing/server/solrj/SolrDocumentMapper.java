@@ -524,13 +524,13 @@ public class SolrDocumentMapper
      * its own ({@value #PREFIX_ERROR} followed by the DBID), so it coexists with whatever
      * the index already holds for the node and must be deleted explicitly.
      */
-    public SolrInputDocument toErrorNodeDoc(Node node, Throwable exception)
+    public SolrInputDocument toErrorNodeDoc(long dbid, Long txnId, Throwable exception)
     {
         SolrInputDocument doc = new SolrInputDocument();
-        doc.setField(FIELD_SOLR4_ID, getErrorDocumentId(node.getId()));
+        doc.setField(FIELD_SOLR4_ID, getErrorDocumentId(dbid));
         doc.setField(FIELD_VERSION, 0);
-        doc.addField(FIELD_DBID, node.getId());
-        doc.setField(FIELD_INTXID, node.getTxnId());
+        doc.addField(FIELD_DBID, dbid);
+        doc.setField(FIELD_INTXID, txnId);
         doc.setField(FIELD_DOC_TYPE, DOC_TYPE_ERROR_NODE);
         doc.setField(FIELD_EXCEPTION_MESSAGE, String.valueOf(exception.getMessage()));
         doc.setField(FIELD_EXCEPTION_STACK, stackTraceOf(exception));

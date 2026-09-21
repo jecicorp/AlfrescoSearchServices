@@ -64,6 +64,7 @@ import org.alfresco.solr.client.Transaction;
 import org.alfresco.solr.tracker.TrackerStats;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.Before;
 import org.junit.Test;
@@ -650,16 +651,69 @@ public class SolrJIndexingServiceTest
     }
 
     @Test
-    public void indexNodes_shouldFallBackToSingleWritesWhenTheBatchWriteFails() throws Exception
+    public void indexNodes_shouldFallBackToSingleWritesWhenSolrRejectsTheBatch() throws Exception
     {
         when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
                 .thenReturn(Arrays.asList(metaDataOf(1L), metaDataOf(2L)));
-        doThrow(new SolrServerException("update rejected"))
-                .when(solrClient).add(eq(COLLECTION), anyList());
+        doThrow(rejected()).when(solrClient).add(eq(COLLECTION), anyList());
 
         serviceWithDeps.indexNodes(Arrays.asList(updatedNode(1L), updatedNode(2L)), true);
 
         verify(solrClient, times(2)).add(eq(COLLECTION), any(SolrInputDocument.class));
+    }
+
+    @Test
+    public void indexNodes_shouldNotSwallowAnUnavailableSolrOnTheBatchWrite() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Arrays.asList(metaDataOf(1L), metaDataOf(2L)));
+        doThrow(new SolrServerException("connection refused"))
+                .when(solrClient).add(eq(COLLECTION), anyList());
+
+        assertThrows(IOException.class,
+                () -> serviceWithDeps.indexNodes(Arrays.asList(updatedNode(1L), updatedNode(2L)), true));
+
+        verify(solrClient, never()).add(eq(COLLECTION), any(SolrInputDocument.class));
+    }
+
+    @Test
+    public void indexNodes_shouldRecordAnErrorNodeForTheDocumentSolrRefuses() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Arrays.asList(metaDataOf(1L), metaDataOf(2L)));
+        doThrow(rejected()).when(solrClient).add(eq(COLLECTION), anyList());
+        doThrow(rejected()).doReturn(null).doReturn(null)
+                .when(solrClient).add(eq(COLLECTION), any(SolrInputDocument.class));
+
+        serviceWithDeps.indexNodes(Arrays.asList(updatedNode(1L), updatedNode(2L)), true);
+
+        ArgumentCaptor<SolrInputDocument> captor = ArgumentCaptor.forClass(SolrInputDocument.class);
+        verify(solrClient, times(3)).add(eq(COLLECTION), captor.capture());
+        List<SolrInputDocument> errorDocs = captor.getAllValues().stream()
+                .filter(doc -> SolrDocumentMapper.DOC_TYPE_ERROR_NODE
+                        .equals(doc.getFieldValue(SolrDocumentMapper.FIELD_DOC_TYPE)))
+                .collect(java.util.stream.Collectors.toList());
+        assertEquals(1, errorDocs.size());
+        assertEquals("ERROR-1", errorDocs.get(0).getFieldValue(SolrDocumentMapper.FIELD_SOLR4_ID));
+    }
+
+    @Test
+    public void indexNodes_shouldNotSwallowAnUnavailableSolrOnASingleWrite() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Arrays.asList(metaDataOf(1L), metaDataOf(2L)));
+        doThrow(rejected()).when(solrClient).add(eq(COLLECTION), anyList());
+        doThrow(new SolrServerException("connection refused"))
+                .when(solrClient).add(eq(COLLECTION), any(SolrInputDocument.class));
+
+        assertThrows(IOException.class,
+                () -> serviceWithDeps.indexNodes(Arrays.asList(updatedNode(1L), updatedNode(2L)), true));
+    }
+
+    private static SolrException rejected()
+    {
+        return new SolrException(SolrException.ErrorCode.BAD_REQUEST,
+                "ERROR: [doc=1] unknown field 'nope'");
     }
 
     // =========================================================================
@@ -701,7 +755,7 @@ public class SolrJIndexingServiceTest
         SolrDocumentMapper failing = mock(SolrDocumentMapper.class);
         when(failing.toNodeDoc(any(Node.class), any(NodeMetaData.class)))
                 .thenThrow(new IllegalStateException("model not loaded"));
-        when(failing.toErrorNodeDoc(any(Node.class), any(Throwable.class)))
+        when(failing.toErrorNodeDoc(anyLong(), any(), any(Throwable.class)))
                 .thenCallRealMethod();
         SolrJIndexingService service = new SolrJIndexingService(solrClient, COLLECTION, failing,
                 repositoryClient, queryService, dictionaryService);

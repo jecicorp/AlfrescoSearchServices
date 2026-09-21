@@ -266,7 +266,17 @@ A failed node is recorded in one of two ways, and the **RepairTracker** reads bo
 | Trace | Written when | What the index holds |
 |-------|--------------|----------------------|
 | `HAS_INDEXING_ERROR:true` on the node document | the document was built and written, but a property could not be resolved | the node is indexed and searchable, minus that property |
-| an `ErrorNode` document (`id = ERROR-<dbid>`) | building or fetching the node threw — including a type the repository reports as unindexable (`… is not registered in DictionaryService`), which fails the batch metadata call and then the per-node retry | nothing of the node at all; the error document carries `EXCEPTIONMESSAGE` and `EXCEPTIONSTACK` |
+| an `ErrorNode` document (`id = ERROR-<dbid>`) | building or fetching the node threw — including a type the repository reports as unindexable (`… is not registered in DictionaryService`), which fails the batch metadata call and then the per-node retry — or Solr answered `400`, refusing the document itself | nothing of the node at all; the error document carries `EXCEPTIONMESSAGE` and `EXCEPTIONSTACK` |
+
+**An unreachable Solr is not an error node.** The two are decided apart on the write path:
+a `400` means Solr will never accept this document, so retrying is pointless and the node
+is recorded as an error node rather than stalling the core; anything else — a refused
+connection, a timeout, a `5xx` — reaches the tracker, whose `onFail` raises the rollback
+flag that `CommitTracker` turns into `infoSrv.rollback()`, and `continueState()` then
+leaves the transaction cursor where it was. That is what makes the nodes get written on a
+later cycle instead of leaving a permanent hole: before, every write failure was a `WARN`
+and the cursor moved on regardless, so a few seconds of Solr downtime lost those nodes for
+good, with nothing in `REPORT` to show it.
 
 Inspect both with:
 

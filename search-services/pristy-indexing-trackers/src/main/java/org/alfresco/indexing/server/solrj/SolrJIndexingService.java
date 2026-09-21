@@ -27,6 +27,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,6 +60,7 @@ import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.solr.client.Transaction;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,6 +84,9 @@ public class SolrJIndexingService
 
     /** Document type for state documents (cap, tracker state, etc.). */
     static final String DOC_TYPE_STATE = "State";
+
+    /** Status Solr answers with for a document it will never accept. */
+    private static final int SOLR_REJECTED_DOCUMENT = 400;
 
     /** Maximum content size to read from the repository (10 MB). */
     private static final long DEFAULT_CONTENT_STREAM_LIMIT = 10L * 1024 * 1024;
@@ -342,15 +348,20 @@ public class SolrJIndexingService
      * Records that indexing the node threw, so the failure surfaces in {@code REPORT} and in
      * the index status API instead of living in the logs alone.
      */
-    private void recordIndexingError(Node node, Exception cause)
+    private void recordIndexingError(long dbId, Long txnId, Exception cause) throws IOException
     {
         try
         {
-            addDocument(documentMapper.toErrorNodeDoc(node, cause));
+            addDocument(documentMapper.toErrorNodeDoc(dbId, txnId, cause));
         }
         catch (Exception e)
         {
-            LOGGER.warn("Could not record the indexing error of node {}: {}", node.getId(), e.getMessage(), e);
+            if (isSolrUnavailable(e))
+            {
+                throw new IOException("Could not record the indexing error of node " + dbId
+                        + ", Solr is unavailable", e);
+            }
+            LOGGER.warn("Could not record the indexing error of node {}: {}", dbId, e.getMessage(), e);
         }
     }
 
@@ -525,7 +536,7 @@ public class SolrJIndexingService
             {
                 LOGGER.warn("Failed to index node {} — recorded as an error node: {}",
                         node.getId(), e.getMessage(), e);
-                recordIndexingError(node, e);
+                recordIndexingError(node.getId(), node.getTxnId(), e);
             }
         }
 
@@ -555,7 +566,12 @@ public class SolrJIndexingService
         }
         catch (Exception e)
         {
-            LOGGER.warn("Batch write of {} node documents failed, falling back to one write per document: {}",
+            if (isSolrUnavailable(e))
+            {
+                throw new IOException(
+                        "Batch write of " + docs.size() + " node documents failed, Solr is unavailable", e);
+            }
+            LOGGER.warn("Solr rejected a batch of {} node documents, isolating the offending ones: {}",
                     docs.size(), e.getMessage(), e);
         }
 
@@ -567,13 +583,56 @@ public class SolrJIndexingService
             }
             catch (Exception e)
             {
-                LOGGER.warn("Failed to write node document {} — skipping: {}",
-                        doc.getFieldValue(SolrDocumentMapper.FIELD_DBID), e.getMessage(), e);
+                if (isSolrUnavailable(e))
+                {
+                    throw new IOException("Writing node document " + dbidOf(doc)
+                            + " failed, Solr is unavailable", e);
+                }
+                LOGGER.warn("Solr rejected node document {} — recorded as an error node: {}",
+                        dbidOf(doc), e.getMessage(), e);
+                recordIndexingError(dbidOf(doc), longFieldOf(doc, SolrDocumentMapper.FIELD_INTXID), e);
             }
         }
     }
 
-    private void indexNodesIndividually(Collection<Node> nodes, boolean overwrite)
+    /**
+     * Tells an unreachable or failing Solr from a document Solr refuses. The first must reach
+     * the caller: {@code NodeIndexWorker.onFail} then sets the tracker's rollback flag, which
+     * is what keeps the transaction cursor from moving past nodes that were never written. The
+     * second, and any failure to build a document, is final — retrying changes nothing, so the
+     * node is recorded as an error node instead of stalling the core.
+     */
+    private static boolean isSolrUnavailable(Throwable failure)
+    {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause())
+        {
+            if (cause instanceof SolrException solrException)
+            {
+                return solrException.code() != SOLR_REJECTED_DOCUMENT;
+            }
+            if (cause instanceof SolrServerException
+                    || cause instanceof ConnectException
+                    || cause instanceof SocketTimeoutException)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static long dbidOf(SolrInputDocument doc)
+    {
+        Long dbid = longFieldOf(doc, SolrDocumentMapper.FIELD_DBID);
+        return dbid != null ? dbid : -1L;
+    }
+
+    private static Long longFieldOf(SolrInputDocument doc, String field)
+    {
+        Object value = doc.getFieldValue(field);
+        return value instanceof Number number ? number.longValue() : null;
+    }
+
+    private void indexNodesIndividually(Collection<Node> nodes, boolean overwrite) throws IOException
     {
         for (Node node : nodes)
         {
@@ -583,9 +642,14 @@ public class SolrJIndexingService
             }
             catch (Exception e)
             {
+                if (isSolrUnavailable(e))
+                {
+                    throw new IOException("Indexing node " + node.getId()
+                            + " failed, Solr is unavailable", e);
+                }
                 LOGGER.warn("Failed to index node {} — recorded as an error node: {}",
                         node.getId(), e.getMessage(), e);
-                recordIndexingError(node, e);
+                recordIndexingError(node.getId(), node.getTxnId(), e);
             }
         }
     }
