@@ -93,7 +93,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 </main>
 <script>
 (function () {
-  var api = new URLSearchParams(location.search).get('api') || location.origin;
+  var api = new URLSearchParams(location.search).get('api')
+    || new URL('.', location.href).href;
   api = api.replace(/\/+$/, '');
   document.getElementById('src').textContent = api + '/api/v1/progress/stream';
 

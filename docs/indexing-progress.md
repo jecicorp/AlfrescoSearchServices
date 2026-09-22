@@ -176,11 +176,17 @@ alfresco:
 ## The demo page
 
 `http://trackers:8085/indexing.html` — one file, no dependency, no CDN, read-only. It reads
-`/api/v1/progress/stream` on its own origin, or on another one passed as `?api=`:
+the stream relative to **its own directory**, not to the origin, so it also works when a
+proxy serves it under a path: at `https://host/indexing/indexing.html` it calls
+`https://host/indexing/api/v1/progress/stream`, which the proxy strips back. Another base
+can be forced with `?api=`:
 
 ```
 http://trackers:8085/indexing.html?api=https://search.example.org:8085
 ```
+
+Behind a proxy the whole service must be reachable under that one prefix — the page, the
+snapshot and the stream — since the page derives all three from where it was loaded.
 
 Below each core's table it plots the indexing speed, one line per tracker on a single axis
 — all of them are units per second, so they share a scale and a dip common to several lines
