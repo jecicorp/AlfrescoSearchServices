@@ -77,6 +77,7 @@ for CORE_NAME in $CORE_LIST; do
         # Create core.properties so Solr auto-discovers the core on startup
         cat > "${SOLR_HOME}/${CORE_NAME}/core.properties" <<EOF
 name=${CORE_NAME}
+template=${TEMPLATE}
 EOF
 
         echo "Core '${CORE_NAME}' created."
