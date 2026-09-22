@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Indexing progress</title>
+<style>
+:root {
+  --bg: #f6f7f9; --card: #fff; --ink: #1b1f24; --muted: #6b7280;
+  --line: #e3e6ea; --bar: #e9ecf1; --fill: #2f6feb; --idle: #9aa3af;
+  --ok: #1a7f37; --off: #b42318; --warn: #b45309;
+  --grid: #e3e6ea;
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a;
+  --series-4: #eda100; --series-5: #e87ba4; --series-6: #4a3aa7;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c; --card: #1b1f26; --ink: #e6e9ee; --muted: #9aa3af;
+    --line: #2a2f38; --bar: #262b33; --fill: #4c8dff; --idle: #5b6472;
+    --ok: #3fb950; --off: #f85149; --warn: #d29922;
+    --grid: #2a2f38;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+    --series-4: #c98500; --series-5: #d55181; --series-6: #9085e9;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px 16px; background: var(--bg); color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 900px; margin: 0 auto; }
+h1 { font-size: 20px; margin: 0 0 4px; font-weight: 600; }
+#status { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+#status.down { color: var(--off); }
+section {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px 18px; margin-bottom: 14px;
+}
+h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; }
+td { padding: 7px 0; vertical-align: middle; border-top: 1px solid var(--line); }
+tr:first-child td { border-top: 0; }
+.name { width: 90px; padding-right: 12px; font-weight: 500; white-space: nowrap; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; background: var(--ok); }
+.dot.off { background: var(--off); }
+td.bar { width: 45%; }
+.track { background: var(--bar); border-radius: 3px; height: 6px; overflow: hidden; width: 100%; }
+.track > i { display: block; height: 100%; background: var(--fill); transition: width .4s ease; }
+.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; padding-left: 14px; }
+.muted { color: var(--muted); }
+.trend { margin-left: 5px; }
+.trend.rising { color: var(--ok); }
+.trend.falling { color: var(--warn); }
+.eta { font-weight: 600; min-width: 74px; }
+.ranges { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.ranges button {
+  font: inherit; font-size: 12px; color: var(--muted); background: var(--card);
+  border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; cursor: pointer;
+}
+.ranges button:hover { color: var(--ink); }
+.ranges button[aria-pressed="true"] { color: var(--ink); border-color: var(--fill); }
+figure { margin: 16px 0 0; position: relative; }
+figcaption { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+svg { display: block; width: 100%; height: auto; }
+.grid { stroke: var(--grid); stroke-width: 1; }
+.spark { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.axis { fill: var(--muted); font-size: 10px; }
+.crosshair { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px;
+  color: var(--muted); font-size: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 2px; border-radius: 1px; }
+#tip { position: fixed; pointer-events: none; opacity: 0; transition: opacity .1s;
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+  padding: 7px 9px; font-size: 12px; white-space: nowrap; z-index: 10; }
+#tip b { font-weight: 600; }
+#tip div { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+#tip i { width: 10px; height: 2px; border-radius: 1px; }
+footer { color: var(--muted); font-size: 12px; margin-top: 18px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Indexing progress</h1>
+  <p id="status">Connecting…</p>
+  <div class="ranges" id="ranges" role="group" aria-label="Chart time range"></div>
+  <div id="cores"></div>
+  <div id="tip" role="status"></div>
+  <footer>
+    Read-only. Live stream from <code id="src"></code> — override with <code>?api=https://host:8085</code>.
+  </footer>
+</main>
+<script>
+(function () {
+  var api = new URLSearchParams(location.search).get('api') || location.origin;
+  api = api.replace(/\/+$/, '');
+  document.getElementById('src').textContent = api + '/api/v1/progress/stream';
+
+  var statusEl = document.getElementById('status');
+  var coresEl = document.getElementById('cores');
+  var rangesEl = document.getElementById('ranges');
+  var tip = document.getElementById('tip');
+
+  var RANGES = [
+    { label: '10 min', seconds: 600 },
+    { label: '30 min', seconds: 1800 },
+    { label: '1 h', seconds: 3600 },
+    { label: '3 h', seconds: 10800 },
+    { label: '6 h', seconds: 21600 },
+    { label: '12 h', seconds: 43200 },
+    { label: '1 d', seconds: 86400 },
+    { label: '3 d', seconds: 259200 },
+    { label: '6 d', seconds: 518400 }
+  ];
+
+  var TIERS = [
+    { bucket: 10, keep: 400 },
+    { bucket: 60, keep: 1500 },
+    { bucket: 900, keep: 620 }
+  ];
+
+  var SERIES = ['metadata', 'acl', 'content', 'cascade', 'repair'];
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var GEOM = { w: 640, h: 132, top: 10, right: 6, bottom: 20, left: 40 };
+
+  var store = {};
+  var latestAt = 0;
+  var latest = null;
+  var range = restoreRange();
+
+  function restoreRange() {
+    try {
+      var saved = window.localStorage.getItem('indexing.range');
+      for (var i = 0; i < RANGES.length; i++) {
+        if (RANGES[i].label === saved) return RANGES[i];
+      }
+    } catch (e) { /* storage unavailable */ }
+    return RANGES[0];
+  }
+
+  function rememberRange() {
+    try { window.localStorage.setItem('indexing.range', range.label); } catch (e) { /* ignore */ }
+  }
+
+  function tierFor(seconds) {
+    if (seconds <= 3600) return 0;
+    return seconds <= 86400 ? 1 : 2;
+  }
+
+  function record(snapshot) {
+    var at = Date.parse(snapshot.generatedAt);
+    if (!at) return;
+    latestAt = at;
+    snapshot.cores.forEach(function (core) {
+      core.trackers.forEach(function (t) {
+        if (t.ratePerSec === null || t.ratePerSec === undefined) return;
+        var key = core.core + '/' + t.tracker;
+        var tiers = store[key] || (store[key] = TIERS.map(function () { return new Map(); }));
+        TIERS.forEach(function (tier, i) {
+          var bucket = Math.floor(at / (tier.bucket * 1000));
+          var cell = tiers[i].get(bucket);
+          if (cell) {
+            cell.sum += t.ratePerSec;
+            cell.count += 1;
+          } else {
+            tiers[i].set(bucket, { sum: t.ratePerSec, count: 1 });
+          }
+          var oldest = bucket - tier.keep;
+          for (;;) {
+            var first = tiers[i].keys().next();
+            if (first.done || first.value >= oldest) break;
+            tiers[i].delete(first.value);
+          }
+        });
+      });
+    });
+  }
+
+  function seriesFor(core, tracker) {
+    var tierIndex = tierFor(range.seconds);
+    var tier = TIERS[tierIndex];
+    var buckets = store[core + '/' + tracker];
+    if (!buckets || !buckets[tierIndex].size) return null;
+
+    var map = buckets[tierIndex];
+    var last = Math.floor(latestAt / (tier.bucket * 1000));
+    var count = Math.round(range.seconds / tier.bucket);
+    var values = [];
+    var any = false;
+    for (var b = last - count + 1; b <= last; b++) {
+      var cell = map.get(b);
+      values.push(cell ? cell.sum / cell.count : null);
+      if (cell) any = true;
+    }
+    return any ? { values: values, intervalSeconds: tier.bucket } : null;
+  }
+
+  function duration(s) {
+    if (s === null || s === undefined) return '—';
+    if (s >= 600) {
+      var m = Math.round(s / 60);
+      return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
+    }
+    if (s >= 120) {
+      var r = Math.round(s / 10) * 10;
+      return Math.floor(r / 60) + ' min ' + (r % 60) + ' s';
+    }
+    if (s < 60) return s + ' s';
+    return Math.floor(s / 60) + ' min ' + (s % 60) + ' s';
+  }
+
+  function ago(seconds) {
+    if (seconds === 0) return 'now';
+    if (seconds < 60) return '-' + seconds + ' s';
+    if (seconds < 86400) {
+      var m = Math.floor(seconds / 60);
+      if (m < 60) return '-' + m + ' min';
+      var h = Math.floor(m / 60);
+      var restMin = m % 60;
+      return '-' + h + ' h' + (restMin ? ' ' + restMin + ' min' : '');
+    }
+    var d = Math.floor(seconds / 86400);
+    var restH = Math.floor((seconds % 86400) / 3600);
+    return '-' + d + ' d' + (restH ? ' ' + restH + ' h' : '');
+  }
+
+  function count(n) {
+    return n === null || n === undefined ? '—' : n.toLocaleString();
+  }
+
+  function rate(r) {
+    if (r === null || r === undefined) return '—';
+    return (r >= 10 ? Math.round(r) : r.toFixed(1)) + '/s';
+  }
+
+  function axisValue(v) {
+    if (v === 0) return '0';
+    return v >= 10 ? String(Math.round(v)) : v.toFixed(1);
+  }
+
+  function fraction(t) {
+    if (t.remaining === null || t.remaining === undefined) return null;
+    if (t.peakRemaining) return 1 - t.remaining / t.peakRemaining;
+    return t.remaining === 0 ? 1 : 0;
+  }
+
+  function colourOf(tracker) {
+    var slot = SERIES.indexOf(tracker);
+    return 'var(--series-' + (slot < 0 ? 6 : slot + 1) + ')';
+  }
+
+  function niceMax(value) {
+    if (value <= 0) return 1;
+    var power = Math.pow(10, Math.floor(Math.log10(value)));
+    return Math.ceil(value / power) * power;
+  }
+
+  function svgNode(name, attrs) {
+    var node = document.createElementNS(SVG_NS, name);
+    Object.keys(attrs).forEach(function (key) { node.setAttribute(key, attrs[key]); });
+    return node;
+  }
+
+  function seriesPath(values, top) {
+    var span = GEOM.w - GEOM.left - GEOM.right;
+    var height = GEOM.h - GEOM.top - GEOM.bottom;
+    var step = values.length > 1 ? span / (values.length - 1) : 0;
+    var d = '';
+    var pen = 'M';
+    values.forEach(function (value, i) {
+      if (value === null) { pen = 'M'; return; }
+      var x = GEOM.left + i * step;
+      var y = GEOM.top + height * (1 - value / top);
+      d += pen + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
+      pen = 'L';
+    });
+    return d.trim();
+  }
+
+  function chartFor(core) {
+    var plotted = [];
+    core.trackers.forEach(function (t) {
+      var series = seriesFor(core.core, t.tracker);
+      if (series) plotted.push({ tracker: t.tracker, series: series });
+    });
+    if (!plotted.length) return null;
+
+    var length = plotted[0].series.values.length;
+    var peak = 0;
+    plotted.forEach(function (p) {
+      p.series.values.forEach(function (v) { if (v !== null) peak = Math.max(peak, v); });
+    });
+    var top = niceMax(peak);
+
+    var figure = document.createElement('figure');
+    var caption = document.createElement('figcaption');
+    caption.textContent = (plotted.length === 1 ? plotted[0].tracker + ' speed' : 'Indexing speed')
+      + ', units per second, last ' + range.label;
+    figure.appendChild(caption);
+
+    var svg = svgNode('svg', {
+      viewBox: '0 0 ' + GEOM.w + ' ' + GEOM.h,
+      role: 'img',
+      'aria-label': caption.textContent
+    });
+    var height = GEOM.h - GEOM.top - GEOM.bottom;
+    [0, 0.5, 1].forEach(function (at) {
+      var y = GEOM.top + height * at;
+      svg.appendChild(svgNode('line', {
+        class: 'grid', x1: GEOM.left, x2: GEOM.w - GEOM.right, y1: y, y2: y
+      }));
+      var label = svgNode('text', {
+        class: 'axis', x: GEOM.left - 6, y: y + 3, 'text-anchor': 'end'
+      });
+      label.textContent = axisValue(top * (1 - at));
+      svg.appendChild(label);
+    });
+
+    var since = svgNode('text', { class: 'axis', x: GEOM.left, y: GEOM.h - 6 });
+    since.textContent = '-' + range.label;
+    svg.appendChild(since);
+    var now = svgNode('text', {
+      class: 'axis', x: GEOM.w - GEOM.right, y: GEOM.h - 6, 'text-anchor': 'end'
+    });
+    now.textContent = 'now';
+    svg.appendChild(now);
+
+    plotted.forEach(function (p) {
+      svg.appendChild(svgNode('path', {
+        class: 'spark',
+        stroke: colourOf(p.tracker),
+        d: seriesPath(p.series.values, top)
+      }));
+    });
+
+    var crosshair = svgNode('line', {
+      class: 'crosshair', y1: GEOM.top, y2: GEOM.top + height, x1: 0, x2: 0, opacity: 0
+    });
+    svg.appendChild(crosshair);
+    figure.appendChild(svg);
+
+    if (plotted.length > 1) {
+      var legend = document.createElement('div');
+      legend.className = 'legend';
+      plotted.forEach(function (p) {
+        var entry = document.createElement('span');
+        var swatch = document.createElement('i');
+        swatch.style.background = colourOf(p.tracker);
+        entry.appendChild(swatch);
+        entry.appendChild(document.createTextNode(p.tracker));
+        legend.appendChild(entry);
+      });
+      figure.appendChild(legend);
+    }
+
+    hover(svg, crosshair, plotted, length);
+    return figure;
+  }
+
+  function hover(svg, crosshair, plotted, length) {
+    svg.addEventListener('mousemove', function (event) {
+      var box = svg.getBoundingClientRect();
+      var span = GEOM.w - GEOM.left - GEOM.right;
+      var step = span / (length - 1);
+      var x = (event.clientX - box.left) * (GEOM.w / box.width);
+      var index = Math.round((x - GEOM.left) / step);
+      if (index < 0 || index >= length) return;
+
+      crosshair.setAttribute('x1', GEOM.left + index * step);
+      crosshair.setAttribute('x2', GEOM.left + index * step);
+      crosshair.setAttribute('opacity', 1);
+
+      tip.textContent = '';
+      var when = document.createElement('b');
+      when.textContent = ago((length - 1 - index) * plotted[0].series.intervalSeconds);
+      tip.appendChild(when);
+      plotted.forEach(function (p) {
+        var line = document.createElement('div');
+        var swatch = document.createElement('i');
+        swatch.style.background = colourOf(p.tracker);
+        line.appendChild(swatch);
+        line.appendChild(document.createTextNode(
+          p.tracker + ' ' + rate(p.series.values[index])));
+        tip.appendChild(line);
+      });
+      tip.style.opacity = 1;
+      tip.style.left = Math.min(event.clientX + 14, window.innerWidth - tip.offsetWidth - 8) + 'px';
+      tip.style.top = Math.min(event.clientY + 14, window.innerHeight - tip.offsetHeight - 8) + 'px';
+    });
+    svg.addEventListener('mouseleave', function () {
+      tip.style.opacity = 0;
+      crosshair.setAttribute('opacity', 0);
+    });
+  }
+
+  function render() {
+    if (!latest) return;
+    coresEl.textContent = '';
+    latest.cores.forEach(function (core) {
+      var section = document.createElement('section');
+      var title = document.createElement('h2');
+      title.textContent = core.core;
+      section.appendChild(title);
+
+      var table = document.createElement('table');
+      core.trackers.forEach(function (t) {
+        var row = table.insertRow();
+
+        var name = row.insertCell();
+        name.className = 'name';
+        var dot = document.createElement('span');
+        dot.className = t.active ? 'dot' : 'dot off';
+        name.appendChild(dot);
+        name.appendChild(document.createTextNode(t.tracker));
+
+        var barCell = row.insertCell();
+        var f = fraction(t);
+        barCell.className = 'bar';
+        if (f === null) {
+          barCell.className = 'bar muted';
+          barCell.textContent = 'not counted';
+        } else {
+          var track = document.createElement('div');
+          track.className = 'track';
+          var fill = document.createElement('i');
+          fill.style.width = (f * 100).toFixed(2) + '%';
+          track.appendChild(fill);
+          barCell.appendChild(track);
+        }
+
+        var left = row.insertCell();
+        left.className = 'num muted';
+        if (t.remaining !== null && t.remaining !== undefined) {
+          left.textContent = count(t.remaining) + ' left'
+            + (t.remainingNodes !== null && t.remainingNodes !== undefined
+              ? ' (~' + count(t.remainingNodes) + ' nodes)' : '');
+        }
+
+        var speed = row.insertCell();
+        speed.className = 'num muted';
+        speed.textContent = rate(t.ratePerSec);
+        if (t.trend === 'RISING' || t.trend === 'FALLING') {
+          var arrow = document.createElement('span');
+          arrow.className = 'trend ' + t.trend.toLowerCase();
+          arrow.textContent = t.trend === 'RISING' ? '▲' : '▼';
+          arrow.title = t.trend === 'RISING' ? 'speeding up' : 'slowing down';
+          speed.appendChild(arrow);
+        }
+
+        var eta = row.insertCell();
+        eta.className = 'num eta';
+        eta.textContent = duration(t.etaSeconds);
+      });
+      section.appendChild(table);
+
+      var figure = chartFor(core);
+      if (figure) section.appendChild(figure);
+
+      coresEl.appendChild(section);
+    });
+  }
+
+  RANGES.forEach(function (candidate) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = candidate.label;
+    button.setAttribute('aria-pressed', candidate === range ? 'true' : 'false');
+    button.addEventListener('click', function () {
+      range = candidate;
+      rememberRange();
+      Array.prototype.forEach.call(rangesEl.children, function (other) {
+        other.setAttribute('aria-pressed', other === button ? 'true' : 'false');
+      });
+      render();
+    });
+    rangesEl.appendChild(button);
+  });
+
+  var stream = new EventSource(api + '/api/v1/progress/stream');
+
+  stream.addEventListener('progress', function (event) {
+    latest = JSON.parse(event.data);
+    record(latest);
+    statusEl.className = '';
+    statusEl.textContent = 'Live — last update '
+      + new Date(latest.generatedAt).toLocaleTimeString();
+    render();
+  });
+
+  stream.onerror = function () {
+    statusEl.className = 'down';
+    statusEl.textContent = 'Disconnected — retrying…';
+  };
+})();
+</script>
+
+</body>
+</html>

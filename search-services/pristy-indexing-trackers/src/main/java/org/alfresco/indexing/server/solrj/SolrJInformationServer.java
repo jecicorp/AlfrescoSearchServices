@@ -399,6 +399,15 @@ public class SolrJInformationServer implements InformationServer
         return queryService.aclChangeSetInIndex(changeSetId, populateCache);
     }
 
+    /**
+     * @return how many transactions still carry the cascade flag
+     * @throws IOException when the count cannot be read from the index
+     */
+    public long getPendingCascadeCount() throws IOException
+    {
+        return queryService.getPendingCascadeCount();
+    }
+
     @Override
     public List<Transaction> getCascades(int num) throws IOException
     {

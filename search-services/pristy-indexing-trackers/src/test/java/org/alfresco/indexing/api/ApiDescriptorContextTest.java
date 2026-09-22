@@ -63,5 +63,7 @@ public class ApiDescriptorContextTest
                 descriptor.capabilities().containsKey("tracker.repair"));
         assertTrue(descriptor.capabilities().keySet().toString(),
                 descriptor.capabilities().containsKey("index.unindexed-nodes"));
+        assertTrue(descriptor.capabilities().keySet().toString(),
+                descriptor.capabilities().containsKey("index.progress"));
     }
 }

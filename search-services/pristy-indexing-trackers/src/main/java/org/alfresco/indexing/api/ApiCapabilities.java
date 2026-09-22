@@ -53,6 +53,12 @@ public class ApiCapabilities
     }
 
     @Bean
+    Capability indexProgressCapability(org.alfresco.indexing.progress.ProgressService progressService)
+    {
+        return Capability.of("index.progress", "1.0");
+    }
+
+    @Bean
     Capability repairCapability(RepairReportEndpoint repairReportEndpoint)
     {
         return Capability.of("tracker.repair", "1.0");

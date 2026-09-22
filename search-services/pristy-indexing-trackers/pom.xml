@@ -233,6 +233,7 @@
                             <exclude>**/org/alfresco/indexing/tracker/repair/RepairTrackerTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/tracker/repair/UnresolvedModelStrategy.java</exclude>
                             <exclude>**/org/alfresco/indexing/tracker/repair/UnresolvedModelStrategyTest.java</exclude>
+                            <exclude>**/org/alfresco/indexing/progress/*.java</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -318,6 +319,7 @@
                             <include>**/org/alfresco/indexing/tracker/repair/RepairTrackerTest.java</include>
                             <include>**/org/alfresco/indexing/tracker/repair/UnresolvedModelStrategy.java</include>
                             <include>**/org/alfresco/indexing/tracker/repair/UnresolvedModelStrategyTest.java</include>
+                            <include>**/org/alfresco/indexing/progress/*.java</include>
                             </includes>
                         </configuration>
                     </execution>

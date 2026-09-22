@@ -584,6 +584,24 @@ public class SolrJQueryService
     // -------------------------------------------------------------------------
 
     /**
+     * @return how many transactions still carry the cascade flag
+     * @throws IOException when the count cannot be read from the index
+     */
+    public long getPendingCascadeCount() throws IOException
+    {
+        try
+        {
+            SolrQuery query = luceneQuery(FIELD_CASCADE_FLAG + ":1");
+            query.setRows(0);
+            return solrClient.query(collection, query).getResults().getNumFound();
+        }
+        catch (SolrServerException e)
+        {
+            throw new IOException("Failed to count pending cascades", e);
+        }
+    }
+
+    /**
      * Returns up to {@code num} transactions that have cascade-flagged documents.
      * <p>Queries for documents with cascade flag = 1, sorted by TXID.</p>
      */

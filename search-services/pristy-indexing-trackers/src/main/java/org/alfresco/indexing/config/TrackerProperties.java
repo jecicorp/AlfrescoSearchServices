@@ -22,7 +22,9 @@
  */
 package org.alfresco.indexing.config;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -62,6 +64,7 @@ public class TrackerProperties
     private Map<String, CoreConfig> cores = new LinkedHashMap<>();
     private HealthConfig health = new HealthConfig();
     private BackupConfig backup = new BackupConfig();
+    private ProgressConfig progress = new ProgressConfig();
 
     public SolrConfig getSolr()
     {
@@ -191,6 +194,16 @@ public class TrackerProperties
     public void setHealth(HealthConfig health)
     {
         this.health = health;
+    }
+
+    public ProgressConfig getProgress()
+    {
+        return progress;
+    }
+
+    public void setProgress(ProgressConfig progress)
+    {
+        this.progress = progress;
     }
 
     public BackupConfig getBackup()
@@ -893,5 +906,25 @@ public class TrackerProperties
         public int getCascadeCommitInterval() { return cascadeCommitInterval; }
         public long getLag() { return lag; }
         public long getHoleRetention() { return holeRetention; }
+    }
+
+    /**
+     * Settings of the indexing progress endpoints and of their sampling.
+     */
+    public static class ProgressConfig
+    {
+        private long sampleIntervalMillis = 2000;
+        private long windowSeconds = 60;
+        private long streamTimeoutMillis = 0;
+        private List<String> corsAllowedOrigins = new ArrayList<>();
+
+        public long getSampleIntervalMillis() { return sampleIntervalMillis; }
+        public void setSampleIntervalMillis(long sampleIntervalMillis) { this.sampleIntervalMillis = sampleIntervalMillis; }
+        public long getWindowSeconds() { return windowSeconds; }
+        public void setWindowSeconds(long windowSeconds) { this.windowSeconds = windowSeconds; }
+        public long getStreamTimeoutMillis() { return streamTimeoutMillis; }
+        public void setStreamTimeoutMillis(long streamTimeoutMillis) { this.streamTimeoutMillis = streamTimeoutMillis; }
+        public List<String> getCorsAllowedOrigins() { return corsAllowedOrigins; }
+        public void setCorsAllowedOrigins(List<String> corsAllowedOrigins) { this.corsAllowedOrigins = corsAllowedOrigins; }
     }
 }
