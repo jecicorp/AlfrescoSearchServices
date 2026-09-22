@@ -26,6 +26,10 @@ fi
 IFS=','
 for CORE_NAME in $CORE_LIST; do
     if [ ! -d "${SOLR_HOME}/${CORE_NAME}/conf" ]; then
+        if [ ! -d "${SOLR_HOME}/templates/${TEMPLATE}/conf" ]; then
+            echo "ERROR: no template '${TEMPLATE}' in ${SOLR_HOME}/templates (available:$(for d in "${SOLR_HOME}"/templates/*/; do printf ' %s' "$(basename "$d")"; done))" >&2
+            exit 1
+        fi
         echo "Creating core '${CORE_NAME}' from template '${TEMPLATE}'..."
         mkdir -p "${SOLR_HOME}/${CORE_NAME}"
         cp -r "${SOLR_HOME}/templates/${TEMPLATE}/conf" "${SOLR_HOME}/${CORE_NAME}/conf"
