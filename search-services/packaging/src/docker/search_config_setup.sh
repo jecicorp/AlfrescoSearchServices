@@ -8,11 +8,8 @@ log_warn() {
 }
 
 RERANK_TEMPLATE_PATH=$PWD/solrhome/templates/rerank/conf
-NORERANK_TEMPLATE_PATH=$PWD/solrhome/templates/noRerank/conf
 SOLR_RERANK_CONFIG_FILE=$RERANK_TEMPLATE_PATH/solrconfig.xml
-SOLR_NORERANK_CONFIG_FILE=$NORERANK_TEMPLATE_PATH/solrconfig.xml
 SOLR_RERANK_CORE_FILE=$RERANK_TEMPLATE_PATH/solrcore.properties
-SOLR_NORERANK_CORE_FILE=$NORERANK_TEMPLATE_PATH/solrcore.properties
 SOLR_CONTEXT_FILE=$PWD/solr/server/contexts/solr-jetty-context.xml
 LOG_PROPERTIES=$PWD/logs/log4j.properties
 
@@ -41,8 +38,8 @@ if [[ $REPLICATION_TYPE == "master" ]]; then
 
    replaceStringMaster+="\t<\/lst>"
 
-   sed -i "s/$findStringMaster/$findStringMaster$replaceStringMaster/g" $SOLR_RERANK_CONFIG_FILE $SOLR_NORERANK_CONFIG_FILE
-   sed -i "s/enable.alfresco.tracking=true/enable.alfresco.tracking=true\nenable.master=true\nenable.slave=false/g" $SOLR_RERANK_CORE_FILE $SOLR_NORERANK_CORE_FILE
+   sed -i "s/$findStringMaster/$findStringMaster$replaceStringMaster/g" $SOLR_RERANK_CONFIG_FILE
+   sed -i "s/enable.alfresco.tracking=true/enable.alfresco.tracking=true\nenable.master=true\nenable.slave=false/g" $SOLR_RERANK_CORE_FILE
 fi
 
 if [[ $REPLICATION_TYPE == "slave" ]]; then
@@ -67,8 +64,8 @@ if [[ $REPLICATION_TYPE == "slave" ]]; then
       <lst name="slave">\
          <str name="masterUrl">'$REPLICATION_MASTER_PROTOCOL':\/\/'$REPLICATION_MASTER_HOST':'$REPLICATION_MASTER_PORT'\/solr\/${solr.core.name}<\/str>\
          <str name="pollInterval">'$REPLICATION_POLL_INTERVAL'<\/str>\
-      <\/lst>/g' $SOLR_RERANK_CONFIG_FILE $SOLR_NORERANK_CONFIG_FILE
-   sed -i "s/enable.alfresco.tracking=true/enable.alfresco.tracking=false\nenable.master=false\nenable.slave=true/g" $SOLR_RERANK_CORE_FILE $SOLR_NORERANK_CORE_FILE
+      <\/lst>/g' $SOLR_RERANK_CONFIG_FILE
+   sed -i "s/enable.alfresco.tracking=true/enable.alfresco.tracking=false\nenable.master=false\nenable.slave=true/g" $SOLR_RERANK_CORE_FILE
    sed -i 's/default="\/solr"/default="\/solr-slave"/g' $SOLR_CONTEXT_FILE
 fi
 
@@ -94,7 +91,7 @@ fi
 # the secret word should be defined as a JVM argument like so: JAVA_TOOL_OPTIONS="-Dalfresco.secureComms.secret=my-secret-value"
 case "$ALFRESCO_SECURE_COMMS" in
    secret)
-     sed -i "s/alfresco.secureComms=https/alfresco.secureComms=secret\n/" $SOLR_RERANK_CORE_FILE $SOLR_NORERANK_CORE_FILE
+     sed -i "s/alfresco.secureComms=https/alfresco.secureComms=secret\n/" $SOLR_RERANK_CORE_FILE
      if [[ -f ${PWD}/solrhome/alfresco/conf/solrcore.properties ]]; then
          sed -i "s/alfresco.secureComms=https/alfresco.secureComms=secret\n/" ${PWD}/solrhome/alfresco/conf/solrcore.properties
      fi
