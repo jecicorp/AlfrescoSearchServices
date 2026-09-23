@@ -8,6 +8,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Version numbers are plain, without a `v` prefix, matching the Git tags.
 
 
+## [1.1.0] - 2026-09-23
+
+### Features
+
+- *(trackers)* Add node index status API v1
+- *(bench)* Add the large-folder indexing benchmark
+- *(trackers)* Time transaction document writing in SUMMARY
+- *(trackers)* Make batch sizes and parallelism configurable per core
+- *(trackers)* Let the RepairTracker pick up error node documents
+- *(api)* Advertise the service version and its capabilities at /api/v1
+- *(bench)* Exercise the ACL and cascade trackers, and align their pools on 8
+- *(docker)* Add a healthcheck to the Solr image
+- *(trackers)* Stream live indexing progress and serve a standalone page
+- *(solr)* Add a rerankRecent core template that favours recent documents
+- *(solr)* Record the source template in core.properties
+
+### Bug Fixes
+
+- *(dev)* Add the missing front-end env-config files
+- *(deps)* Bump netty to 4.1.138.Final (CVE-2026-75595)
+- *(trackers)* Keep the transaction cursor advancing past indexed batches
+- *(trackers)* Restore the per-node indexing timings reported by SUMMARY
+- *(dev)* Give the trackers a real heap, and let the benchmark re-index alone
+- *(license)* Stamp the Pristy header on the index status API
+- *(bench)* Match the longest memory unit, not the first one
+- *(trackers)* Write the unindexed and error node documents again
+- *(api)* Stop interpolating the raw node reference into the Lucene query
+- *(api)* Answer 404 when the node reference resolves to nothing
+- *(trackers)* Stop swallowing an unavailable Solr on the write path
+- *(trackers)* Keep one source of tuning defaults, and apply the measured one
+- *(docker)* Give the trackers image a real heap, not just the dev stack
+- *(solr)* Answer JSON queries with application/json, not text/plain
+- *(progress)* Resolve the API relative to the page, not to the origin
+- *(packaging)* Ship the stock Solr 9.10 admin console
+
+### Documentation
+
+- *(bench)* Record what the large-folder benchmark actually found
+- *(bench)* Warn that run rank dominates most measured differences
+- *(bench)* Record that parallelism and batch size do not move throughput
+
+### Performance
+
+- *(trackers)* Fetch node metadata per batch instead of per node
+- *(trackers)* Write a batch of node documents in one Solr update
+
+### Testing
+
+- *(e2e)* Split the score assertion out of searchOnIndexedData
+
+
 ## [1.0.0] - 2026-09-04
 
 First release under the **Pristy Search Services** name. The project is a community
