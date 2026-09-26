@@ -686,7 +686,8 @@ public class AdminService
                 {
                     TrackerState aclState = aclTracker.getTrackerState();
                     Long toAclTx = aclState != null ? aclState.getLastIndexedChangeSetId() : null;
-                    IndexHealthReport aclReport = aclTracker.checkIndex(toAclTx, fromTime, toTime);
+                    IndexHealthReport aclReport = aclTracker.checkIndex(toAclTx, fromTime, toTime,
+                            ProgressListener.NONE, ProgressListener.NONE);
                     if (aclReport != null)
                     {
                         coreResult.put("DB acl transaction count", aclReport.getDbAclTransactionCount());

@@ -572,10 +572,10 @@ public class AclTracker extends ActivatableTracker
         trackerStats.addAclTime(time);
     }
 
-    public IndexHealthReport checkIndex(Long toAclTx, Long fromTime, Long toTime)
+    public IndexHealthReport checkIndex(Long toAclTx, Long fromTime, Long toTime,
+                ProgressListener databaseListener, ProgressListener indexListener)
                 throws AuthenticationException, IOException, JSONException
     {
-        // DB ACL TX Count
         long firstChangeSetCommitTimex = 0;
         AclChangeSets firstChangeSets = client.getAclChangeSets(null, 0L,
                 null, INITIAL_MAX_ACL_CHANGE_SET_ID, 1);
@@ -597,13 +597,13 @@ public class AclTracker extends ActivatableTracker
         long endTime = System.currentTimeMillis() + infoSrv.getHoleRetention();
         AclChangeSets aclTransactions;
         BoundedDeque<AclChangeSet> changeSetsFound = new  BoundedDeque<>(ACL_CHANGE_SETS_FOUND_QUEUE_SIZE);
+        databaseListener.onProgress(maxAclTxId, ProgressListener.target(toAclTx, maxAclTxId));
         DO: do
         {
             aclTransactions = getSomeAclChangeSets(changeSetsFound,
                     lastAclTxCommitTime, timeStep, maxNumberOfAclChangeSets, endTime);
             for (AclChangeSet set : aclTransactions.getAclChangeSets())
             {
-                // include
                 if (toTime != null)
                 {
                     if (set.getCommitTimeMs() > toTime)
@@ -619,7 +619,6 @@ public class AclTracker extends ActivatableTracker
                     }
                 }
 
-                // bounds for later loops
                 if (minAclTxId == null)
                 {
                     minAclTxId = set.getId();
@@ -633,10 +632,13 @@ public class AclTracker extends ActivatableTracker
                 aclTxIdsInDb.set(set.getId());
                 changeSetsFound.add(set);
             }
+            databaseListener.onProgress(maxAclTxId, ProgressListener.target(toAclTx, maxAclTxId));
         }
         while (!aclTransactions.getAclChangeSets().isEmpty());
 
-        return this.infoSrv.reportAclTransactionsInIndex(minAclTxId, aclTxIdsInDb, maxAclTxId, ProgressListener.NONE);
+        long databaseTarget = ProgressListener.target(toAclTx, maxAclTxId);
+        databaseListener.onProgress(databaseTarget, databaseTarget);
+        return this.infoSrv.reportAclTransactionsInIndex(minAclTxId, aclTxIdsInDb, maxAclTxId, indexListener);
     }
 
     public List<Long> getAclsForDbAclTransaction(Long acltxid)

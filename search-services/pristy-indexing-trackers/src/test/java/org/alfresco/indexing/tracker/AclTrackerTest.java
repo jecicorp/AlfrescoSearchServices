@@ -30,12 +30,25 @@ import static java.util.Collections.emptyList;
 import static org.alfresco.indexing.tracker.AclTracker.INITIAL_MAX_ACL_CHANGE_SET_ID;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.openMocks;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.alfresco.error.AlfrescoRuntimeException;
+import org.alfresco.indexing.diagnostic.ProgressListener;
 import org.alfresco.indexing.server.InformationServer;
+import org.alfresco.indexing.server.solrj.JavaBitSetAdapter;
 import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclChangeSets;
@@ -174,5 +187,24 @@ public class AclTrackerTest
 
         // Call the method under test.
         aclTracker.checkRepoAndIndexConsistency(trackerState);
+    }
+
+    @Test
+    public void checkIndexReportsTheDatabaseWalkAgainstTheLastIndexedChangeSet() throws Exception
+    {
+        AclTracker tracker = spy(aclTracker);
+        when(repositoryClient.getAclChangeSets(null, 0L, null, INITIAL_MAX_ACL_CHANGE_SET_ID, 1))
+                .thenReturn(new AclChangeSets(emptyList()));
+        when(solrInformationServer.getOpenBitSetInstance()).thenReturn(new JavaBitSetAdapter());
+        doReturn(new AclChangeSets(asList(new AclChangeSet(4, 400, 1), new AclChangeSet(6, 600, 1))))
+                .doReturn(new AclChangeSets(asList(new AclChangeSet(9, 900, 1), new AclChangeSet(11, 1100, 1))))
+                .when(tracker).getSomeAclChangeSets(any(), any(), anyLong(), anyInt(), anyLong());
+        List<List<Long>> database = new ArrayList<>();
+        ProgressListener index = (current, target) -> { };
+
+        tracker.checkIndex(9L, null, null, (current, target) -> database.add(List.of(current, target)), index);
+
+        assertEquals(List.of(List.of(0L, 9L), List.of(6L, 9L), List.of(9L, 9L)), database);
+        verify(solrInformationServer).reportAclTransactionsInIndex(eq(4L), any(), eq(9L), same(index));
     }
 }
