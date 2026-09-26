@@ -39,7 +39,10 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -60,6 +63,7 @@ public class DiagnosticJobService
     static final String KEY_REPORT = "report";
     static final String KEY_ERROR_NODES = "errorNodes";
     static final String KEY_PARTIAL_FAILURES = "partialFailures";
+    static final long DEFAULT_RESTORE_RETRY_DELAY_MILLIS = 30_000L;
 
     private final Supplier<List<String>> cores;
     private final CoreReporter reporter;
@@ -67,6 +71,8 @@ public class DiagnosticJobService
     private final DiagnosticStore store;
     private final Clock clock;
     private final Executor executor;
+    private final ScheduledExecutorService restoreScheduler;
+    private final long restoreRetryDelayMillis;
     private final List<Consumer<DiagnosticSnapshot>> listeners = new CopyOnWriteArrayList<>();
 
     private DiagnosticSnapshot snapshot = DiagnosticSnapshot.idle();
@@ -86,12 +92,35 @@ public class DiagnosticJobService
     public DiagnosticJobService(Supplier<List<String>> cores, CoreReporter reporter,
             Supplier<Map<String, Object>> repairReport, DiagnosticStore store, Clock clock, Executor executor)
     {
+        this(cores, reporter, repairReport, store, clock, executor, defaultRestoreScheduler(),
+                DEFAULT_RESTORE_RETRY_DELAY_MILLIS);
+    }
+
+    /**
+     * @param restoreScheduler        schedules the restore attempts, owned and shut down by this service
+     * @param restoreRetryDelayMillis delay before retrying a restore attempt that failed on a Solr outage
+     */
+    DiagnosticJobService(Supplier<List<String>> cores, CoreReporter reporter,
+            Supplier<Map<String, Object>> repairReport, DiagnosticStore store, Clock clock, Executor executor,
+            ScheduledExecutorService restoreScheduler, long restoreRetryDelayMillis)
+    {
         this.cores = cores;
         this.reporter = reporter;
         this.repairReport = repairReport;
         this.store = store;
         this.clock = clock;
         this.executor = executor;
+        this.restoreScheduler = restoreScheduler;
+        this.restoreRetryDelayMillis = restoreRetryDelayMillis;
+    }
+
+    private static ScheduledExecutorService defaultRestoreScheduler()
+    {
+        return Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "diagnostic-restore");
+            thread.setDaemon(true);
+            return thread;
+        });
     }
 
     /** @param listener called with every new snapshot, outside the service lock */
@@ -100,21 +129,17 @@ public class DiagnosticJobService
         listeners.add(listener);
     }
 
-    /** @return the current state of the job, with the last result, reading the stored one back first if needed */
-    public DiagnosticSnapshot snapshot()
+    /** @return the current state of the job, with the last result */
+    public synchronized DiagnosticSnapshot snapshot()
     {
-        restoreOnce();
-        synchronized (this)
-        {
-            return snapshot;
-        }
+        return snapshot;
     }
 
-    /** Reads the last stored result back once the application is ready. */
+    /** Submits the first restore attempt without blocking Spring's readiness. */
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady()
     {
-        restoreOnce();
+        restoreScheduler.execute(this::attemptRestore);
     }
 
     /**
@@ -125,7 +150,6 @@ public class DiagnosticJobService
      */
     public DiagnosticSnapshot start(String user)
     {
-        restoreOnce();
         DiagnosticSnapshot started;
         List<String> names;
         synchronized (this)
@@ -175,6 +199,7 @@ public class DiagnosticJobService
         {
             service.shutdownNow();
         }
+        restoreScheduler.shutdownNow();
     }
 
     private void run(DiagnosticSnapshot started, List<String> names)
@@ -298,24 +323,34 @@ public class DiagnosticJobService
         publish(updated);
     }
 
-    private void restoreOnce()
+    private void attemptRestore()
     {
         if (restored || !restoring.compareAndSet(false, true))
         {
             return;
         }
+        boolean succeeded = false;
         try
         {
             restore();
-            restored = true;
+            succeeded = true;
         }
-        catch (IOException | RuntimeException e)
+        catch (IOException e)
         {
-            LOGGER.warn("The last index diagnostic could not be read back yet: {}", e.getMessage());
+            LOGGER.warn("The last index diagnostic could not be read back, retrying in {} ms",
+                    restoreRetryDelayMillis, e);
         }
         finally
         {
             restoring.set(false);
+        }
+        if (succeeded)
+        {
+            restored = true;
+        }
+        else
+        {
+            restoreScheduler.schedule(this::attemptRestore, restoreRetryDelayMillis, TimeUnit.MILLISECONDS);
         }
     }
 
@@ -324,7 +359,16 @@ public class DiagnosticJobService
         Map<String, StoredDiagnostic> found = new LinkedHashMap<>();
         for (String core : cores.get())
         {
-            Optional<StoredDiagnostic> stored = store.load(core);
+            Optional<StoredDiagnostic> stored;
+            try
+            {
+                stored = store.load(core);
+            }
+            catch (RuntimeException e)
+            {
+                LOGGER.warn("Ignoring the stored index diagnostic of core {}", core, e);
+                continue;
+            }
             if (stored.isPresent())
             {
                 found.put(core, stored.get());
@@ -362,14 +406,23 @@ public class DiagnosticJobService
     private void applyRestored(String startedAt, String startedBy, String finishedAt, List<String> coreNames,
             Map<String, Object> restoredResult)
     {
+        DiagnosticSnapshot toPublish = null;
         synchronized (this)
         {
-            if (!DiagnosticSnapshot.IDLE.equals(snapshot.state()) || lastResult != null)
+            if (lastResult != null)
             {
                 return;
             }
             lastResult = restoredResult;
-            snapshot = DiagnosticSnapshot.done(startedAt, startedBy, finishedAt, coreNames, restoredResult);
+            if (DiagnosticSnapshot.IDLE.equals(snapshot.state()))
+            {
+                snapshot = DiagnosticSnapshot.done(startedAt, startedBy, finishedAt, coreNames, restoredResult);
+                toPublish = snapshot;
+            }
+        }
+        if (toPublish != null)
+        {
+            publish(toPublish);
         }
     }
 

@@ -46,12 +46,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -363,7 +367,7 @@ public class DiagnosticJobServiceTest
     {
         when(store.load("alfresco")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
         when(store.load("archive")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 3))));
-        DiagnosticJobService service = service(walkingEveryPhase(), Runnable::run);
+        DiagnosticJobService service = restorableService(walkingEveryPhase(), new ImmediateScheduledExecutor());
 
         service.onApplicationReady();
         DiagnosticSnapshot restored = service.snapshot();
@@ -386,8 +390,10 @@ public class DiagnosticJobServiceTest
         when(store.load("alfresco")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
         when(store.load("archive")).thenReturn(Optional.of(stored("2026-09-24T09:00:00Z", Map.of("DB transaction count", 3))));
         DiagnosticJobService service = new DiagnosticJobService(() -> List.of("alfresco", "archive", "added"),
-                walkingEveryPhase(), () -> Map.of(), store, clock, Runnable::run);
+                walkingEveryPhase(), () -> Map.of(), store, clock, Runnable::run, new ImmediateScheduledExecutor(),
+                DiagnosticJobService.DEFAULT_RESTORE_RETRY_DELAY_MILLIS);
 
+        service.onApplicationReady();
         DiagnosticSnapshot restored = service.snapshot();
 
         assertEquals(Set.of("alfresco"), restored.cores().keySet());
@@ -407,17 +413,37 @@ public class DiagnosticJobServiceTest
     }
 
     @Test
-    public void aReadThatFailsIsRetriedOnTheNextRequest() throws Exception
+    public void snapshotDoesNotWaitForARestoreInProgress() throws Exception
     {
-        when(store.load("alfresco"))
-                .thenThrow(new IOException("Solr is starting"))
-                .thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
-        DiagnosticJobService service = service(walkingEveryPhase(), Runnable::run);
+        CountDownLatch loadStarted = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        when(store.load("alfresco")).thenAnswer(invocation -> {
+            loadStarted.countDown();
+            await(release);
+            return Optional.empty();
+        });
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        executors.add(scheduler);
+        DiagnosticJobService service = restorableService(walkingEveryPhase(), scheduler);
+
+        service.onApplicationReady();
+        assertTrue(loadStarted.await(5, TimeUnit.SECONDS));
+
+        assertEquals("idle", service.snapshot().state());
+
+        release.countDown();
+    }
+
+    @Test
+    public void theRestoredSnapshotIsPublished() throws Exception
+    {
+        when(store.load("alfresco")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
+        DiagnosticJobService service = restorableService(walkingEveryPhase(), new ImmediateScheduledExecutor());
 
         service.onApplicationReady();
 
-        assertEquals("done", service.snapshot().state());
-        verify(store, times(2)).load("alfresco");
+        assertEquals(1, published.size());
+        assertEquals("done", published.get(0).state());
     }
 
     @Test
@@ -425,14 +451,159 @@ public class DiagnosticJobServiceTest
     {
         when(store.load("alfresco")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
         when(store.load("archive")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 3))));
-        DiagnosticJobService service = service(walkingEveryPhase(), Runnable::run);
+        DiagnosticJobService service = restorableService(walkingEveryPhase(), new ImmediateScheduledExecutor());
 
+        service.onApplicationReady();
         service.start("other");
 
-        DiagnosticSnapshot running = published.get(0);
+        assertEquals("done", published.get(0).state());
+        DiagnosticSnapshot running = published.get(1);
         assertEquals("running", running.state());
         assertEquals(Map.of("DB transaction count", 12),
                 ((Map<?, ?>) running.result().get("report")).get("alfresco"));
+    }
+
+    @Test
+    public void aRestoreLandingAfterStartKeepsRunningAndFillsLastResult() throws Exception
+    {
+        when(store.load("alfresco")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch failed = new CountDownLatch(1);
+        CoreReporter blocking = (core, listeners) -> {
+            await(release);
+            throw new IllegalStateException("stop after restore");
+        };
+        DiagnosticJobService service = new DiagnosticJobService(() -> List.of("alfresco", "archive"), blocking,
+                () -> Map.of(), store, clock, singleThread(), new ImmediateScheduledExecutor(),
+                DiagnosticJobService.DEFAULT_RESTORE_RETRY_DELAY_MILLIS);
+        service.addListener(snapshot -> {
+            published.add(snapshot);
+            if ("failed".equals(snapshot.state()))
+            {
+                failed.countDown();
+            }
+        });
+
+        DiagnosticSnapshot running = service.start("admin");
+        assertEquals("running", running.state());
+        assertNull(running.result());
+
+        service.onApplicationReady();
+        assertEquals("running", service.snapshot().state());
+
+        release.countDown();
+        assertTrue(failed.await(5, TimeUnit.SECONDS));
+
+        DiagnosticSnapshot failedSnapshot = service.snapshot();
+        assertEquals("failed", failedSnapshot.state());
+        assertEquals(Map.of("DB transaction count", 12),
+                ((Map<?, ?>) failedSnapshot.result().get("report")).get("alfresco"));
+    }
+
+    @Test
+    public void aCoreThatFailsToLoadIsSkippedAndOthersRestore() throws Exception
+    {
+        when(store.load("alfresco")).thenThrow(new RuntimeException("core not loaded"));
+        when(store.load("archive")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 3))));
+        DiagnosticJobService service = restorableService(walkingEveryPhase(), new ImmediateScheduledExecutor());
+
+        service.onApplicationReady();
+        DiagnosticSnapshot restored = service.snapshot();
+
+        assertEquals("done", restored.state());
+        assertEquals(Set.of("archive"), restored.cores().keySet());
+    }
+
+    @Test
+    public void aFailingAttemptIsRetriedByTheSchedulerAndEventuallyRestores() throws Exception
+    {
+        when(store.load("alfresco"))
+                .thenThrow(new IOException("Solr is starting"))
+                .thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
+        DiagnosticJobService service = restorableService(walkingEveryPhase(), new ImmediateScheduledExecutor());
+
+        service.onApplicationReady();
+
+        assertEquals("done", service.snapshot().state());
+        verify(store, times(2)).load("alfresco");
+    }
+
+    private DiagnosticJobService restorableService(CoreReporter reporter, ScheduledExecutorService scheduler)
+    {
+        DiagnosticJobService service = new DiagnosticJobService(() -> List.of("alfresco", "archive"), reporter,
+                () -> Map.of("totalErrorNodes", 0), store, clock, Runnable::run, scheduler,
+                DiagnosticJobService.DEFAULT_RESTORE_RETRY_DELAY_MILLIS);
+        service.addListener(published::add);
+        return service;
+    }
+
+    private static final class ImmediateScheduledExecutor extends AbstractExecutorService
+            implements ScheduledExecutorService
+    {
+        private boolean stopped;
+
+        @Override
+        public void execute(Runnable command)
+        {
+            command.run();
+        }
+
+        @Override
+        public void shutdown()
+        {
+            stopped = true;
+        }
+
+        @Override
+        public List<Runnable> shutdownNow()
+        {
+            stopped = true;
+            return List.of();
+        }
+
+        @Override
+        public boolean isShutdown()
+        {
+            return stopped;
+        }
+
+        @Override
+        public boolean isTerminated()
+        {
+            return stopped;
+        }
+
+        @Override
+        public boolean awaitTermination(long timeout, TimeUnit unit)
+        {
+            return true;
+        }
+
+        @Override
+        public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit)
+        {
+            command.run();
+            return null;
+        }
+
+        @Override
+        public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay, long delay,
+                TimeUnit unit)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static StoredDiagnostic stored(String finishedAt, Map<String, Object> section)
