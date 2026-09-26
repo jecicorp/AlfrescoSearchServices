@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -41,6 +42,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -271,6 +273,87 @@ public class DiagnosticJobServiceTest
 
         assertEquals(1, scheduled.size());
         assertEquals(startedBy.toString(), 1, startedBy.size());
+    }
+
+    @Test
+    public void cancellingMidPhaseStopsAtTheNextBatchAndKeepsTheStoredResult() throws Exception
+    {
+        AtomicBoolean blockNextRun = new AtomicBoolean(false);
+        AtomicInteger batchesAfterCancel = new AtomicInteger();
+        CountDownLatch inPhase = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch firstDone = new CountDownLatch(1);
+        CountDownLatch cancelled = new CountDownLatch(1);
+        CoreReporter reporter = (core, listeners) -> {
+            ProgressListener walk = listeners.apply(DiagnosticPhase.METADATA_DB);
+            walk.onProgress(1L, 10L);
+            if (blockNextRun.get())
+            {
+                inPhase.countDown();
+                await(release);
+                walk.onProgress(2L, 10L);
+                batchesAfterCancel.incrementAndGet();
+            }
+            return Map.of("DB transaction count", 10L);
+        };
+        DiagnosticJobService service = service(reporter, singleThread());
+        service.addListener(snapshot -> {
+            if ("done".equals(snapshot.state()))
+            {
+                firstDone.countDown();
+            }
+            if ("cancelled".equals(snapshot.state()))
+            {
+                cancelled.countDown();
+            }
+        });
+        service.start("admin");
+        assertTrue(firstDone.await(5, TimeUnit.SECONDS));
+        Map<String, Object> previous = service.snapshot().result();
+        blockNextRun.set(true);
+
+        service.start("other");
+        assertTrue(inPhase.await(5, TimeUnit.SECONDS));
+        Optional<DiagnosticSnapshot> cancelling = service.cancel();
+        release.countDown();
+        assertTrue(cancelled.await(5, TimeUnit.SECONDS));
+
+        assertTrue(cancelling.isPresent());
+        assertEquals("running", cancelling.get().state());
+        DiagnosticSnapshot stopped = service.snapshot();
+        assertEquals("cancelled", stopped.state());
+        assertNull(stopped.error());
+        assertEquals("2026-09-25T15:02:11Z", stopped.finishedAt());
+        assertSame(previous, stopped.result());
+        assertEquals("the batch after the cancellation does not run", 0, batchesAfterCancel.get());
+        verify(store, times(2)).save(anyString(), any(StoredDiagnostic.class));
+    }
+
+    @Test
+    public void cancelAnswersNothingWhenNoJobRuns()
+    {
+        DiagnosticJobService service = service(walkingEveryPhase(), Runnable::run);
+
+        assertTrue(service.cancel().isEmpty());
+        service.start("admin");
+        assertTrue(service.cancel().isEmpty());
+    }
+
+    @Test
+    public void aCancelledJobWritesNoDocument() throws Exception
+    {
+        DiagnosticJobService[] holder = new DiagnosticJobService[1];
+        CoreReporter reporter = (core, listeners) -> {
+            holder[0].cancel();
+            listeners.apply(DiagnosticPhase.METADATA_DB).onProgress(0L, 10L);
+            return Map.of();
+        };
+        holder[0] = service(reporter, Runnable::run);
+
+        holder[0].start("admin");
+
+        assertEquals("cancelled", holder[0].snapshot().state());
+        verify(store, never()).save(anyString(), any(StoredDiagnostic.class));
     }
 
     private DiagnosticJobService service(CoreReporter reporter, Executor executor)

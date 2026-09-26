@@ -32,6 +32,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -64,6 +66,7 @@ public class DiagnosticJobService
 
     private DiagnosticSnapshot snapshot = DiagnosticSnapshot.idle();
     private Map<String, Object> lastResult;
+    private volatile boolean cancelRequested;
 
     /**
      * @param cores        the cores to diagnose, in processing order
@@ -113,6 +116,7 @@ public class DiagnosticJobService
                 return snapshot;
             }
             names = List.copyOf(cores.get());
+            cancelRequested = false;
             snapshot = DiagnosticSnapshot.running(now(), normalise(user), names, lastResult);
             started = snapshot;
         }
@@ -129,9 +133,25 @@ public class DiagnosticJobService
         return started;
     }
 
+    /**
+     * Asks the running diagnostic to stop at its next batch; the stored result stays as it was.
+     *
+     * @return the job being cancelled, or nothing when no job runs
+     */
+    public synchronized Optional<DiagnosticSnapshot> cancel()
+    {
+        if (!DiagnosticSnapshot.RUNNING.equals(snapshot.state()))
+        {
+            return Optional.empty();
+        }
+        cancelRequested = true;
+        return Optional.of(snapshot);
+    }
+
     /** Stops the worker thread; a running job ends at its next batch. */
     public void shutdown()
     {
+        cancelRequested = true;
         if (executor instanceof ExecutorService service)
         {
             service.shutdownNow();
@@ -145,18 +165,25 @@ public class DiagnosticJobService
             Map<String, Map<String, Object>> report = new LinkedHashMap<>();
             for (int index = 0; index < names.size(); index++)
             {
+                checkCancelled();
                 String core = names.get(index);
                 int position = index;
                 report.put(core, reporter.report(core,
                         phase -> (current, target) -> progress(position, core, phase, current, target)));
                 coreDone(core);
             }
+            checkCancelled();
             repairStep();
             List<String> partialFailures = new ArrayList<>();
             Map<String, Object> errorNodes = errorNodes(partialFailures);
             String finishedAt = now();
             persist(started, finishedAt, report, errorNodes, partialFailures);
             succeed(finishedAt, result(report, errorNodes, partialFailures));
+        }
+        catch (CancellationException e)
+        {
+            LOGGER.info("The index diagnostic started by {} was cancelled", started.startedBy());
+            finish(DiagnosticSnapshot.CANCELLED, null);
         }
         catch (RuntimeException | Error e)
         {
@@ -175,6 +202,15 @@ public class DiagnosticJobService
             int step = position * DiagnosticPhase.values().length + phase.ordinal() + 1;
             return snap.withCore(core, new DiagnosticSnapshot.CoreProgress(phase.wireName(), current, target), step);
         });
+        checkCancelled();
+    }
+
+    private void checkCancelled()
+    {
+        if (cancelRequested)
+        {
+            throw new CancellationException("The index diagnostic was cancelled");
+        }
     }
 
     private void coreDone(String core)
