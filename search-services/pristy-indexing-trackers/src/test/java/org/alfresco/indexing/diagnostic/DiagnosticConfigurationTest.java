@@ -41,9 +41,20 @@ public class DiagnosticConfigurationTest
     private final TrackerProperties properties = new TrackerProperties();
 
     @Test
-    public void beforeTheTrackersStartTheConfiguredCoresAreDiagnosed()
+    public void beforeTheTrackersStartTheConfiguredCoresAreDiagnosedInNameOrder()
     {
-        properties.getSolr().setCollections(List.of("alfresco", "archive"));
+        properties.getSolr().setCollections(List.of("archive", "alfresco"));
+
+        assertEquals(List.of("alfresco", "archive"), DiagnosticConfiguration.coreNames(bootstrap, properties));
+    }
+
+    @Test
+    public void whileTheRegistryIsStillEmptyTheConfiguredCoresAreDiagnosedInNameOrder()
+    {
+        properties.getSolr().setCollections(List.of("archive", "alfresco"));
+        TrackerRegistry registry = mock(TrackerRegistry.class);
+        when(registry.getCoreNames()).thenReturn(Set.of());
+        when(bootstrap.getRegistry()).thenReturn(registry);
 
         assertEquals(List.of("alfresco", "archive"), DiagnosticConfiguration.coreNames(bootstrap, properties));
     }

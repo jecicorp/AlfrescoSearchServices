@@ -24,6 +24,7 @@
 package org.alfresco.indexing.diagnostic;
 
 import java.time.Clock;
+import java.util.Collection;
 import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.Executors;
@@ -85,17 +86,12 @@ public class DiagnosticConfiguration
         return created;
     }
 
-    /**
-     * @return the cores to diagnose, sorted by name: the registered ones once the trackers have started,
-     *         else the configured collections
-     */
     static List<String> coreNames(TrackerBootstrap bootstrap, TrackerProperties properties)
     {
         TrackerRegistry registry = bootstrap.getRegistry();
-        if (registry == null)
-        {
-            return List.copyOf(properties.getSolr().getCollections());
-        }
-        return List.copyOf(new TreeSet<>(registry.getCoreNames()));
+        Collection<String> names = registry == null || registry.getCoreNames().isEmpty()
+                ? properties.getSolr().getCollections()
+                : registry.getCoreNames();
+        return List.copyOf(new TreeSet<>(names));
     }
 }
