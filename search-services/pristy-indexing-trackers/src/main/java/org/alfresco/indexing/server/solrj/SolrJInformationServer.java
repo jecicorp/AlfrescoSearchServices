@@ -32,6 +32,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import org.alfresco.httpclient.AuthenticationException;
+import org.alfresco.indexing.diagnostic.ProgressListener;
 import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.indexing.tracker.DataModelCallback;
 import org.alfresco.indexing.tracker.TrackerRegistry;
@@ -574,9 +575,10 @@ public class SolrJInformationServer implements InformationServer
     }
 
     @Override
-    public IndexHealthReport reportIndexTransactions(Long minTxId, IOpenBitSet txIdsInDb, long maxTxId) throws IOException
+    public IndexHealthReport reportIndexTransactions(Long minTxId, IOpenBitSet txIdsInDb, long maxTxId,
+            ProgressListener listener) throws IOException
     {
-        return queryService.reportIndexTransactions(minTxId, txIdsInDb, maxTxId, this);
+        return queryService.reportIndexTransactions(minTxId, txIdsInDb, maxTxId, this, listener);
     }
 
     @Override
@@ -658,11 +660,12 @@ public class SolrJInformationServer implements InformationServer
     }
 
     @Override
-    public IndexHealthReport reportAclTransactionsInIndex(Long minAclTxId, IOpenBitSet aclTxIdsInDb, long maxAclTxId)
+    public IndexHealthReport reportAclTransactionsInIndex(Long minAclTxId, IOpenBitSet aclTxIdsInDb, long maxAclTxId,
+            ProgressListener listener)
     {
         try
         {
-            return queryService.reportAclTransactionsInIndex(minAclTxId, aclTxIdsInDb, maxAclTxId, this);
+            return queryService.reportAclTransactionsInIndex(minAclTxId, aclTxIdsInDb, maxAclTxId, this, listener);
         }
         catch (IOException e)
         {

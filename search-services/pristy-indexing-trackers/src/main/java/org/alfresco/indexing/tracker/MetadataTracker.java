@@ -31,6 +31,7 @@ import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.httpclient.AuthenticationException;
 import org.alfresco.solr.BoundedDeque;
 import org.alfresco.indexing.server.InformationServer;
+import org.alfresco.indexing.diagnostic.ProgressListener;
 import org.alfresco.solr.NodeReport;
 import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.adapters.IOpenBitSet;
@@ -1181,7 +1182,7 @@ public class MetadataTracker extends ActivatableTracker
         }
         while (!transactions.getTransactions().isEmpty());
 
-        return this.infoSrv.reportIndexTransactions(minTxId, txIdsInDb, maxTxId);
+        return this.infoSrv.reportIndexTransactions(minTxId, txIdsInDb, maxTxId, ProgressListener.NONE);
     }
 
     public void addTransactionToPurge(Long txId)

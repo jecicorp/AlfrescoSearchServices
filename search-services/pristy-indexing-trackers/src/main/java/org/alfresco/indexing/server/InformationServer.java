@@ -51,6 +51,7 @@ import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.tracker.IndexHealthReport;
 import org.alfresco.solr.tracker.TrackerStats;
 import org.alfresco.indexing.tracker.TrackerRegistry;
+import org.alfresco.indexing.diagnostic.ProgressListener;
 import org.json.JSONException;
 
 /**
@@ -164,7 +165,7 @@ public interface InformationServer extends InformationServerCollectionProvider
 
     AclReport checkAclInIndex(Long aclid, AclReport aclReport);
 
-    IndexHealthReport reportIndexTransactions(Long minTxId, IOpenBitSet txIdsInDb, long maxTxId) throws IOException;
+    IndexHealthReport reportIndexTransactions(Long minTxId, IOpenBitSet txIdsInDb, long maxTxId, ProgressListener listener) throws IOException;
 
     List<TenantDbId> getDocsWithUncleanContent() throws IOException;
 
@@ -190,7 +191,7 @@ public interface InformationServer extends InformationServerCollectionProvider
      */
     void addContentOutdatedAndUpdatedCounts(Map<String, Object> report);
 
-    IndexHealthReport reportAclTransactionsInIndex(Long minAclTxId, IOpenBitSet aclTxIdsInDb, long maxAclTxId);
+    IndexHealthReport reportAclTransactionsInIndex(Long minAclTxId, IOpenBitSet aclTxIdsInDb, long maxAclTxId, ProgressListener listener);
 
     int getAclTxDocsSize(String aclTxId, String aclTxCommitTime) throws IOException;
 

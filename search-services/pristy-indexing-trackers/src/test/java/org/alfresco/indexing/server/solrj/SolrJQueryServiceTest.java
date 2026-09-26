@@ -35,7 +35,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.alfresco.indexing.diagnostic.ProgressListener;
 import org.alfresco.solr.AclReport;
+import org.alfresco.solr.InformationServerCollectionProvider;
 import org.alfresco.solr.NodeReport;
 import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.client.AclChangeSet;
@@ -711,6 +713,50 @@ public class SolrJQueryServiceTest
                 q.contains("101") && q.contains("102"));
         assertFalse("query must not use the Tx-document cascade flag field, was: " + q,
                 q.contains(FIELD_CASCADE_FLAG));
+    }
+
+    // -------------------------------------------------------------------------
+    // reportIndexTransactions / reportAclTransactionsInIndex — progress
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void reportTransactionInfoCallsTheListenerOncePerBatchUpToTheTarget() throws Exception
+    {
+        List<long[]> calls = new ArrayList<>();
+        ProgressListener recorder = (current, target) -> calls.add(new long[] {current, target});
+        stubEmptyFacets();
+
+        queryService.reportIndexTransactions(1L, new JavaBitSetAdapter(), 10000L, bitSetProvider(), recorder);
+
+        assertEquals(List.of(1L, 4098L, 8195L, 10000L), calls.stream().map(call -> call[0]).toList());
+        assertTrue(calls.stream().allMatch(call -> call[1] == 10000L));
+    }
+
+    @Test
+    public void reportTransactionInfoReachesItsTargetWhenTheDatabaseHoldsNothing() throws Exception
+    {
+        List<long[]> calls = new ArrayList<>();
+        stubEmptyFacets();
+
+        queryService.reportAclTransactionsInIndex(null, new JavaBitSetAdapter(), 0L, bitSetProvider(),
+                (current, target) -> calls.add(new long[] {current, target}));
+
+        assertEquals(1, calls.size());
+        assertArrayEquals(new long[] {0L, 0L}, calls.get(0));
+    }
+
+    private void stubEmptyFacets() throws Exception
+    {
+        QueryResponse response = mock(QueryResponse.class);
+        when(response.getFacetField(anyString())).thenReturn(new FacetField(FIELD_TXID));
+        when(solrClient.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
+    }
+
+    private static InformationServerCollectionProvider bitSetProvider()
+    {
+        InformationServerCollectionProvider provider = mock(InformationServerCollectionProvider.class);
+        when(provider.getOpenBitSetInstance()).thenAnswer(invocation -> new JavaBitSetAdapter());
+        return provider;
     }
 
     // -------------------------------------------------------------------------

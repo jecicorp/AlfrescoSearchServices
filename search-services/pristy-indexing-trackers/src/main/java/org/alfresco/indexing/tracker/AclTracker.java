@@ -49,6 +49,7 @@ import org.alfresco.httpclient.AuthenticationException;
 import org.alfresco.solr.AclReport;
 import org.alfresco.solr.BoundedDeque;
 import org.alfresco.indexing.server.InformationServer;
+import org.alfresco.indexing.diagnostic.ProgressListener;
 import org.alfresco.solr.TrackerState;
 import org.alfresco.solr.adapters.IOpenBitSet;
 import org.alfresco.solr.client.Acl;
@@ -635,7 +636,7 @@ public class AclTracker extends ActivatableTracker
         }
         while (!aclTransactions.getAclChangeSets().isEmpty());
 
-        return this.infoSrv.reportAclTransactionsInIndex(minAclTxId, aclTxIdsInDb, maxAclTxId);
+        return this.infoSrv.reportAclTransactionsInIndex(minAclTxId, aclTxIdsInDb, maxAclTxId, ProgressListener.NONE);
     }
 
     public List<Long> getAclsForDbAclTransaction(Long acltxid)

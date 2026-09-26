@@ -54,6 +54,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.alfresco.indexing.diagnostic.ProgressListener;
 import org.alfresco.solr.AclReport;
 import org.alfresco.solr.InformationServerCollectionProvider;
 import org.alfresco.solr.NodeReport;
@@ -790,19 +791,18 @@ public class SolrJQueryService
 
     /**
      * Reports index transactions health by comparing transaction IDs in the index
-     * with those in the database.
+     * with those in the database, calling the listener once per facet batch.
      */
     public IndexHealthReport reportIndexTransactions(Long minTxId, IOpenBitSet txIdsInDb,
                                                       long maxTxId,
-                                                      InformationServerCollectionProvider collectionProvider)
+                                                      InformationServerCollectionProvider collectionProvider,
+                                                      ProgressListener listener)
             throws IOException
     {
         IndexHealthReport report = new IndexHealthReport(collectionProvider);
 
-        // Get document type counts via facets
         Map<String, Long> docTypeCounts = getDocTypeFacetCounts();
 
-        // TX report
         reportTransactionInfo(minTxId, maxTxId, txIdsInDb, FIELD_TXID,
                 new TransactionInfoCallbacks()
                 {
@@ -810,20 +810,17 @@ public class SolrJQueryService
                     public void idInDbButNotInIndex(long id) { report.setMissingTxFromIndex(id); }
                     public void duplicatedIdInIndex(long id) { report.setDuplicatedTxInIndex(id); }
                     public void uniqueIdsInIndex(long count) { report.setUniqueTransactionDocsInIndex(count); }
-                });
+                }, listener);
 
         report.setTransactionDocsInIndex(getSafeCount(docTypeCounts, DOC_TYPE_TX));
         report.setDbTransactionCount(txIdsInDb.cardinality());
 
-        // NODE duplicates
         setDuplicates(DOC_TYPE_NODE, report::setDuplicatedLeafInIndex);
         report.setLeafDocCountInIndex(getSafeCount(docTypeCounts, DOC_TYPE_NODE));
 
-        // ERROR duplicates
         setDuplicates(DOC_TYPE_ERROR_NODE, report::setDuplicatedErrorInIndex);
         report.setErrorDocCountInIndex(getSafeCount(docTypeCounts, DOC_TYPE_ERROR_NODE));
 
-        // UNINDEXED duplicates
         setDuplicates(SolrDocumentMapper.DOC_TYPE_UNINDEXED_NODE, report::setDuplicatedUnindexedInIndex);
         report.setUnindexedDocCountInIndex(getSafeCount(docTypeCounts, SolrDocumentMapper.DOC_TYPE_UNINDEXED_NODE));
 
@@ -832,11 +829,12 @@ public class SolrJQueryService
 
     /**
      * Reports ACL transaction health by comparing ACL changeset IDs in the index
-     * with those in the database.
+     * with those in the database, calling the listener once per facet batch.
      */
     public IndexHealthReport reportAclTransactionsInIndex(Long minAclTxId, IOpenBitSet aclTxIdsInDb,
                                                            long maxAclTxId,
-                                                           InformationServerCollectionProvider collectionProvider)
+                                                           InformationServerCollectionProvider collectionProvider,
+                                                           ProgressListener listener)
             throws IOException
     {
         IndexHealthReport report = new IndexHealthReport(collectionProvider);
@@ -850,7 +848,7 @@ public class SolrJQueryService
                     public void idInDbButNotInIndex(long id) { report.setMissingAclTxFromIndex(id); }
                     public void duplicatedIdInIndex(long id) { report.setDuplicatedAclTxInIndex(id); }
                     public void uniqueIdsInIndex(long count) { report.setUniqueAclTransactionDocsInIndex(count); }
-                });
+                }, listener);
 
         report.setAclTransactionDocsInIndex(getSafeCount(docTypeCounts, DOC_TYPE_ACL_TX));
         report.setDbAclTransactionCount(aclTxIdsInDb.cardinality());
@@ -1086,11 +1084,13 @@ public class SolrJQueryService
      * the index contents with the database IDs using faceted queries.
      */
     private void reportTransactionInfo(Long minId, long maxId, IOpenBitSet idsInDb,
-                                        String field, TransactionInfoCallbacks callbacks)
+                                        String field, TransactionInfoCallbacks callbacks,
+                                        ProgressListener listener)
             throws IOException
     {
         if (minId == null)
         {
+            listener.onProgress(maxId, maxId);
             return;
         }
 
@@ -1100,6 +1100,7 @@ public class SolrJQueryService
 
         while (batchStartId <= maxId)
         {
+            listener.onProgress(batchStartId, maxId);
             long iterationStart = batchStartId;
             String queryStr = field + ":[" + batchStartId + " TO " + batchEndId + "]";
             Map<String, Long> idCounts = getFacetCounts(queryStr, field, 1,
@@ -1140,7 +1141,6 @@ public class SolrJQueryService
                 }
             }
 
-            // Check remaining IDs in the batch range
             for (long id = iterationStart; id <= batchEndId; id++)
             {
                 if (idsInDb.get(id))
@@ -1153,6 +1153,7 @@ public class SolrJQueryService
             batchEndId = Math.min(batchStartId + BATCH_FACET_TXS, maxId);
         }
 
+        listener.onProgress(maxId, maxId);
         callbacks.uniqueIdsInIndex(idsInIndex.cardinality());
     }
 
