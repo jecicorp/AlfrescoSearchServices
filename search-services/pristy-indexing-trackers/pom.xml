@@ -176,6 +176,7 @@
                             <exclude>**/org/alfresco/indexing/TrackerApplicationTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/admin/AdminController.java</exclude>
                             <exclude>**/org/alfresco/indexing/admin/AdminService.java</exclude>
+                            <exclude>**/org/alfresco/indexing/admin/AdminServiceTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/backup/BackupService.java</exclude>
                             <exclude>**/org/alfresco/indexing/backup/BackupServiceTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/backup/BackupScheduler.java</exclude>
@@ -263,6 +264,7 @@
                             <include>**/org/alfresco/indexing/TrackerApplicationTest.java</include>
                             <include>**/org/alfresco/indexing/admin/AdminController.java</include>
                             <include>**/org/alfresco/indexing/admin/AdminService.java</include>
+                            <include>**/org/alfresco/indexing/admin/AdminServiceTest.java</include>
                             <include>**/org/alfresco/indexing/backup/BackupService.java</include>
                             <include>**/org/alfresco/indexing/backup/BackupServiceTest.java</include>
                             <include>**/org/alfresco/indexing/backup/BackupScheduler.java</include>

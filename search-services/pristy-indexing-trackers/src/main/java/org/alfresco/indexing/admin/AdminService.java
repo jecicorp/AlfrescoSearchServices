@@ -30,9 +30,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.function.Function;
 
 import org.alfresco.indexing.backup.BackupService;
 import org.alfresco.indexing.config.TrackerBootstrap;
+import org.alfresco.indexing.diagnostic.DiagnosticPhase;
 import org.alfresco.indexing.diagnostic.ProgressListener;
 import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.indexing.tracker.AclTracker;
@@ -650,65 +653,80 @@ public class AdminService
 
         for (String coreName : coresToProcess(registry, core))
         {
-            Map<String, Object> coreResult = new LinkedHashMap<>();
-
-            try
-            {
-                MetadataTracker metadataTracker = registry.getTrackerForCore(coreName, MetadataTracker.class);
-                AclTracker aclTracker = registry.getTrackerForCore(coreName, AclTracker.class);
-
-                if (metadataTracker != null)
-                {
-                    TrackerState txState = metadataTracker.getTrackerState();
-                    Long toTx = txState != null ? txState.getLastIndexedTxId() : null;
-                    IndexHealthReport txReport = metadataTracker.checkIndex(toTx, fromTime, toTime,
-                            ProgressListener.NONE, ProgressListener.NONE);
-                    if (txReport != null)
-                    {
-                        coreResult.put("DB transaction count", txReport.getDbTransactionCount());
-                        coreResult.put("Transaction docs in index", txReport.getTransactionDocsInIndex());
-                        coreResult.put("Unique transaction docs in index", txReport.getUniqueTransactionDocsInIndex());
-                        coreResult.put("Leaf doc count in index", txReport.getLeafDocCountInIndex());
-                        coreResult.put("Aux doc count in index", txReport.getAuxDocCountInIndex());
-                        coreResult.put("Error doc count in index", txReport.getErrorDocCountInIndex());
-                        coreResult.put("Unindexed doc count in index", txReport.getUnindexedDocCountInIndex());
-                        coreResult.put("Count of missing transactions from the Index", txReport.getMissingTxFromIndex().cardinality());
-                        coreResult.put("Count of duplicated transactions in the Index", txReport.getDuplicatedTxInIndex().cardinality());
-                        coreResult.put("Count of transactions in the index but not the DB", txReport.getTxInIndexButNotInDb().cardinality());
-                        coreResult.put("Count of duplicated leaf nodes in the Index", txReport.getDuplicatedLeafInIndex().cardinality());
-                        coreResult.put("Count of duplicated aux nodes in the Index", txReport.getDuplicatedAuxInIndex().cardinality());
-                        coreResult.put("Last indexed commit time", txReport.getLastIndexedCommitTime());
-                        coreResult.put("Last indexed id before holes", txReport.getLastIndexedIdBeforeHoles());
-                    }
-                }
-
-                if (aclTracker != null)
-                {
-                    TrackerState aclState = aclTracker.getTrackerState();
-                    Long toAclTx = aclState != null ? aclState.getLastIndexedChangeSetId() : null;
-                    IndexHealthReport aclReport = aclTracker.checkIndex(toAclTx, fromTime, toTime,
-                            ProgressListener.NONE, ProgressListener.NONE);
-                    if (aclReport != null)
-                    {
-                        coreResult.put("DB acl transaction count", aclReport.getDbAclTransactionCount());
-                        coreResult.put("Acl transaction docs in index", aclReport.getAclTransactionDocsInIndex());
-                        coreResult.put("Unique acl transaction docs in index", aclReport.getUniqueAclTransactionDocsInIndex());
-                        coreResult.put("Count of missing acl transactions from the Index", aclReport.getMissingAclTxFromIndex().cardinality());
-                        coreResult.put("Count of duplicated acl transactions in the Index", aclReport.getDuplicatedAclTxInIndex().cardinality());
-                        coreResult.put("Count of acl transactions in the index but not the DB", aclReport.getAclTxInIndexButNotInDb().cardinality());
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                LOGGER.error("Error building report for core {}", coreName, e);
-                coreResult.put("error", e.getMessage());
-            }
-
-            result.put(coreName, coreResult);
+            result.put(coreName, reportCore(coreName, fromTime, toTime, phase -> ProgressListener.NONE));
         }
 
         return result;
+    }
+
+    /**
+     * Builds the {@code REPORT} section of one core, feeding each phase's listener once per batch.
+     * A failure is recorded under {@code error}; only a cancellation raised by a listener propagates.
+     */
+    public Map<String, Object> reportCore(String coreName, Long fromTime, Long toTime,
+            Function<DiagnosticPhase, ProgressListener> listeners)
+    {
+        Map<String, Object> coreResult = new LinkedHashMap<>();
+
+        try
+        {
+            TrackerRegistry registry = trackerBootstrap.getRegistry();
+            MetadataTracker metadataTracker = registry.getTrackerForCore(coreName, MetadataTracker.class);
+            AclTracker aclTracker = registry.getTrackerForCore(coreName, AclTracker.class);
+
+            if (metadataTracker != null)
+            {
+                TrackerState txState = metadataTracker.getTrackerState();
+                Long toTx = txState != null ? txState.getLastIndexedTxId() : null;
+                IndexHealthReport txReport = metadataTracker.checkIndex(toTx, fromTime, toTime,
+                        listeners.apply(DiagnosticPhase.METADATA_DB), listeners.apply(DiagnosticPhase.METADATA_INDEX));
+                if (txReport != null)
+                {
+                    coreResult.put("DB transaction count", txReport.getDbTransactionCount());
+                    coreResult.put("Transaction docs in index", txReport.getTransactionDocsInIndex());
+                    coreResult.put("Unique transaction docs in index", txReport.getUniqueTransactionDocsInIndex());
+                    coreResult.put("Leaf doc count in index", txReport.getLeafDocCountInIndex());
+                    coreResult.put("Aux doc count in index", txReport.getAuxDocCountInIndex());
+                    coreResult.put("Error doc count in index", txReport.getErrorDocCountInIndex());
+                    coreResult.put("Unindexed doc count in index", txReport.getUnindexedDocCountInIndex());
+                    coreResult.put("Count of missing transactions from the Index", txReport.getMissingTxFromIndex().cardinality());
+                    coreResult.put("Count of duplicated transactions in the Index", txReport.getDuplicatedTxInIndex().cardinality());
+                    coreResult.put("Count of transactions in the index but not the DB", txReport.getTxInIndexButNotInDb().cardinality());
+                    coreResult.put("Count of duplicated leaf nodes in the Index", txReport.getDuplicatedLeafInIndex().cardinality());
+                    coreResult.put("Count of duplicated aux nodes in the Index", txReport.getDuplicatedAuxInIndex().cardinality());
+                    coreResult.put("Last indexed commit time", txReport.getLastIndexedCommitTime());
+                    coreResult.put("Last indexed id before holes", txReport.getLastIndexedIdBeforeHoles());
+                }
+            }
+
+            if (aclTracker != null)
+            {
+                TrackerState aclState = aclTracker.getTrackerState();
+                Long toAclTx = aclState != null ? aclState.getLastIndexedChangeSetId() : null;
+                IndexHealthReport aclReport = aclTracker.checkIndex(toAclTx, fromTime, toTime,
+                        listeners.apply(DiagnosticPhase.ACL_DB), listeners.apply(DiagnosticPhase.ACL_INDEX));
+                if (aclReport != null)
+                {
+                    coreResult.put("DB acl transaction count", aclReport.getDbAclTransactionCount());
+                    coreResult.put("Acl transaction docs in index", aclReport.getAclTransactionDocsInIndex());
+                    coreResult.put("Unique acl transaction docs in index", aclReport.getUniqueAclTransactionDocsInIndex());
+                    coreResult.put("Count of missing acl transactions from the Index", aclReport.getMissingAclTxFromIndex().cardinality());
+                    coreResult.put("Count of duplicated acl transactions in the Index", aclReport.getDuplicatedAclTxInIndex().cardinality());
+                    coreResult.put("Count of acl transactions in the index but not the DB", aclReport.getAclTxInIndexButNotInDb().cardinality());
+                }
+            }
+        }
+        catch (CancellationException e)
+        {
+            throw e;
+        }
+        catch (Exception e)
+        {
+            LOGGER.error("Error building report for core {}", coreName, e);
+            coreResult.put("error", e.getMessage());
+        }
+
+        return coreResult;
     }
 
     // ----------------------------------------------------------------
