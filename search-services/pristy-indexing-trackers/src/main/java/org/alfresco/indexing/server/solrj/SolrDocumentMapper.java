@@ -154,6 +154,9 @@ public class SolrDocumentMapper
     public static final String DOC_TYPE_NODE = "Node";
     public static final String DOC_TYPE_ERROR_NODE = "ErrorNode";
     public static final String DOC_TYPE_UNINDEXED_NODE = "UnindexedNode";
+    public static final String DOC_TYPE_DIAGNOSTIC = "Diagnostic";
+    public static final String DIAGNOSTIC_DOC_ID = "DIAGNOSTIC!LAST";
+    public static final String FIELD_DIAGNOSTIC = "text@s_stored___c__@diagnostic";
 
     public static final String PREFIX_ERROR = "ERROR-";
 
@@ -841,6 +844,19 @@ public class SolrDocumentMapper
         doc.setField(FIELD_DOC_TYPE, "State");
         doc.setField(FIELD_S_TXID, lastTxIdOnServer);
         doc.setField(FIELD_S_TXCOMMITTIME, lastTxCommitTimeOnServer);
+        return doc;
+    }
+
+    /**
+     * Creates the document holding the last index diagnostic of a core: id {@code DIAGNOSTIC!LAST},
+     * DOC_TYPE {@code Diagnostic}, the result as JSON in a stored-only field.
+     */
+    public static SolrInputDocument toDiagnosticDoc(String json)
+    {
+        SolrInputDocument doc = new SolrInputDocument();
+        doc.setField(FIELD_SOLR4_ID, DIAGNOSTIC_DOC_ID);
+        doc.setField(FIELD_DOC_TYPE, DOC_TYPE_DIAGNOSTIC);
+        doc.setField(FIELD_DIAGNOSTIC, json);
         return doc;
     }
 

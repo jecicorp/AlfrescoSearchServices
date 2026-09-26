@@ -25,6 +25,8 @@ package org.alfresco.indexing.server.solrj;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.*;
 import static org.junit.Assert.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -34,6 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.NodeRef;
@@ -825,5 +828,41 @@ public class SolrDocumentMapperTest
         Collection<Object> siteValues = doc.getFieldValues(FIELD_SITE);
         assertNotNull(siteValues);
         assertTrue("Site name should be ISO9075-decoded", siteValues.contains("my site"));
+    }
+
+    @Test
+    public void theDiagnosticDocumentCarriesNoFieldAReportCounts()
+    {
+        String json = "{\"finishedAt\":\"2026-09-25T15:02:11Z\"}";
+
+        SolrInputDocument doc = SolrDocumentMapper.toDiagnosticDoc(json);
+
+        assertEquals("DIAGNOSTIC!LAST", doc.getFieldValue(FIELD_SOLR4_ID));
+        assertEquals("Diagnostic", doc.getFieldValue(FIELD_DOC_TYPE));
+        assertEquals(json, doc.getFieldValue(FIELD_DIAGNOSTIC));
+        assertEquals(new HashSet<>(Arrays.asList(FIELD_SOLR4_ID, FIELD_DOC_TYPE, FIELD_DIAGNOSTIC)),
+                new HashSet<>(doc.getFieldNames()));
+    }
+
+    @Test
+    public void theDiagnosticFieldIsStoredOnlyInEveryShippedTemplate() throws Exception
+    {
+        Path templates = Path.of("..", "pristy-search", "src", "main", "resources", "solr", "instance", "templates");
+        List<Path> schemas;
+        try (Stream<Path> found = Files.walk(templates))
+        {
+            schemas = found.filter(path -> "schema.xml".equals(path.getFileName().toString())).toList();
+        }
+
+        assertFalse("no template schema found under " + templates.toAbsolutePath(), schemas.isEmpty());
+        for (Path schema : schemas)
+        {
+            String content = Files.readString(schema);
+            assertTrue(schema.toString(), content.contains("<fieldType name=\"localePrefixedField\" "
+                    + "class=\"org.alfresco.solr.schema.highlight.LanguagePrefixedTextField\" indexed=\"false\" stored=\"true\"/>"));
+            assertTrue(schema.toString(), content.contains(
+                    "<dynamicField name=\"text@s_stored___c__@*\" type=\"localePrefixedField\" stored=\"true\" />"));
+            assertFalse(schema.toString(), content.contains("copyField source=\"text@s_stored___c__@*\""));
+        }
     }
 }
