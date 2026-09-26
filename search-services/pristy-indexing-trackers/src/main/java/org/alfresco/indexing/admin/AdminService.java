@@ -33,6 +33,7 @@ import java.util.Set;
 
 import org.alfresco.indexing.backup.BackupService;
 import org.alfresco.indexing.config.TrackerBootstrap;
+import org.alfresco.indexing.diagnostic.ProgressListener;
 import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.indexing.tracker.AclTracker;
 import org.alfresco.indexing.tracker.ActivatableTracker;
@@ -660,7 +661,8 @@ public class AdminService
                 {
                     TrackerState txState = metadataTracker.getTrackerState();
                     Long toTx = txState != null ? txState.getLastIndexedTxId() : null;
-                    IndexHealthReport txReport = metadataTracker.checkIndex(toTx, fromTime, toTime);
+                    IndexHealthReport txReport = metadataTracker.checkIndex(toTx, fromTime, toTime,
+                            ProgressListener.NONE, ProgressListener.NONE);
                     if (txReport != null)
                     {
                         coreResult.put("DB transaction count", txReport.getDbTransactionCount());

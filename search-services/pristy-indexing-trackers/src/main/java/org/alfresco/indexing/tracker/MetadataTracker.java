@@ -1119,10 +1119,10 @@ public class MetadataTracker extends ActivatableTracker
         }
     }
 
-    public IndexHealthReport checkIndex(Long toTx, Long fromTime, Long toTime)
+    public IndexHealthReport checkIndex(Long toTx, Long fromTime, Long toTime,
+                ProgressListener databaseListener, ProgressListener indexListener)
                 throws IOException, AuthenticationException, JSONException, EncoderException, NoSuchMethodException
     {
-        // DB TX Count
         long firstTransactionCommitTime = 0;
         Transactions firstTransactions = client.getTransactions(null, minTxnIdRange.getFirst(),
                 null, minTxnIdRange.getSecond(), 1);
@@ -1144,12 +1144,12 @@ public class MetadataTracker extends ActivatableTracker
         Transactions transactions;
         BoundedDeque<Transaction> txnsFound = new BoundedDeque<>(METADATA_TRANSACTIONS_FOUND_QUEUE_SIZE);
         long endTime = System.currentTimeMillis() + infoSrv.getHoleRetention();
+        databaseListener.onProgress(maxTxId, ProgressListener.target(toTx, maxTxId));
         DO: do
         {
             transactions = getSomeTransactions(txnsFound, lastTxCommitTime, timeStep, maxNumberOfTransactions, endTime);
             for (Transaction info : transactions.getTransactions())
             {
-                // include
                 if (toTime != null)
                 {
                     if (info.getCommitTimeMs() > toTime)
@@ -1165,7 +1165,6 @@ public class MetadataTracker extends ActivatableTracker
                     }
                 }
 
-                // bounds for later loops
                 if (minTxId == null)
                 {
                     minTxId = info.getId();
@@ -1179,10 +1178,13 @@ public class MetadataTracker extends ActivatableTracker
                 txIdsInDb.set(info.getId());
                 txnsFound.add(info);
             }
+            databaseListener.onProgress(maxTxId, ProgressListener.target(toTx, maxTxId));
         }
         while (!transactions.getTransactions().isEmpty());
 
-        return this.infoSrv.reportIndexTransactions(minTxId, txIdsInDb, maxTxId, ProgressListener.NONE);
+        long databaseTarget = ProgressListener.target(toTx, maxTxId);
+        databaseListener.onProgress(databaseTarget, databaseTarget);
+        return this.infoSrv.reportIndexTransactions(minTxId, txIdsInDb, maxTxId, indexListener);
     }
 
     public void addTransactionToPurge(Long txId)

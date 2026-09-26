@@ -33,9 +33,12 @@ import java.util.List;
 import java.util.Properties;
 
 import org.alfresco.httpclient.AuthenticationException;
+import org.alfresco.indexing.diagnostic.ProgressListener;
 import org.alfresco.indexing.server.InformationServer;
+import org.alfresco.indexing.server.solrj.JavaBitSetAdapter;
 import org.alfresco.solr.NodeReport;
 import org.alfresco.solr.TrackerState;
+import org.alfresco.solr.adapters.IOpenBitSet;
 import org.alfresco.solr.client.GetNodesParameters;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.SOLRAPIClient;
@@ -48,6 +51,7 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -63,6 +67,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
@@ -467,5 +472,27 @@ public class MetadataTrackerTest
 
         verify(srv, never()).continueState(any());
         assertEquals(1L, state.getTrackerCycles());
+    }
+
+    @Test
+    public void checkIndexStopsAtTheBoundKnownWhenItStarted() throws Exception
+    {
+        when(repositoryClient.getTransactions(null, 0L, null, 2000L, 1))
+                .thenReturn(new Transactions(Collections.emptyList()));
+        when(srv.getOpenBitSetInstance()).thenReturn(new JavaBitSetAdapter());
+        doReturn(new Transactions(List.of(transaction(3L, 30L), transaction(5L, 50L))))
+                .doReturn(new Transactions(List.of(transaction(8L, 80L), transaction(12L, 120L))))
+                .when(metadataTracker).getSomeTransactions(any(), any(), anyLong(), anyInt(), anyLong());
+        List<List<Long>> database = new ArrayList<>();
+        ProgressListener index = (current, target) -> { };
+
+        metadataTracker.checkIndex(10L, null, null,
+                (current, target) -> database.add(List.of(current, target)), index);
+
+        assertEquals(List.of(List.of(0L, 10L), List.of(5L, 10L), List.of(10L, 10L)), database);
+        ArgumentCaptor<IOpenBitSet> walked = ArgumentCaptor.forClass(IOpenBitSet.class);
+        verify(srv).reportIndexTransactions(eq(3L), walked.capture(), eq(8L), same(index));
+        assertEquals("a transaction committed after the diagnostic started is not walked",
+                3L, walked.getValue().cardinality());
     }
 }
