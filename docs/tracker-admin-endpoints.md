@@ -79,6 +79,7 @@ never has to map a version number to a feature set:
   "capabilities": {
     "admin.actions":         { "since": "1.0", "enabled": true  },
     "admin.backup":          { "since": "1.0", "enabled": false },
+    "index.diagnostic":      { "since": "1.1.1", "enabled": true  },
     "index.status":          { "since": "1.1", "enabled": true  },
     "index.unindexed-nodes": { "since": "1.1", "enabled": true  },
     "tracker.repair":        { "since": "1.0", "enabled": true  }
@@ -196,6 +197,124 @@ A consumer reading `indexLeafDoc` therefore gets `null`, and one that coerces it
 to `0` concludes "absent from the index" for *every* node. `NODEREPORT` is left
 exactly as it is — changing it would break the compatibility it exists to
 provide — and callers wanting a usable answer should use `/api/v1/index/node`.
+
+## Index diagnostic job (`/api/v1/index/diagnostic`)
+
+`REPORT` compares every core with the repository database and can run for minutes on a
+large index. The diagnostic job runs the same comparison **once, server-side**, reports
+its progress while it runs and keeps its last result in the index: every client sees the
+same running job and the same last result, across a page reload or a restart of this
+service. Advertised by `GET /api/v1` as `index.diagnostic` (since `1.1.1`). `REPORT` and
+`/actuator/repairreport` are unchanged and still answer synchronously.
+
+| Method | Path | Answer |
+|---|---|---|
+| `POST` | `/api/v1/index/diagnostic?user=<id>` | `202` + snapshot. Starts a job, or joins the running one: a second `POST` never starts another. `user` is recorded as `startedBy`. |
+| `DELETE` | `/api/v1/index/diagnostic` | `202` + snapshot while a job runs; `409` + snapshot when nothing runs. |
+| `GET` | `/api/v1/index/diagnostic` | `200` + snapshot. |
+| `GET` | `/api/v1/index/diagnostic/stream` | SSE: one `state` event per change, the first one on connection. |
+
+```json
+{
+  "state": "running",
+  "startedAt": "2026-09-25T15:02:11Z",
+  "startedBy": "admin",
+  "finishedAt": null,
+  "step": 3,
+  "steps": 9,
+  "cores": {
+    "alfresco": { "phase": "acl.db", "current": 41200, "target": 98000 },
+    "archive":  { "phase": "pending", "current": null, "target": null }
+  },
+  "result": null,
+  "error": null
+}
+```
+
+- `state` is `idle` (never run, nothing stored — `cores` is then `{}` and `step`/`steps`
+  are `null`), `running`, `done`, `failed` or `cancelled`. `error` carries the reason of a
+  `failed` job.
+- Each core goes through four phases, in order: `metadata.db`, `metadata.index`, `acl.db`,
+  `acl.index`, then `done`; a core not reached yet is `pending`. The repair report follows
+  the last core. `steps` is `4 × cores + 1` and `step` the 1-based index of the current
+  one.
+- `current` / `target` measure the current phase only. In `*.db` phases, `current` is the
+  highest transaction (or ACL change set) id read from the database and `target` the last
+  indexed one, `lastIndexedTxId` / `lastIndexedChangeSetId`, read when the phase starts:
+  transactions committed while the diagnostic runs are outside the walk. A tracker that
+  has no state yet has no bound, and `target` then follows `current`. In `*.index` phases,
+  `current` is the first id of the facet batch being compared and `target` the highest id
+  the walk found. There is no overall percentage: `alfresco` dwarfs `archive`, so any
+  weighted figure would mislead.
+- `result` has the shape of pristy-core's `GET diagnostic` answer: `report` keyed by core
+  (the `REPORT` section of that core, with `error` when its report threw), `errorNodes`
+  (the `/actuator/repairreport` content) and `partialFailures` (`["errorNodes"]` when the
+  repair report could not be read). While a job runs, and after one fails or is cancelled,
+  `result` is the **previous** successful result.
+- Cores are the registered ones in name order, or the configured collections before the
+  trackers have started.
+
+### Cancelling
+
+`DELETE` raises a flag the job checks between two batches: it stops at the next batch,
+not instantly, and ends `cancelled`. A cancelled or failed job writes nothing, so the
+stored result stays the last successful one.
+
+### The stream
+
+While a job runs, the stream sends at most one `state` event per 500 ms, the latest one;
+any other state (`done`, `failed`, `cancelled`) is sent at once. A `:keepalive` comment
+goes out every 30 s so an idle proxy keeps the connection open, even when no job runs.
+The response carries `X-Accel-Buffering: no` and `Cache-Control: no-store`; configure an
+nginx location as for `/api/v1/progress/stream` (see `indexing-progress.md`).
+
+### Where the result is kept
+
+Each successful job writes one document per core, id `DIAGNOSTIC!LAST`, `DOC_TYPE:
+Diagnostic`, overwritten by the next success. It carries that core's `report` section,
+the repair report, `partialFailures`, `startedAt`, `startedBy` and `finishedAt`, as JSON in
+the stored-only dynamic field `text@s_stored___c__@diagnostic` (`localePrefixedField`,
+`indexed="false"`, no `copyField`). That field exists in every Alfresco-derived schema, so
+the document needs no schema change and works on cores created by older images, whose
+`solrhome` volume keeps its original schema.
+
+- The job never commits: the document becomes durable with the core's next tracker commit,
+  like the `TRACKER!STATE` document. A commit issued by the job would also commit a
+  tracker batch that `CommitTracker` may still roll back; the price is that a rollback
+  happening before that commit drops the document (the result stays in memory until the
+  next restart).
+- At startup the service reads the documents back through real-time get (`/get`), which
+  sees uncommitted documents too, and answers `done` with that result. When the cores hold
+  documents of different runs (a core added since, or one whose write failed), only the
+  run with the latest `finishedAt` is restored. A document this version cannot read is
+  skipped with a warning.
+
+### It moves no count
+
+The document has no `TXID`, `ACLTXID`, `DBID`, `INTXID` or cascade flag, and a
+`DOC_TYPE` no report reads: the `DOC_TYPE` facet of `SUMMARY`/`REPORT` looks counts up by
+key, `setDuplicates` filters on a node `DOC_TYPE`, and every query that does not filter on
+`DOC_TYPE` targets a field the document lacks. `DiagnosticDocumentNeutralityTest` runs the
+reports before and after storing it twice and requires identical figures. The one number
+it moves is Solr's own `STATUS` `numDocs`/`maxDoc`, by one per core, once — exactly as
+`TRACKER!STATE` does.
+
+### Configuration
+
+Under `alfresco.tracker.diagnostic`, defaults in `TrackerProperties.DiagnosticConfig`.
+
+| Key | Default | Effect |
+|---|---|---|
+| `min-event-interval-millis` | `500` | minimum interval between two running events on the stream |
+| `keepalive-millis` | `30000` | interval of the `:keepalive` comment |
+| `stream-timeout-millis` | `0` | SSE connection timeout; `0` means none |
+
+```bash
+curl -s -X POST "http://localhost:8085/api/v1/index/diagnostic?user=admin" | python3 -m json.tool
+curl -s "http://localhost:8085/api/v1/index/diagnostic" | python3 -m json.tool
+curl -N "http://localhost:8085/api/v1/index/diagnostic/stream"
+curl -s -X DELETE "http://localhost:8085/api/v1/index/diagnostic" | python3 -m json.tool
+```
 
 ## Maintenance (mutating, `POST`)
 

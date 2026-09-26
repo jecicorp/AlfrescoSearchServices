@@ -27,6 +27,7 @@ import org.alfresco.indexing.admin.AdminService;
 import org.alfresco.indexing.backup.BackupService;
 import org.alfresco.indexing.config.RepairReportEndpoint;
 import org.alfresco.indexing.config.TrackerProperties;
+import org.alfresco.indexing.diagnostic.DiagnosticJobService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -75,5 +76,11 @@ public class ApiCapabilities
     {
         return new Capability("index.unindexed-nodes", "1.1",
                 properties.isRecordUnindexedNodes());
+    }
+
+    @Bean
+    Capability indexDiagnosticCapability(DiagnosticJobService diagnosticJobService)
+    {
+        return Capability.of("index.diagnostic", "1.1.1");
     }
 }

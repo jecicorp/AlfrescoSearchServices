@@ -24,8 +24,10 @@
 package org.alfresco.indexing.api;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import org.alfresco.indexing.diagnostic.DiagnosticController;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +49,9 @@ public class ApiDescriptorContextTest
     @Autowired
     private ApiDescriptorController controller;
 
+    @Autowired
+    private DiagnosticController diagnosticController;
+
     @Test
     public void everyCapabilityBeanCanBeInstantiated()
     {
@@ -65,5 +70,9 @@ public class ApiDescriptorContextTest
                 descriptor.capabilities().containsKey("index.unindexed-nodes"));
         assertTrue(descriptor.capabilities().keySet().toString(),
                 descriptor.capabilities().containsKey("index.progress"));
+        assertTrue(descriptor.capabilities().keySet().toString(),
+                descriptor.capabilities().containsKey("index.diagnostic"));
+        assertEquals("1.1.1", descriptor.capabilities().get("index.diagnostic").since());
+        assertNotNull(diagnosticController);
     }
 }
