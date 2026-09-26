@@ -29,21 +29,26 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 
 /**
  * Runs the index diagnostic as one server-side job, at most one at a time, and keeps its last result.
@@ -67,6 +72,8 @@ public class DiagnosticJobService
     private DiagnosticSnapshot snapshot = DiagnosticSnapshot.idle();
     private Map<String, Object> lastResult;
     private volatile boolean cancelRequested;
+    private volatile boolean restored;
+    private final AtomicBoolean restoring = new AtomicBoolean(false);
 
     /**
      * @param cores        the cores to diagnose, in processing order
@@ -93,10 +100,21 @@ public class DiagnosticJobService
         listeners.add(listener);
     }
 
-    /** @return the current state of the job, with the last result */
-    public synchronized DiagnosticSnapshot snapshot()
+    /** @return the current state of the job, with the last result, reading the stored one back first if needed */
+    public DiagnosticSnapshot snapshot()
     {
-        return snapshot;
+        restoreOnce();
+        synchronized (this)
+        {
+            return snapshot;
+        }
+    }
+
+    /** Reads the last stored result back once the application is ready. */
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady()
+    {
+        restoreOnce();
     }
 
     /**
@@ -107,6 +125,7 @@ public class DiagnosticJobService
      */
     public DiagnosticSnapshot start(String user)
     {
+        restoreOnce();
         DiagnosticSnapshot started;
         List<String> names;
         synchronized (this)
@@ -277,6 +296,81 @@ public class DiagnosticJobService
             updated = snapshot;
         }
         publish(updated);
+    }
+
+    private void restoreOnce()
+    {
+        if (restored || !restoring.compareAndSet(false, true))
+        {
+            return;
+        }
+        try
+        {
+            restore();
+            restored = true;
+        }
+        catch (IOException | RuntimeException e)
+        {
+            LOGGER.warn("The last index diagnostic could not be read back yet: {}", e.getMessage());
+        }
+        finally
+        {
+            restoring.set(false);
+        }
+    }
+
+    private void restore() throws IOException
+    {
+        Map<String, StoredDiagnostic> found = new LinkedHashMap<>();
+        for (String core : cores.get())
+        {
+            Optional<StoredDiagnostic> stored = store.load(core);
+            if (stored.isPresent())
+            {
+                found.put(core, stored.get());
+            }
+        }
+        Optional<String> latest = found.values().stream()
+                .map(StoredDiagnostic::finishedAt)
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder());
+        if (latest.isEmpty())
+        {
+            return;
+        }
+        Map<String, Map<String, Object>> report = new LinkedHashMap<>();
+        StoredDiagnostic reference = null;
+        for (Map.Entry<String, StoredDiagnostic> entry : found.entrySet())
+        {
+            StoredDiagnostic diagnostic = entry.getValue();
+            if (latest.get().equals(diagnostic.finishedAt()))
+            {
+                report.put(entry.getKey(), diagnostic.report() != null ? diagnostic.report() : Map.of());
+                if (reference == null)
+                {
+                    reference = diagnostic;
+                }
+            }
+        }
+        Map<String, Object> restoredResult = result(report,
+                reference.errorNodes() != null ? reference.errorNodes() : Map.of(),
+                reference.partialFailures() != null ? reference.partialFailures() : List.of());
+        applyRestored(reference.startedAt(), reference.startedBy(), reference.finishedAt(),
+                List.copyOf(report.keySet()), restoredResult);
+    }
+
+    private void applyRestored(String startedAt, String startedBy, String finishedAt, List<String> coreNames,
+            Map<String, Object> restoredResult)
+    {
+        synchronized (this)
+        {
+            if (!DiagnosticSnapshot.IDLE.equals(snapshot.state()) || lastResult != null)
+            {
+                return;
+            }
+            lastResult = restoredResult;
+            snapshot = DiagnosticSnapshot.done(startedAt, startedBy, finishedAt, coreNames, restoredResult);
+        }
     }
 
     private void publish(DiagnosticSnapshot published)

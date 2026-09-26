@@ -34,7 +34,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -354,6 +356,89 @@ public class DiagnosticJobServiceTest
 
         assertEquals("cancelled", holder[0].snapshot().state());
         verify(store, never()).save(anyString(), any(StoredDiagnostic.class));
+    }
+
+    @Test
+    public void theStoredResultIsReadBackOnStartup() throws Exception
+    {
+        when(store.load("alfresco")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
+        when(store.load("archive")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 3))));
+        DiagnosticJobService service = service(walkingEveryPhase(), Runnable::run);
+
+        service.onApplicationReady();
+        DiagnosticSnapshot restored = service.snapshot();
+
+        assertEquals("done", restored.state());
+        assertEquals("admin", restored.startedBy());
+        assertEquals("2026-09-25T15:02:11Z", restored.startedAt());
+        assertEquals("2026-09-25T15:10:00Z", restored.finishedAt());
+        assertEquals(Integer.valueOf(9), restored.steps());
+        Map<?, ?> report = (Map<?, ?>) restored.result().get("report");
+        assertEquals(Map.of("DB transaction count", 12), report.get("alfresco"));
+        assertEquals(Map.of("DB transaction count", 3), report.get("archive"));
+        assertEquals(Map.of("totalErrorNodes", 0), restored.result().get("errorNodes"));
+        verify(store, times(1)).load("alfresco");
+    }
+
+    @Test
+    public void onlyTheLatestRunIsRestored() throws Exception
+    {
+        when(store.load("alfresco")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
+        when(store.load("archive")).thenReturn(Optional.of(stored("2026-09-24T09:00:00Z", Map.of("DB transaction count", 3))));
+        DiagnosticJobService service = new DiagnosticJobService(() -> List.of("alfresco", "archive", "added"),
+                walkingEveryPhase(), () -> Map.of(), store, clock, Runnable::run);
+
+        DiagnosticSnapshot restored = service.snapshot();
+
+        assertEquals(Set.of("alfresco"), restored.cores().keySet());
+        assertEquals(Set.of("alfresco"), ((Map<?, ?>) restored.result().get("report")).keySet());
+        assertEquals(Integer.valueOf(5), restored.steps());
+    }
+
+    @Test
+    public void nothingStoredStaysIdle()
+    {
+        DiagnosticJobService service = service(walkingEveryPhase(), Runnable::run);
+
+        service.onApplicationReady();
+
+        assertEquals("idle", service.snapshot().state());
+        assertNull(service.snapshot().result());
+    }
+
+    @Test
+    public void aReadThatFailsIsRetriedOnTheNextRequest() throws Exception
+    {
+        when(store.load("alfresco"))
+                .thenThrow(new IOException("Solr is starting"))
+                .thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
+        DiagnosticJobService service = service(walkingEveryPhase(), Runnable::run);
+
+        service.onApplicationReady();
+
+        assertEquals("done", service.snapshot().state());
+        verify(store, times(2)).load("alfresco");
+    }
+
+    @Test
+    public void whileAJobRunsTheStoredResultStaysVisible() throws Exception
+    {
+        when(store.load("alfresco")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
+        when(store.load("archive")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 3))));
+        DiagnosticJobService service = service(walkingEveryPhase(), Runnable::run);
+
+        service.start("other");
+
+        DiagnosticSnapshot running = published.get(0);
+        assertEquals("running", running.state());
+        assertEquals(Map.of("DB transaction count", 12),
+                ((Map<?, ?>) running.result().get("report")).get("alfresco"));
+    }
+
+    private static StoredDiagnostic stored(String finishedAt, Map<String, Object> section)
+    {
+        return new StoredDiagnostic("2026-09-25T15:02:11Z", "admin", finishedAt, section,
+                Map.of("totalErrorNodes", 0), List.of());
     }
 
     private DiagnosticJobService service(CoreReporter reporter, Executor executor)
