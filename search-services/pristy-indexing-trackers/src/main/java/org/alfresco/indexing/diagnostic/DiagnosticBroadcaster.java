@@ -25,32 +25,69 @@ package org.alfresco.indexing.diagnostic;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * Fans the diagnostic snapshots out to every open SSE connection. A publish is only a trigger: the
- * snapshot actually sent is always read from the supplier at send time, never the argument passed to
- * {@link #publish(DiagnosticSnapshot)}. A running snapshot is throttled to at most one per flush, any
- * other state is sent at once, and a keepalive comment runs on its own cadence.
+ * Fans the diagnostic snapshot out to every open SSE connection from its own sender thread. Each event
+ * carries the snapshot current at send time; running snapshots are throttled to the latest one per
+ * interval, any other state is sent at once, and a keepalive comment runs on its own cadence.
  */
 public class DiagnosticBroadcaster
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DiagnosticBroadcaster.class);
+
     static final String EVENT_NAME = "state";
     static final String KEEPALIVE = "keepalive";
+    static final String SENDER_THREAD = "diagnostic-stream";
 
     private final Supplier<DiagnosticSnapshot> current;
+    private final ScheduledExecutorService sender;
     private final List<SseEmitter> subscribers = new CopyOnWriteArrayList<>();
-    private boolean pending;
+    private final AtomicBoolean pending = new AtomicBoolean(false);
+    private final AtomicBoolean dispatchQueued = new AtomicBoolean(false);
 
-    public DiagnosticBroadcaster(Supplier<DiagnosticSnapshot> current)
+    /**
+     * @param current                the snapshot to send, read at send time
+     * @param minEventIntervalMillis minimum interval between two running events
+     * @param keepaliveMillis        interval of the keepalive comment
+     */
+    public DiagnosticBroadcaster(Supplier<DiagnosticSnapshot> current, long minEventIntervalMillis,
+            long keepaliveMillis)
+    {
+        this(current, defaultSender(), minEventIntervalMillis, keepaliveMillis);
+    }
+
+    DiagnosticBroadcaster(Supplier<DiagnosticSnapshot> current, ScheduledExecutorService sender,
+            long minEventIntervalMillis, long keepaliveMillis)
     {
         this.current = current;
+        this.sender = sender;
+        sender.scheduleWithFixedDelay(guarded(this::flush), minEventIntervalMillis, minEventIntervalMillis,
+                TimeUnit.MILLISECONDS);
+        sender.scheduleWithFixedDelay(guarded(this::keepalive), keepaliveMillis, keepaliveMillis,
+                TimeUnit.MILLISECONDS);
+    }
+
+    private static ScheduledExecutorService defaultSender()
+    {
+        return Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, SENDER_THREAD);
+            thread.setDaemon(true);
+            return thread;
+        });
     }
 
     /**
-     * Registers a connection and serves it the current snapshot at once.
+     * Registers a connection and serves it the current snapshot as its first event.
      *
      * @param emitter the connection to serve
      */
@@ -60,42 +97,40 @@ public class DiagnosticBroadcaster
         emitter.onCompletion(() -> subscribers.remove(emitter));
         emitter.onTimeout(() -> subscribers.remove(emitter));
         emitter.onError(error -> subscribers.remove(emitter));
-        synchronized (this)
+        submit(() -> send(emitter, current.get()));
+    }
+
+    /** Announces that the snapshot changed; returns at once, the event is sent by the sender thread. */
+    public void trigger()
+    {
+        pending.set(true);
+        if (dispatchQueued.compareAndSet(false, true))
         {
-            send(emitter, current.get());
+            submit(this::dispatch);
         }
     }
 
-    /**
-     * Triggers a broadcast of the supplier's current snapshot: queued for the next flush while it is
-     * running, sent at once for any other state.
-     *
-     * @param snapshot ignored; kept so a {@code DiagnosticJobService} listener can call it directly
-     */
-    public synchronized void publish(DiagnosticSnapshot snapshot)
+    /** Stops the sender thread. */
+    public void shutdown()
     {
-        DiagnosticSnapshot actual = current.get();
-        if (DiagnosticSnapshot.RUNNING.equals(actual.state()))
-        {
-            pending = true;
-            return;
-        }
-        pending = false;
-        broadcast(actual);
+        sender.shutdownNow();
     }
 
-    /** Sends the supplier's current snapshot when a running publish is still queued. */
-    public synchronized void flush()
+    /** @return how many connections are open */
+    public int subscriberCount()
     {
-        if (pending)
+        return subscribers.size();
+    }
+
+    void flush()
+    {
+        if (pending.getAndSet(false))
         {
-            pending = false;
             broadcast(current.get());
         }
     }
 
-    /** Sends a {@code :keepalive} comment so an idle proxy keeps every connection open. */
-    public synchronized void keepalive()
+    void keepalive()
     {
         for (SseEmitter emitter : subscribers)
         {
@@ -110,10 +145,42 @@ public class DiagnosticBroadcaster
         }
     }
 
-    /** @return how many connections are open */
-    public int subscriberCount()
+    private void dispatch()
     {
-        return subscribers.size();
+        dispatchQueued.set(false);
+        DiagnosticSnapshot actual = current.get();
+        if (DiagnosticSnapshot.RUNNING.equals(actual.state()))
+        {
+            return;
+        }
+        pending.set(false);
+        broadcast(actual);
+    }
+
+    private void submit(Runnable task)
+    {
+        try
+        {
+            sender.execute(guarded(task));
+        }
+        catch (RejectedExecutionException e)
+        {
+            LOGGER.debug("The diagnostic stream is shut down", e);
+        }
+    }
+
+    private static Runnable guarded(Runnable task)
+    {
+        return () -> {
+            try
+            {
+                task.run();
+            }
+            catch (RuntimeException e)
+            {
+                LOGGER.warn("A diagnostic stream task failed", e);
+            }
+        };
     }
 
     private void broadcast(DiagnosticSnapshot snapshot)

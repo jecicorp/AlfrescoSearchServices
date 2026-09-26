@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.alfresco.indexing.config.TrackerProperties;
+import org.junit.After;
 import org.junit.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -49,10 +50,16 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class DiagnosticControllerTest
 {
     private final DiagnosticJobService service = mock(DiagnosticJobService.class);
-    private final DiagnosticBroadcaster broadcaster = new DiagnosticBroadcaster(service::snapshot);
+    private final DiagnosticBroadcaster broadcaster = new DiagnosticBroadcaster(service::snapshot, 500L, 30000L);
     private final DiagnosticController controller =
             new DiagnosticController(service, broadcaster, new TrackerProperties());
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+    @After
+    public void stopBroadcaster()
+    {
+        broadcaster.shutdown();
+    }
 
     @Test
     public void postStartsOrJoinsAndAnswersAccepted() throws Exception

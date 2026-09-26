@@ -24,7 +24,6 @@
 package org.alfresco.indexing.diagnostic;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.Executors;
@@ -35,27 +34,22 @@ import org.alfresco.indexing.config.TrackerBootstrap;
 import org.alfresco.indexing.config.TrackerProperties;
 import org.alfresco.indexing.tracker.TrackerRegistry;
 import org.apache.solr.client.solrj.SolrClient;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.SchedulingConfigurer;
-import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Wires the index diagnostic job, its store and its stream, and schedules the stream's flush and keepalive.
+ * Wires the index diagnostic job, its store and its stream.
  */
 @Configuration
-public class DiagnosticConfiguration implements SchedulingConfigurer
+public class DiagnosticConfiguration
 {
     private final TrackerProperties properties;
-    private final ObjectProvider<DiagnosticBroadcaster> broadcaster;
 
-    public DiagnosticConfiguration(TrackerProperties properties, ObjectProvider<DiagnosticBroadcaster> broadcaster)
+    public DiagnosticConfiguration(TrackerProperties properties)
     {
         this.properties = properties;
-        this.broadcaster = broadcaster;
     }
 
     @Bean
@@ -81,22 +75,14 @@ public class DiagnosticConfiguration implements SchedulingConfigurer
                 }));
     }
 
-    @Bean
+    @Bean(destroyMethod = "shutdown")
     DiagnosticBroadcaster diagnosticBroadcaster(DiagnosticJobService service)
     {
-        DiagnosticBroadcaster created = new DiagnosticBroadcaster(service::snapshot);
-        service.addListener(created::publish);
-        return created;
-    }
-
-    @Override
-    public void configureTasks(ScheduledTaskRegistrar registrar)
-    {
         TrackerProperties.DiagnosticConfig config = properties.getDiagnostic();
-        registrar.addFixedDelayTask(() -> broadcaster.getObject().flush(),
-                Duration.ofMillis(config.getMinEventIntervalMillis()));
-        registrar.addFixedDelayTask(() -> broadcaster.getObject().keepalive(),
-                Duration.ofMillis(config.getKeepaliveMillis()));
+        DiagnosticBroadcaster created = new DiagnosticBroadcaster(service::snapshot,
+                config.getMinEventIntervalMillis(), config.getKeepaliveMillis());
+        service.addListener(snapshot -> created.trigger());
+        return created;
     }
 
     /**
