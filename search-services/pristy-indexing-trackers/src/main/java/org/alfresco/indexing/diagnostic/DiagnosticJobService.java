@@ -340,6 +340,11 @@ public class DiagnosticJobService
             LOGGER.warn("The last index diagnostic could not be read back, retrying in {} ms",
                     restoreRetryDelayMillis, e);
         }
+        catch (RuntimeException e)
+        {
+            LOGGER.error("Restoring the last index diagnostic failed, retrying in {} ms",
+                    restoreRetryDelayMillis, e);
+        }
         finally
         {
             restoring.set(false);
@@ -417,6 +422,11 @@ public class DiagnosticJobService
             if (DiagnosticSnapshot.IDLE.equals(snapshot.state()))
             {
                 snapshot = DiagnosticSnapshot.done(startedAt, startedBy, finishedAt, coreNames, restoredResult);
+                toPublish = snapshot;
+            }
+            else if (snapshot.result() == null)
+            {
+                snapshot = snapshot.withResult(restoredResult);
                 toPublish = snapshot;
             }
         }

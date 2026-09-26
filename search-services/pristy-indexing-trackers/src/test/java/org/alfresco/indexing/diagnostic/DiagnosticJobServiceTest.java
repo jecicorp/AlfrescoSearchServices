@@ -489,7 +489,11 @@ public class DiagnosticJobServiceTest
         assertNull(running.result());
 
         service.onApplicationReady();
-        assertEquals("running", service.snapshot().state());
+        DiagnosticSnapshot stillRunning = service.snapshot();
+        assertEquals("running", stillRunning.state());
+        assertEquals(Map.of("DB transaction count", 12),
+                ((Map<?, ?>) stillRunning.result().get("report")).get("alfresco"));
+        assertEquals(stillRunning, published.get(published.size() - 1));
 
         release.countDown();
         assertTrue(failed.await(5, TimeUnit.SECONDS));
@@ -498,6 +502,50 @@ public class DiagnosticJobServiceTest
         assertEquals("failed", failedSnapshot.state());
         assertEquals(Map.of("DB transaction count", 12),
                 ((Map<?, ?>) failedSnapshot.result().get("report")).get("alfresco"));
+    }
+
+    @Test
+    public void aRestoreLandingAfterAFailedJobFillsItsResult() throws Exception
+    {
+        when(store.load("alfresco")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
+        CoreReporter failing = (core, listeners) -> {
+            throw new IllegalStateException("the trackers are gone");
+        };
+        DiagnosticJobService service = restorableService(failing, new ImmediateScheduledExecutor());
+        service.start("admin");
+        assertEquals("failed", service.snapshot().state());
+        assertNull(service.snapshot().result());
+
+        service.onApplicationReady();
+
+        DiagnosticSnapshot failed = service.snapshot();
+        assertEquals("failed", failed.state());
+        assertEquals("the trackers are gone", failed.error());
+        assertEquals(Map.of("DB transaction count", 12),
+                ((Map<?, ?>) failed.result().get("report")).get("alfresco"));
+        assertEquals(failed, published.get(published.size() - 1));
+    }
+
+    @Test
+    public void anUnexpectedRestoreFailureIsRetried() throws Exception
+    {
+        when(store.load("alfresco")).thenReturn(Optional.of(stored("2026-09-25T15:10:00Z", Map.of("DB transaction count", 12))));
+        AtomicInteger calls = new AtomicInteger();
+        Supplier<List<String>> cores = () -> {
+            if (calls.incrementAndGet() == 1)
+            {
+                throw new IllegalStateException("registry not ready");
+            }
+            return List.of("alfresco");
+        };
+        DiagnosticJobService service = new DiagnosticJobService(cores, walkingEveryPhase(), () -> Map.of(), store,
+                clock, Runnable::run, new ImmediateScheduledExecutor(),
+                DiagnosticJobService.DEFAULT_RESTORE_RETRY_DELAY_MILLIS);
+
+        service.onApplicationReady();
+
+        assertEquals("done", service.snapshot().state());
+        assertEquals(2, calls.get());
     }
 
     @Test

@@ -126,6 +126,11 @@ public record DiagnosticSnapshot(String state, String startedAt, String startedB
         return new DiagnosticSnapshot(state, startedAt, startedBy, finishedAt, newStep, steps, cores, result, error);
     }
 
+    DiagnosticSnapshot withResult(Map<String, Object> newResult)
+    {
+        return new DiagnosticSnapshot(state, startedAt, startedBy, finishedAt, step, steps, cores, newResult, error);
+    }
+
     DiagnosticSnapshot ended(String newState, String endedAt, Map<String, Object> lastResult, String reason)
     {
         return new DiagnosticSnapshot(newState, startedAt, startedBy, endedAt, step, steps, cores, lastResult, reason);
