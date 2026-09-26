@@ -158,10 +158,14 @@ public class DiagnosticJobService
             persist(started, finishedAt, report, errorNodes, partialFailures);
             succeed(finishedAt, result(report, errorNodes, partialFailures));
         }
-        catch (RuntimeException e)
+        catch (RuntimeException | Error e)
         {
             LOGGER.error("The index diagnostic failed", e);
             finish(DiagnosticSnapshot.FAILED, e.getMessage() != null ? e.getMessage() : e.getClass().getName());
+            if (e instanceof Error error)
+            {
+                throw error;
+            }
         }
     }
 

@@ -166,6 +166,44 @@ public class DiagnosticJobServiceTest
     }
 
     @Test
+    public void anErrorFailsTheJobSoANewOneCanStart() throws Exception
+    {
+        AtomicBoolean failing = new AtomicBoolean(false);
+        CoreReporter reporter = (core, listeners) -> {
+            if (failing.get())
+            {
+                throw new AssertionError("boom");
+            }
+            return Map.of("DB transaction count", 10L);
+        };
+        Executor tolerant = task -> {
+            try
+            {
+                task.run();
+            }
+            catch (Error e)
+            {
+            }
+        };
+        DiagnosticJobService service = service(reporter, tolerant);
+        service.start("admin");
+        Map<String, Object> previous = service.snapshot().result();
+        failing.set(true);
+
+        service.start("other");
+
+        DiagnosticSnapshot failed = service.snapshot();
+        assertEquals("failed", failed.state());
+        assertEquals("boom", failed.error());
+        assertSame(previous, failed.result());
+
+        failing.set(false);
+        service.start("third");
+
+        assertEquals("done", service.snapshot().state());
+    }
+
+    @Test
     public void aBlankUserIsRecordedAsNobody()
     {
         DiagnosticJobService service = service(walkingEveryPhase(), Runnable::run);
