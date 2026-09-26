@@ -65,6 +65,7 @@ public class TrackerProperties
     private HealthConfig health = new HealthConfig();
     private BackupConfig backup = new BackupConfig();
     private ProgressConfig progress = new ProgressConfig();
+    private DiagnosticConfig diagnostic = new DiagnosticConfig();
 
     public SolrConfig getSolr()
     {
@@ -204,6 +205,16 @@ public class TrackerProperties
     public void setProgress(ProgressConfig progress)
     {
         this.progress = progress;
+    }
+
+    public DiagnosticConfig getDiagnostic()
+    {
+        return diagnostic;
+    }
+
+    public void setDiagnostic(DiagnosticConfig diagnostic)
+    {
+        this.diagnostic = diagnostic;
     }
 
     public BackupConfig getBackup()
@@ -926,5 +937,22 @@ public class TrackerProperties
         public void setStreamTimeoutMillis(long streamTimeoutMillis) { this.streamTimeoutMillis = streamTimeoutMillis; }
         public List<String> getCorsAllowedOrigins() { return corsAllowedOrigins; }
         public void setCorsAllowedOrigins(List<String> corsAllowedOrigins) { this.corsAllowedOrigins = corsAllowedOrigins; }
+    }
+
+    /**
+     * Settings of the index diagnostic job stream.
+     */
+    public static class DiagnosticConfig
+    {
+        private long keepaliveMillis = 30000;
+        private long minEventIntervalMillis = 500;
+        private long streamTimeoutMillis = 0;
+
+        public long getKeepaliveMillis() { return keepaliveMillis; }
+        public void setKeepaliveMillis(long keepaliveMillis) { this.keepaliveMillis = keepaliveMillis; }
+        public long getMinEventIntervalMillis() { return minEventIntervalMillis; }
+        public void setMinEventIntervalMillis(long minEventIntervalMillis) { this.minEventIntervalMillis = minEventIntervalMillis; }
+        public long getStreamTimeoutMillis() { return streamTimeoutMillis; }
+        public void setStreamTimeoutMillis(long streamTimeoutMillis) { this.streamTimeoutMillis = streamTimeoutMillis; }
     }
 }
