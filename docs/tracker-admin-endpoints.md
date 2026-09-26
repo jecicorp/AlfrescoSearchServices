@@ -74,7 +74,7 @@ never has to map a version number to a feature set:
 ```json
 {
   "service": "pristy-indexing-trackers",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "api": "1",
   "capabilities": {
     "admin.actions":         { "since": "1.0", "enabled": true  },
@@ -265,6 +265,10 @@ stored result stays the last successful one.
 While a job runs, the stream sends at most one `state` event per 500 ms, the latest one;
 any other state (`done`, `failed`, `cancelled`) is sent at once. A `:keepalive` comment
 goes out every 30 s so an idle proxy keeps the connection open, even when no job runs.
+Every event and keepalive is written by one dedicated thread, `diagnostic-stream`: the job
+only flags that its state changed and never waits on a client, so a stalled connection
+cannot slow the diagnostic down. It can still delay the events of the other connections
+until its write fails and the broadcaster drops it.
 The response carries `X-Accel-Buffering: no` and `Cache-Control: no-store`; configure an
 nginx location as for `/api/v1/progress/stream` (see `indexing-progress.md`).
 
