@@ -27,8 +27,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,6 +65,20 @@ public class DiagnosticStoreTest
         SolrInputDocument written = written("alfresco");
         assertEquals("DIAGNOSTIC!LAST", written.getFieldValue(SolrDocumentMapper.FIELD_SOLR4_ID));
         assertEquals("Diagnostic", written.getFieldValue(SolrDocumentMapper.FIELD_DOC_TYPE));
+    }
+
+    @Test
+    public void savingNeverCommits() throws Exception
+    {
+        store.save("alfresco", stored());
+
+        verify(solrClient, never()).commit();
+        verify(solrClient, never()).commit(anyBoolean(), anyBoolean());
+        verify(solrClient, never()).commit(anyBoolean(), anyBoolean(), anyBoolean());
+        verify(solrClient, never()).commit(anyString());
+        verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean());
+        verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
+        verify(solrClient, never()).add(anyString(), any(SolrInputDocument.class), anyInt());
     }
 
     @Test

@@ -184,6 +184,7 @@ public class DiagnosticJobServiceTest
             }
             return Map.of("DB transaction count", 10L);
         };
+        List<Error> rethrown = new CopyOnWriteArrayList<>();
         Executor tolerant = task -> {
             try
             {
@@ -191,6 +192,7 @@ public class DiagnosticJobServiceTest
             }
             catch (Error e)
             {
+                rethrown.add(e);
             }
         };
         DiagnosticJobService service = service(reporter, tolerant);
@@ -204,6 +206,9 @@ public class DiagnosticJobServiceTest
         assertEquals("failed", failed.state());
         assertEquals("boom", failed.error());
         assertSame(previous, failed.result());
+        assertEquals(1, rethrown.size());
+        assertTrue(rethrown.get(0) instanceof AssertionError);
+        assertEquals("boom", rethrown.get(0).getMessage());
 
         failing.set(false);
         service.start("third");
@@ -360,6 +365,33 @@ public class DiagnosticJobServiceTest
 
         assertEquals("cancelled", holder[0].snapshot().state());
         verify(store, never()).save(anyString(), any(StoredDiagnostic.class));
+    }
+
+    @Test
+    public void aJobStartedAfterACancelledOneRunsToTheEnd() throws Exception
+    {
+        DiagnosticJobService[] holder = new DiagnosticJobService[1];
+        AtomicBoolean cancelling = new AtomicBoolean(true);
+        CoreReporter reporter = (core, listeners) -> {
+            if (cancelling.get())
+            {
+                holder[0].cancel();
+            }
+            listeners.apply(DiagnosticPhase.METADATA_DB).onProgress(0L, 10L);
+            return Map.of("DB transaction count", 10L);
+        };
+        holder[0] = service(reporter, Runnable::run);
+        holder[0].start("admin");
+        assertEquals("cancelled", holder[0].snapshot().state());
+        cancelling.set(false);
+
+        holder[0].start("other");
+
+        DiagnosticSnapshot done = holder[0].snapshot();
+        assertEquals("done", done.state());
+        assertEquals("other", done.startedBy());
+        verify(store).save(eq("alfresco"), any(StoredDiagnostic.class));
+        verify(store).save(eq("archive"), any(StoredDiagnostic.class));
     }
 
     @Test
