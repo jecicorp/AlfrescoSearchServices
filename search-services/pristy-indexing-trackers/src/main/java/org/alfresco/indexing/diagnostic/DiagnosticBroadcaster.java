@@ -60,10 +60,9 @@ public class DiagnosticBroadcaster
         emitter.onCompletion(() -> subscribers.remove(emitter));
         emitter.onTimeout(() -> subscribers.remove(emitter));
         emitter.onError(error -> subscribers.remove(emitter));
-        DiagnosticSnapshot snapshot = current.get();
         synchronized (this)
         {
-            send(emitter, snapshot);
+            send(emitter, current.get());
         }
     }
 

@@ -30,6 +30,9 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.Test;
@@ -101,6 +104,47 @@ public class DiagnosticBroadcasterTest
         broadcaster.flush();
 
         assertEquals(List.of(idle, runningNow), emitter.snapshots);
+    }
+
+    @Test
+    public void registerReadsTheSnapshotUnderTheLockSoARaceCannotLeaveItStale() throws InterruptedException
+    {
+        DiagnosticSnapshot runningNow = running(1);
+        DiagnosticSnapshot doneLater = DiagnosticSnapshot.done("2026-09-25T15:02:11Z", "admin",
+                "2026-09-25T15:04:40Z", List.of("alfresco"), null);
+        AtomicReference<DiagnosticSnapshot> racyCurrent = new AtomicReference<>(runningNow);
+        AtomicBoolean triggered = new AtomicBoolean(false);
+        AtomicReference<DiagnosticBroadcaster> holder = new AtomicReference<>();
+        CountDownLatch racerFinished = new CountDownLatch(1);
+        DiagnosticBroadcaster racy = new DiagnosticBroadcaster(() -> {
+            DiagnosticSnapshot snapshot = racyCurrent.get();
+            if (triggered.compareAndSet(false, true))
+            {
+                Thread racer = new Thread(() -> {
+                    racyCurrent.set(doneLater);
+                    holder.get().publish(doneLater);
+                    racerFinished.countDown();
+                });
+                racer.setDaemon(true);
+                racer.start();
+                try
+                {
+                    racerFinished.await(200, TimeUnit.MILLISECONDS);
+                }
+                catch (InterruptedException e)
+                {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            return snapshot;
+        });
+        holder.set(racy);
+        RecordingEmitter emitter = new RecordingEmitter();
+
+        racy.register(emitter);
+        racerFinished.await(200, TimeUnit.MILLISECONDS);
+
+        assertEquals(doneLater, emitter.snapshots.get(emitter.snapshots.size() - 1));
     }
 
     @Test
