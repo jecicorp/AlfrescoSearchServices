@@ -1,181 +1,177 @@
 # Pristy Search Services
 
-Community fork of **Alfresco Search Services**, modernized to run on **vanilla
-Apache Solr 9.10.1 / Lucene 9.12.3** and **Java 17**. Enterprise components
-(Insight Engine, Zeppelin, governance services) have been removed, and the indexing
-trackers have been **externalized into a standalone service**.
+**Alfresco search, rebuilt on vanilla Apache Solr 9.**
 
-It is the search tier of **Pristy ECM**, a community fork of Alfresco Community
-Edition, and works with a stock Alfresco Community repository just as well.
+[![License: LGPL v3](https://img.shields.io/badge/license-LGPL--3.0-blue.svg)](LICENSE)
+[![Solr 9.10.1](https://img.shields.io/badge/Solr-9.10.1-d9411e.svg)](https://solr.apache.org/)
+[![Java 17](https://img.shields.io/badge/Java-17-orange.svg)](https://adoptium.net/)
+[![Docker: search services](https://img.shields.io/docker/v/jeci/pristy-search-services?sort=semver&label=pristy-search-services&logo=docker)](https://hub.docker.com/r/jeci/pristy-search-services)
+[![Docker: indexing trackers](https://img.shields.io/docker/v/jeci/pristy-indexing-trackers?sort=semver&label=pristy-indexing-trackers&logo=docker)](https://hub.docker.com/r/jeci/pristy-indexing-trackers)
 
-- Project home: **https://gitlab.com/pristy-oss/pristy-search-services**
-- Docker images: **https://hub.docker.com/r/jeci/pristy-search-services**
-- Changelog: [CHANGELOG.md](CHANGELOG.md) — Release process: [docs/release.md](docs/release.md)
+A community fork of Alfresco Search Services for **Alfresco Community Edition**:
+same AFTS and CMIS queries, same permission filtering, same repository API —
+on a current, unpatched Solr and Lucene, with indexing split out into its own service.
 
-> ## ⚠️ Status & disclaimer
->
-> - **Beta — not production-ready.** This fork is under active development and
->   **must not be used in production for the time being.**
-> - **Not affiliated with Hyland / Alfresco.** This is an independent community
->   fork. It is **not** supported on **Alfresco Enterprise** and has no
->   relationship with Hyland.
-> - **Built for Alfresco Community.** It was developed as part of the
->   [Pristy](https://pristy.fr) project and is **fully compatible with Alfresco
->   Community Edition**.
-> - **Support available.** [Jeci](https://jeci.fr) offers commercial support on
->   Alfresco Community Edition, and more specifically on this search module if
->   needed.
+It is the search tier of [Pristy ECM](https://pristy.fr) and runs just as well
+behind a stock Alfresco Community repository.
 
-## What's in this fork
+## Highlights
 
-- **Solr 9.10.1 / Lucene 9.12.3** (vanilla Apache, no Alfresco-patched build).
-- **Java 17**, **ZooKeeper 3.6.3**, logging on **Log4j 2**.
-- **Externalized indexing trackers** — a separate Spring Boot service
-  (`pristy-indexing-trackers`) reads from the repository and feeds Solr, instead
-  of running inside the Solr webapp. Solr and the trackers are now two independently
-  deployable, restartable and tunable services.
-- Enterprise-only modules removed; the search API, AFTS query language and ACL
-  permission filtering are unchanged.
+- **Vanilla Solr 9.10.1 / Lucene 9.12.3 on Java 17.** No Alfresco-patched Solr build:
+  upgrading Solr becomes a version bump, not a port.
+- **Indexing as a separate service.** The trackers run in `pristy-indexing-trackers`,
+  a Spring Boot application. Restart, scale and tune indexing without touching query serving.
+- **Drop-in for your queries.** AFTS, CMIS, ACL filtering, highlighting, facets and
+  APATH drill-down behave as before.
+- **Operable.** Admin actions (`SUMMARY`, `REPORT`, `REINDEX`, `PURGE`, `BACKUP`,
+  `RESTORE`…) over REST and in the classic Solr admin format, a per-node indexing
+  verdict (`/api/v1/index/node`), live progress over Server-Sent Events, and a repair
+  tracker that retries failed nodes.
+- **Tunable per core.** Crons, batch sizes and parallelism have a global default and a
+  per-core override, all settable through environment variables.
+- **Recency-aware ranking.** The `rerankRecent` core template lets fresher documents
+  outrank older ones of equal relevance.
+- **Secure by configuration.** `none`, shared `secret` or mutual TLS, set independently
+  on each channel.
+- **Lean.** Insight Engine, Zeppelin and the governance services are gone.
 
-The search tier therefore consists of **two services**:
+## Architecture
 
-| Service | Role |
-|---------|------|
-| **Solr** (`pristy-search` + `packaging`) | Query serving and index storage. |
-| **`pristy-indexing-trackers`** | Reads nodes/ACLs/content from the Alfresco Repository and indexes them into Solr. Tuned via `ALFRESCO_TRACKER_*` environment variables. |
+```mermaid
+flowchart LR
+    ACS["Alfresco Repository<br/>(solr9 subsystem)"]
+    SOLR["pristy-search-services<br/>Solr 9 · :8983"]
+    TRK["pristy-indexing-trackers<br/>Spring Boot · :8085"]
+
+    ACS -- "search queries" --> SOLR
+    ACS -- "admin actions" --> TRK
+    TRK -- "polls nodes, ACLs, content" --> ACS
+    TRK -- "indexes via SolrJ" --> SOLR
+```
+
+| Service | Image | Role |
+|---------|-------|------|
+| Solr | [`jeci/pristy-search-services`](https://hub.docker.com/r/jeci/pristy-search-services) | Serves queries and stores the index. |
+| Trackers | [`jeci/pristy-indexing-trackers`](https://hub.docker.com/r/jeci/pristy-indexing-trackers) | Reads the repository, feeds Solr, serves the admin API. |
+
+Both are required and are released together: keep them on the same tag.
+
+## Quick start
+
+With an Alfresco Community repository reachable at `http://alfresco:8080/alfresco`:
+
+```yaml
+services:
+  solr:
+    image: jeci/pristy-search-services:1.1.0
+    entrypoint: ["/opt/pristy-search-services/solr-init-core.sh"]
+    environment:
+      SOLR_ALFRESCO_HOST: alfresco
+      SOLR_ALFRESCO_PORT: "8080"
+      SOLR_SOLR_HOST: solr
+      SOLR_SOLR_PORT: "8983"
+      SOLR_CREATE_ALFRESCO_DEFAULTS: alfresco,archive
+      ALFRESCO_SECURE_COMMS: secret
+      JAVA_TOOL_OPTIONS: "-Dalfresco.secureComms.secret=please-change-me"
+    volumes:
+      - solr-data:/opt/pristy-search-services/data
+      - solr-home:/opt/pristy-search-services/solrhome
+
+  trackers:
+    image: jeci/pristy-indexing-trackers:1.1.0
+    environment:
+      ALFRESCO_TRACKER_SOLR_URL: http://solr:8983/solr
+      ALFRESCO_TRACKER_SOLR_SECURECOMMS: secret
+      ALFRESCO_TRACKER_SOLR_SHAREDSECRET: please-change-me
+      ALFRESCO_TRACKER_REPOSITORY_URL: http://alfresco:8080/alfresco
+      ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS: secret
+      ALFRESCO_TRACKER_REPOSITORY_SHAREDSECRET: please-change-me
+
+volumes:
+  solr-data:
+  solr-home:
+```
+
+On the repository, install `fr.pristy:pristy-search-subsystem-solr9` in `WEB-INF/lib`
+and start it with:
+
+```
+-Dindex.subsystem.name=solr9
+-Dsolr.host=solr -Dsolr.port=8983
+-Dsolr.tracker.host=trackers -Dsolr.tracker.port=8085
+```
+
+Coming from Alfresco Search Services 2.x (Solr 6)? A **full re-index** is required —
+see the [administrator guide](docs/solr9-admin-guide.md).
 
 ## Documentation
 
-See the [`docs/`](docs/) folder:
+| Guide | For |
+|-------|-----|
+| [Administrator guide](docs/solr9-admin-guide.md) | Upgrading, configuration, backup, re-indexing |
+| [Tracker configuration](docs/tracker-configuration.md) | Every tracker setting, global and per core |
+| [Tracker admin endpoints](docs/tracker-admin-endpoints.md) | Reports, reindex, purge, backup — with `curl` examples |
+| [Indexing progress](docs/indexing-progress.md) | The live progress stream and its demo page |
+| [Secure communications](docs/secure-comms-https.md) | `none`, `secret` and mutual TLS |
+| [Debugging](docs/debugging.md) | Diagnosing missing or unexpected results |
+| [Solr 6 → 9 migration record](docs/solr6-to-solr9-migration.md) | What changed under the hood |
+| [Release process](docs/release.md) | Branches, versioning, what a tag publishes |
 
-- [docs/solr9-admin-guide.md](docs/solr9-admin-guide.md) — **administrator guide**:
-  what changes with this version, the mandatory re-index, the new configuration
-  options, and what stays the same.
-- [docs/solr6-to-solr9-migration.md](docs/solr6-to-solr9-migration.md) — technical
-  migration record (Solr 6 → 8 → 9).
-- [docs/tracker-configuration.md](docs/tracker-configuration.md) — full tuning
-  reference for the standalone trackers.
-- [docs/debugging.md](docs/debugging.md) — ACL deny filtering diagnostics.
-- [docs/release.md](docs/release.md) — branches, versioning and what a tag publishes.
+Full index: [docs/README.md](docs/README.md) — history: [CHANGELOG.md](CHANGELOG.md).
 
-## Prerequisites
+## Development
 
-- Java 17 (Temurin)
-- Maven 3.9+
-- [mise](https://mise.jdx.dev/) (recommended, auto-configures Java and Maven)
+Requires Java 17, Maven 3.9+ and, recommended, [mise](https://mise.jdx.dev/), which
+installs both and provides the tasks below.
 
 ```bash
 mise install
+mise run build          # build without tests
+mise run test           # unit tests
+mise run dev:up         # local stack: Alfresco + Solr + trackers
+mise run dev:logs
+mise run dev:down
 ```
 
-## Build
+End-to-end tests run against a full Docker Compose stack:
 
 ```bash
-# Full build without tests
-mise run build
-
-# Or directly with Maven
-mvn package -Dmaven.test.skip=true
-```
-
-## Unit Tests
-
-```bash
-# Unit tests (pristy-search + pristy-solrclient-lib)
-mise run test
-
-# Or directly with Maven
-mvn test -pl search-services/pristy-solrclient-lib,search-services/pristy-search -am
-```
-
-## End-to-End Tests
-
-E2E tests require a full ACS + Solr stack via Docker Compose.
-
-```bash
-# 1. Install the project (builds the distribution ZIP)
 mise run install
-
-# 2. Build the local Docker image from the distribution
 mise run e2e:build-image
-
-# 3. Generate the docker-compose (uses the local image)
 mise run e2e:generate
-
-# 4. Start the stack
 mise run e2e:up
-
-# 5. Follow logs (wait until everything is ready)
-mise run e2e:logs
-
-# 6. Run the tests
 mise run e2e:test
-
-# 7. Stop the stack
 mise run e2e:down
 ```
 
-The generator is configurable via `e2e-test/python-generator/generator.py -h`.
-
-## Indexing Trackers (standalone service)
-
-```bash
-# Build the trackers Spring Boot JAR
-mise run trackers:build
-
-# Run the trackers locally
-mise run trackers:run
-```
-
-A local development stack (Alfresco + Solr + Trackers) is also available:
-
-```bash
-mise run dev:up      # start
-mise run dev:logs    # follow logs
-mise run dev:down    # stop
-```
-
-## Project Structure
+`mise tasks` lists everything else (trackers, audit, SBOM, changelog).
 
 ```
-.
-├── pom.xml                         # Parent POM (pristy-search-parent)
-├── mise.toml                       # mise configuration (Java, Maven, tasks)
-├── docs/                           # Technical documentation (see index)
-├── search-services/
-│   ├── pom.xml                     # search-services parent POM
-│   ├── pristy-solrclient-lib/    # Solr client for Alfresco
-│   ├── pristy-search/            # Solr search engine (main module)
-│   ├── pristy-indexing-trackers/ # Standalone indexing trackers (Spring Boot)
-│   └── packaging/                  # Distribution assembly + Docker image
-└── e2e-test/                       # End-to-end tests
-    ├── python-generator/           # Docker Compose generator (Python)
-    └── generator-alfresco-docker-compose/  # Docker Compose generator (Yeoman)
+search-services/
+├── pristy-search/                  # Solr plugins and query parsers (AFTS, CMIS)
+├── pristy-indexing-trackers/       # Standalone indexing service (Spring Boot)
+├── pristy-solrclient-lib/          # Client for the Alfresco Repository API
+├── pristy-search-subsystem-solr9/  # "solr9" Search subsystem for the repository
+└── packaging/                      # Distribution ZIP and Docker images
+e2e-test/                           # End-to-end tests
 ```
 
-## Install to Local Repository
+## Support
 
-```bash
-mise run install
-```
+Built and maintained by [Jeci](https://jeci.fr), the company behind
+[Pristy](https://pristy.fr). Jeci offers commercial support on Alfresco Community
+Edition, and on this search module in particular.
 
-## Resources
-
-The distribution ZIP is available under `search-services/packaging/target` after
-building. The Docker image source is in `search-services/packaging/src/docker`.
-
-## Support & About
-
-This fork was created and is maintained by **[Jeci](https://jeci.fr)**, the company
-behind **[Pristy](https://pristy.fr)**, an open-source ECM suite built on Alfresco
-Community Edition. Jeci offers commercial support on Alfresco Community Edition and,
-more specifically, on this search module.
+This is an independent community fork, **not affiliated with Hyland / Alfresco** and
+not supported on Alfresco Enterprise.
 
 ## Contributing
 
-Please use [this guide](CONTRIBUTING.md) to make a contribution to the project.
+Issues and merge requests are welcome on
+[GitLab](https://gitlab.com/pristy-oss/pristy-search-services) — see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-GNU Lesser General Public License v3.0 (LGPL-3.0). See [LICENSE](LICENSE) and the
-license headers in the source files.
+[LGPL v3](LICENSE). Alfresco-derived sources keep their original copyright headers;
+Solr-derived sources keep the Apache License 2.0.
