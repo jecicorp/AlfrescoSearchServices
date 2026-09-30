@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Version numbers are plain, without a `v` prefix, matching the Git tags.
 
 
+## [1.1.1] - 2026-09-30
+
+### Features
+
+- *(docker)* Publish both images for linux/amd64 and linux/arm64
+
+### Bug Fixes
+
+- *(docker)* Probe the trackers health over mTLS when the admin server uses TLS
+
+### Changed
+
+- *(docker)* Run both images on Java 21; the bytecode still targets Java 17
+- *(docker)* Use curl for every health probe and drop wget from the Solr image
+
+
 ## [1.1.0] - 2026-09-23
 
 ### Features
