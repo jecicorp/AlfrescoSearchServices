@@ -153,47 +153,102 @@ dependency-scan:
 ## Docker images -> Docker Hub (jeci/) ##
 ##
 
-.kaniko:
+.docker-publish:
   stage: docker
+  before_script:
+    - if [ -n "$CI_COMMIT_TAG" ]; then IMAGE_REF="$CI_COMMIT_TAG"; else IMAGE_REF="$CI_COMMIT_REF_SLUG"; fi
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_COMMIT_BRANCH == "stable"
+
+.kaniko:
+  extends: .docker-publish
   image:
     name: ghcr.io/osscontainertools/kaniko:v1.28.2-debug
     entrypoint: [""]
   needs:
     - job: maven-build
       artifacts: true
+
+.kaniko-amd64:
+  extends: .kaniko
+  environment:
+    name: dockerhub
+    action: prepare
   before_script:
+    - !reference [.docker-publish, before_script]
     - >-
       echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"auth\":\"$(printf "%s:%s" "${DOCKERHUB_USER}" "${DOCKERHUB_TOKEN}" | base64 | tr -d '\n')\"}}}"
       > /kaniko/.docker/config.json
-    # A Git tag publishes <version> and moves latest; a branch publishes its name.
-    - if [ -n "$CI_COMMIT_TAG" ]; then IMAGE_TAGS="$CI_COMMIT_TAG latest"; else IMAGE_TAGS="$CI_COMMIT_REF_SLUG"; fi
-    - DESTINATIONS=""
-    - for t in $IMAGE_TAGS; do DESTINATIONS="$DESTINATIONS --destination ${DOCKER_NAMESPACE}/${IMAGE_NAME}:$t"; done
-    - echo "Publishing to$DESTINATIONS"
-  rules:
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_BRANCH == "develop"
-    - if: $CI_COMMIT_BRANCH == "stable"
+  script:
+    - /kaniko/executor
+      --context "$DOCKER_CONTEXT"
+      --dockerfile "$DOCKERFILE"
+      --destination "${DOCKER_NAMESPACE}/${IMAGE_NAME}:${IMAGE_REF}-amd64"
 
-docker-build-solr:
+.kaniko-arm64:
   extends: .kaniko
+  tags:
+    - saas-linux-medium-arm64
+  script:
+    - /kaniko/executor
+      --context "$DOCKER_CONTEXT"
+      --dockerfile "$DOCKERFILE"
+      --no-push
+      --destination "${DOCKER_NAMESPACE}/${IMAGE_NAME}:${IMAGE_REF}-arm64"
+      --tar-path "${IMAGE_NAME}-arm64.tar"
+  artifacts:
+    paths:
+      - "${IMAGE_NAME}-arm64.tar"
+    expire_in: 1 day
+
+.solr-image:
   variables:
     IMAGE_NAME: pristy-search-services
-  script:
-    - /kaniko/executor
-      --context "${CI_PROJECT_DIR}/search-services/packaging/target/docker-resources"
-      --dockerfile "${CI_PROJECT_DIR}/search-services/packaging/target/docker-resources/Dockerfile"
-      $DESTINATIONS
+    DOCKER_CONTEXT: "${CI_PROJECT_DIR}/search-services/packaging/target/docker-resources"
+    DOCKERFILE: "${CI_PROJECT_DIR}/search-services/packaging/target/docker-resources/Dockerfile"
 
-docker-build-trackers:
-  extends: .kaniko
+.trackers-image:
   variables:
     IMAGE_NAME: pristy-indexing-trackers
+    DOCKER_CONTEXT: "${CI_PROJECT_DIR}/search-services/pristy-indexing-trackers/target"
+    DOCKERFILE: "${CI_PROJECT_DIR}/search-services/packaging/src/docker/Dockerfile.trackers"
+
+docker-build-solr-amd64:
+  extends: [.kaniko-amd64, .solr-image]
+
+docker-build-solr-arm64:
+  extends: [.kaniko-arm64, .solr-image]
+
+docker-build-trackers-amd64:
+  extends: [.kaniko-amd64, .trackers-image]
+
+docker-build-trackers-arm64:
+  extends: [.kaniko-arm64, .trackers-image]
+
+docker-manifest:
+  extends: .docker-publish
+  image:
+    name: gcr.io/go-containerregistry/crane:debug@sha256:e78770b31258a3846f878036d9c1f63fbe4c871f9f56990bf77fd95c013e3c1b
+    entrypoint: [""]
+  environment:
+    name: dockerhub
+    action: prepare
+  needs:
+    - job: docker-build-solr-amd64
+      artifacts: false
+    - job: docker-build-trackers-amd64
+      artifacts: false
+    - job: docker-build-solr-arm64
+      artifacts: true
+    - job: docker-build-trackers-arm64
+      artifacts: true
   script:
-    - /kaniko/executor
-      --context "${CI_PROJECT_DIR}/search-services/pristy-indexing-trackers/target"
-      --dockerfile "${CI_PROJECT_DIR}/search-services/packaging/src/docker/Dockerfile.trackers"
-      $DESTINATIONS
+    - printf '%s' "$DOCKERHUB_TOKEN" | crane auth login index.docker.io -u "$DOCKERHUB_USER" --password-stdin
+    - if [ -n "$CI_COMMIT_TAG" ]; then IMAGE_TAGS="$CI_COMMIT_TAG latest"; else IMAGE_TAGS="$CI_COMMIT_REF_SLUG"; fi
+    - for img in pristy-search-services pristy-indexing-trackers; do crane push "${img}-arm64.tar" "${DOCKER_NAMESPACE}/${img}:${IMAGE_REF}-arm64"; done
+    - for img in pristy-search-services pristy-indexing-trackers; do for t in $IMAGE_TAGS; do crane index append --manifest "${DOCKER_NAMESPACE}/${img}:${IMAGE_REF}-amd64" --manifest "${DOCKER_NAMESPACE}/${img}:${IMAGE_REF}-arm64" --tag "${DOCKER_NAMESPACE}/${img}:${t}"; done; done
 
 ####
 ## Maven publication -> GitLab Package Registry ##

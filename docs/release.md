@@ -18,7 +18,8 @@ Do this before the first tag, otherwise the publication jobs fail.
    `DOCKERHUB_USER` and `DOCKERHUB_TOKEN` (an access token, not the account
    password). Mark both **Masked** and **Protected** — the jobs that use them only
    run on `develop`, `stable` and tags, so protecting the variables keeps them out
-   of merge requests coming from forks.
+   of merge requests coming from forks. Set their environment scope to `dockerhub`:
+   the arm64 images build on a GitLab.com instance runner, which must not receive them.
 2. **Public Maven registry.** In *Settings → Packages and registries*, allow
    anonymous pulls from the Package Registry. Without it, `pristy-ecm` and outside
    integrators cannot resolve `fr.pristy:pristy-search-subsystem-solr9` without a
