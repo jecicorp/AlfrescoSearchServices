@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -59,6 +60,7 @@ public class CommitTracker extends AbstractTracker
     /** The cascade tracker. Note that this may be empty if cascade tracking is disabled. */
     private Optional<CascadeTracker> cascadeTracker = empty();
     private AtomicInteger rollbackCount = new AtomicInteger(0);
+    private final List<CommitListener> commitListeners = new CopyOnWriteArrayList<>();
 
     protected final static Logger LOGGER = LoggerFactory.getLogger(CommitTracker.class);
 
@@ -123,6 +125,20 @@ public class CommitTracker extends AbstractTracker
         return rollbackCount.get();
     }
 
+    /**
+     * @param listener called after each commit of this core, on the commit thread, once the write locks are released
+     */
+    public void addCommitListener(CommitListener listener)
+    {
+        commitListeners.add(listener);
+    }
+
+    /** @return the listeners called after each commit of this core */
+    public List<CommitListener> getCommitListeners()
+    {
+        return List.copyOf(commitListeners);
+    }
+
     public void maintenance() throws Exception
     {
         metadataTracker.maintenance();
@@ -152,6 +168,7 @@ public class CommitTracker extends AbstractTracker
            openSearcherNeeded = true;
         }
 
+        boolean committed = false;
         try
         {
             metadataTracker.getWriteLock().acquire();
@@ -182,6 +199,7 @@ public class CommitTracker extends AbstractTracker
 
                 boolean searcherOpened = infoSrv.commit(openSearcherNeeded);
                 lastCommit = currentTime;
+                committed = true;
                 if(searcherOpened)
                 {
                     lastSearcherOpened = currentTime;
@@ -197,6 +215,26 @@ public class CommitTracker extends AbstractTracker
         {
             metadataTracker.getWriteLock().release();
             aclTracker.getWriteLock().release();
+        }
+
+        if (committed)
+        {
+            notifyCommitListeners();
+        }
+    }
+
+    private void notifyCommitListeners()
+    {
+        for (CommitListener listener : commitListeners)
+        {
+            try
+            {
+                listener.afterCommit(coreName);
+            }
+            catch (RuntimeException e)
+            {
+                LOGGER.warn("[CORE {}] A commit listener failed", coreName, e);
+            }
         }
     }
 
