@@ -27,19 +27,26 @@
 package org.alfresco.indexing.tracker;
 
 import java.util.Collection;
+import java.util.Date;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.quartz.CronScheduleBuilder;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
 import org.quartz.JobKey;
+import org.quartz.JobListener;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
+import org.quartz.SimpleScheduleBuilder;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 import org.quartz.impl.StdSchedulerFactory;
 import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.impl.matchers.KeyMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,8 +58,10 @@ public class TrackerScheduler
 {
     private static final String DEFAULT_CRON = "0/10 * * * * ? *";
     public static final String SOLR_JOB_GROUP = "Solr";
+    public static final String AWAIT_TRIGGER_GROUP = "IndexAwait";
     protected final static Logger log = LoggerFactory.getLogger(TrackerScheduler.class);
     protected Scheduler scheduler;
+    private final AtomicLong triggerSequence = new AtomicLong();
 
     public TrackerScheduler(String schedulerName)
     {
@@ -155,6 +164,147 @@ public class TrackerScheduler
     protected String getJobName(Tracker tracker, String coreName)
     {
         return tracker.getClass().getSimpleName() + "-" + coreName;
+    }
+
+    /**
+     * Fires the job of a tracker once, besides its cron schedule.
+     *
+     * @param trackerName the simple class name of the tracker, e.g. {@code MetadataTracker}
+     * @param coreName    the core the job tracks
+     * @param delayMillis how long to wait before firing
+     * @return {@code false} when no such job is scheduled or Quartz refused the trigger
+     */
+    public boolean triggerOnce(String trackerName, String coreName, long delayMillis)
+    {
+        JobKey jobKey = existingJobKey(trackerName, coreName);
+        if (jobKey == null)
+        {
+            return false;
+        }
+        try
+        {
+            Trigger trigger = TriggerBuilder.newTrigger()
+                    .withIdentity(jobKey.getName() + "-" + triggerSequence.incrementAndGet(), AWAIT_TRIGGER_GROUP)
+                    .forJob(jobKey)
+                    .startAt(new Date(System.currentTimeMillis() + Math.max(0L, delayMillis)))
+                    .withSchedule(SimpleScheduleBuilder.simpleSchedule().withMisfireHandlingInstructionFireNow())
+                    .build();
+            scheduler.scheduleJob(trigger);
+            return true;
+        }
+        catch (SchedulerException e)
+        {
+            log.warn("Could not trigger job " + jobKey.getName(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Calls back when a run fired by {@link #triggerOnce} starts and when it ends.
+     *
+     * @param trackerName the simple class name of the tracker
+     * @param coreName    the core the job tracks
+     * @param started     called on the Quartz thread before such a run
+     * @param ended       called on the Quartz thread after such a run
+     * @return {@code false} when no such job is scheduled or Quartz refused the listener
+     */
+    public boolean onTriggeredRun(String trackerName, String coreName, Runnable started, Runnable ended)
+    {
+        JobKey jobKey = existingJobKey(trackerName, coreName);
+        if (jobKey == null)
+        {
+            return false;
+        }
+        try
+        {
+            scheduler.getListenerManager().addJobListener(
+                    new TriggeredRunListener(AWAIT_TRIGGER_GROUP + "-" + jobKey.getName(), started, ended),
+                    KeyMatcher.keyEquals(jobKey));
+            return true;
+        }
+        catch (SchedulerException e)
+        {
+            log.warn("Could not listen to job " + jobKey.getName(), e);
+            return false;
+        }
+    }
+
+    private JobKey existingJobKey(String trackerName, String coreName)
+    {
+        if (scheduler == null)
+        {
+            return null;
+        }
+        JobKey jobKey = new JobKey(trackerName + "-" + coreName, SOLR_JOB_GROUP);
+        try
+        {
+            return scheduler.checkExists(jobKey) ? jobKey : null;
+        }
+        catch (SchedulerException e)
+        {
+            log.warn("Could not look up job " + jobKey.getName(), e);
+            return null;
+        }
+    }
+
+    private static final class TriggeredRunListener implements JobListener
+    {
+        private final String name;
+        private final Runnable started;
+        private final Runnable ended;
+
+        TriggeredRunListener(String name, Runnable started, Runnable ended)
+        {
+            this.name = name;
+            this.started = started;
+            this.ended = ended;
+        }
+
+        @Override
+        public String getName()
+        {
+            return name;
+        }
+
+        @Override
+        public void jobToBeExecuted(JobExecutionContext context)
+        {
+            if (isTriggered(context))
+            {
+                runQuietly(started);
+            }
+        }
+
+        @Override
+        public void jobExecutionVetoed(JobExecutionContext context)
+        {
+        }
+
+        @Override
+        public void jobWasExecuted(JobExecutionContext context, JobExecutionException jobException)
+        {
+            if (isTriggered(context))
+            {
+                runQuietly(ended);
+            }
+        }
+
+        private static boolean isTriggered(JobExecutionContext context)
+        {
+            return AWAIT_TRIGGER_GROUP.equals(context.getTrigger().getKey().getGroup());
+        }
+
+        private void runQuietly(Runnable callback)
+        {
+            try
+            {
+                callback.run();
+            }
+            catch (Throwable e)
+            {
+                log.error("Callback of job listener " + name + " failed", e);
+            }
+        }
     }
 
     public void shutdown() throws SchedulerException
