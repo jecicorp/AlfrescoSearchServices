@@ -66,6 +66,7 @@ public class TrackerProperties
     private BackupConfig backup = new BackupConfig();
     private ProgressConfig progress = new ProgressConfig();
     private DiagnosticConfig diagnostic = new DiagnosticConfig();
+    private AwaitConfig await = new AwaitConfig();
 
     public SolrConfig getSolr()
     {
@@ -215,6 +216,16 @@ public class TrackerProperties
     public void setDiagnostic(DiagnosticConfig diagnostic)
     {
         this.diagnostic = diagnostic;
+    }
+
+    public AwaitConfig getAwait()
+    {
+        return await;
+    }
+
+    public void setAwait(AwaitConfig await)
+    {
+        this.await = await;
     }
 
     public BackupConfig getBackup()
@@ -954,5 +965,25 @@ public class TrackerProperties
         public void setMinEventIntervalMillis(long minEventIntervalMillis) { this.minEventIntervalMillis = minEventIntervalMillis; }
         public long getStreamTimeoutMillis() { return streamTimeoutMillis; }
         public void setStreamTimeoutMillis(long streamTimeoutMillis) { this.streamTimeoutMillis = streamTimeoutMillis; }
+    }
+
+    /**
+     * Settings of the index await endpoint, {@code POST /api/v1/index/await}.
+     */
+    public static class AwaitConfig
+    {
+        private boolean enabled = true;
+        private long maxTimeout = 30000;
+        private int maxBatch = 1000;
+        private int maxWaiters = 10000;
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public long getMaxTimeout() { return maxTimeout; }
+        public void setMaxTimeout(long maxTimeout) { this.maxTimeout = maxTimeout; }
+        public int getMaxBatch() { return maxBatch; }
+        public void setMaxBatch(int maxBatch) { this.maxBatch = maxBatch; }
+        public int getMaxWaiters() { return maxWaiters; }
+        public void setMaxWaiters(int maxWaiters) { this.maxWaiters = maxWaiters; }
     }
 }
