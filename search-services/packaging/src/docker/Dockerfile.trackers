@@ -6,7 +6,8 @@ LABEL org.opencontainers.image.vendor="Jeci SARL"
 LABEL org.opencontainers.image.licenses="LGPL-3.0-or-later"
 LABEL org.opencontainers.image.source="https://gitlab.com/pristy-oss/pristy-search-services"
 
-RUN addgroup -g 33007 -S trackers && adduser -u 33007 -S -G trackers trackers
+RUN addgroup -g 33007 -S trackers && adduser -u 33007 -S -G trackers trackers \
+    && apk add --no-cache curl
 
 WORKDIR /app
 
@@ -24,6 +25,12 @@ ENV JAVA_OPTS="-XX:MaxRAMPercentage=75"
 EXPOSE 8085
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget -q --spider http://localhost:8085/actuator/health || exit 1
+    CMD if [ "$TRACKER_SERVER_SSL_ENABLED" = "true" ]; then \
+          curl -fsS -k -o /dev/null --cert-type P12 \
+            --cert "$TRACKER_SERVER_SSL_KEY_STORE:$TRACKER_SERVER_SSL_KEY_STORE_PASSWORD" \
+            https://localhost:8085/actuator/health; \
+        else \
+          wget -q --spider http://localhost:8085/actuator/health; \
+        fi || exit 1
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/pristy-indexing-trackers.jar \"$@\"", "--"]
