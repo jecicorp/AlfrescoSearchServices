@@ -103,6 +103,28 @@ public class CommitTrackerListenerTest
     }
 
     @Test
+    public void anErrorFromAListenerStopsNeitherTheOthersNorTheCommit() throws Throwable
+    {
+        CommitTracker tracker = tracker("-1");
+        tracker.addCommitListener(core -> {
+            throw new AssertionError("listener error");
+        });
+        tracker.addCommitListener(committed::add);
+
+        tracker.doTrack("IT #1");
+
+        verify(infoSrv).commit(anyBoolean());
+        verify(infoSrv, never()).rollback();
+        assertEquals(List.of(CORE), committed);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void aNullListenerIsRefused()
+    {
+        tracker("-1").addCommitListener(null);
+    }
+
+    @Test
     public void noCommitMeansNoNotification() throws Throwable
     {
         CommitTracker tracker = tracker("3600000");

@@ -31,6 +31,7 @@ import static java.util.Optional.ofNullable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
@@ -130,7 +131,7 @@ public class CommitTracker extends AbstractTracker
      */
     public void addCommitListener(CommitListener listener)
     {
-        commitListeners.add(listener);
+        commitListeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
     /** @return the listeners called after each commit of this core */
@@ -231,7 +232,7 @@ public class CommitTracker extends AbstractTracker
             {
                 listener.afterCommit(coreName);
             }
-            catch (RuntimeException e)
+            catch (Throwable e)
             {
                 LOGGER.warn("[CORE {}] A commit listener failed", coreName, e);
             }
