@@ -30,7 +30,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
             --cert "$TRACKER_SERVER_SSL_KEY_STORE:$TRACKER_SERVER_SSL_KEY_STORE_PASSWORD" \
             https://localhost:8085/actuator/health; \
         else \
-          wget -q --spider http://localhost:8085/actuator/health; \
+          curl -fsS -o /dev/null http://localhost:8085/actuator/health; \
         fi || exit 1
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/pristy-indexing-trackers.jar \"$@\"", "--"]
