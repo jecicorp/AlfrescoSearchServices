@@ -2,7 +2,7 @@
 MAVEN_CLI_OPTS = "--batch-mode --errors --fail-at-end --show-version -DinstallAtEnd=true -DdeployAtEnd=true"
 
 [tools]
-java = "temurin-17"
+java = "temurin-21"
 maven = "3.9.16"
 git-cliff = "latest"
 trivy = "0.74.0"

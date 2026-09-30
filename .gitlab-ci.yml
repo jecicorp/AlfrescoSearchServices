@@ -23,7 +23,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS == null
 
 default:
-  image: docker.io/maven:3.9-eclipse-temurin-17
+  image: docker.io/maven:3.9-eclipse-temurin-21
   tags:
     - docker
     - pristy

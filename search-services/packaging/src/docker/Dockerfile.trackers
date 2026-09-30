@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 
 LABEL org.opencontainers.image.title="Pristy Indexing Trackers"
 LABEL org.opencontainers.image.description="Pristy ECM indexing trackers - polls the repository and indexes via SolrJ"

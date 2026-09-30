@@ -1,7 +1,7 @@
 # Pristy Search Services ${project.version} Docker Image
 
 # More infos about this image: https://github.com/Alfresco/alfresco-docker-base-java
-FROM alfresco/alfresco-base-java:jre17-rockylinux9@sha256:16692e52ef8c3d60606d5c27d95eada9266f9fad8b70f38ad5674a7cbe24e49e
+FROM alfresco/alfresco-base-java:jre21-rockylinux9@sha256:d6c7fdc0307bb4b4b14eebc4dfc0ea5f05418382e9628ee5c714748ca3052e75
 LABEL org.opencontainers.image.title="Pristy Search Services"
 LABEL org.opencontainers.image.description="Solr 9 search engine for Pristy ECM - community fork of Alfresco Search Services"
 LABEL org.opencontainers.image.vendor="Jeci SARL"
