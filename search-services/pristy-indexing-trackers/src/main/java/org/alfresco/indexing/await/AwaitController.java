@@ -79,7 +79,7 @@ public class AwaitController
     /**
      * @param request the DBIDs to wait for and the timeout
      * @return a stream opened by an {@code :open} comment, then {@code searchable}, {@code error} and {@code end} events
-     * @throws IOException never in practice: the comment is queued until Spring binds the emitter to the response
+     * @throws IOException when the opening comment cannot be queued
      */
     @PostMapping(path = "/await", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<SseEmitter> await(@RequestBody AwaitRequest request) throws IOException
