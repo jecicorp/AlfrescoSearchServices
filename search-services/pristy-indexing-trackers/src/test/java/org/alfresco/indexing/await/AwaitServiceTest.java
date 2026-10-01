@@ -202,6 +202,56 @@ public class AwaitServiceTest
     }
 
     @Test
+    public void aRequestMergedAfterTheCutoffTriggersOneMoreRun()
+    {
+        database.live(1L, 10L);
+        database.live(2L, 10L);
+
+        service.open(Set.of(1L), TIMEOUT, new RecordingSink());
+        clock.addAndGet(500L);
+        service.open(Set.of(2L), TIMEOUT, new RecordingSink());
+        trackers.started.run();
+        trackers.ended.run();
+
+        assertEquals(List.of(LAG, LAG), trackers.metadataTriggers);
+    }
+
+    @Test
+    public void aRequestMergedBeforeTheCutoffTriggersNoMoreRun()
+    {
+        database.live(1L, 10L);
+        database.live(2L, 10L);
+
+        service.open(Set.of(1L), TIMEOUT, new RecordingSink());
+        clock.addAndGet(500L);
+        service.open(Set.of(2L), TIMEOUT, new RecordingSink());
+        clock.addAndGet(LAG + 100L);
+        trackers.started.run();
+        trackers.ended.run();
+
+        assertEquals(List.of(LAG), trackers.metadataTriggers);
+    }
+
+    @Test
+    public void aRequestMergedAfterTheCutoffTriggersNoMoreRunOnceReleased()
+    {
+        database.live(1L, 10L);
+        database.live(2L, 10L);
+
+        service.open(Set.of(1L), TIMEOUT, new RecordingSink());
+        clock.addAndGet(500L);
+        service.open(Set.of(2L), TIMEOUT, new RecordingSink());
+        trackers.started.run();
+        index.node(1L, 10L);
+        index.node(2L, 10L);
+        trackers.commitListener.afterCommit(CORE);
+        trackers.ended.run();
+
+        assertEquals(0, service.pendingWaiters());
+        assertEquals(List.of(LAG), trackers.metadataTriggers);
+    }
+
+    @Test
     public void aTriggerTheSchedulerRefusedIsRetriedByTheNextRequest()
     {
         trackers.accepting = false;

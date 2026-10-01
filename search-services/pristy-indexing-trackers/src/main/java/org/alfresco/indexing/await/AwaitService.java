@@ -32,7 +32,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 
 import org.alfresco.indexing.api.NodeIndexStatus.DatabaseStatus;
@@ -63,7 +62,11 @@ public class AwaitService implements CommitListener
     private final Delays delays;
     private final LongSupplier clock;
     private final AwaitRegistry registry;
-    private final AtomicLong pendingTriggerSince = new AtomicLong();
+    private final Object triggerLock = new Object();
+    private long pendingTriggerSince;
+    private long latestMergedRequest;
+    private long runCutoff;
+    private long runLatestMergedRequest;
     private final AtomicBoolean hooked = new AtomicBoolean();
     private final AtomicBoolean recheckScheduled = new AtomicBoolean();
     private final AtomicBoolean commitCheckScheduled = new AtomicBoolean();
@@ -238,30 +241,64 @@ public class AwaitService implements CommitListener
 
     private void requestTrigger()
     {
+        scheduleTrigger(true);
+    }
+
+    private void scheduleTrigger(boolean mergeable)
+    {
         long now = clock.getAsLong();
-        long since = pendingTriggerSince.get();
-        if (since != 0L && now - since < settings.lagMillis() + STALE_TRIGGER_MILLIS)
+        synchronized (triggerLock)
         {
-            return;
+            if (pendingTriggerSince != 0L && now - pendingTriggerSince < settings.lagMillis() + STALE_TRIGGER_MILLIS)
+            {
+                if (mergeable)
+                {
+                    latestMergedRequest = Math.max(latestMergedRequest, now);
+                }
+                return;
+            }
+            pendingTriggerSince = now;
         }
-        if (pendingTriggerSince.compareAndSet(since, now)
-                && !trackers.triggerMetadata(settings.core(), settings.lagMillis()))
+        if (!trackers.triggerMetadata(settings.core(), settings.lagMillis()))
         {
-            pendingTriggerSince.compareAndSet(now, 0L);
+            synchronized (triggerLock)
+            {
+                if (pendingTriggerSince == now)
+                {
+                    pendingTriggerSince = 0L;
+                }
+            }
         }
     }
 
     private void metadataRunStarted()
     {
-        pendingTriggerSince.set(0L);
+        long now = clock.getAsLong();
+        synchronized (triggerLock)
+        {
+            pendingTriggerSince = 0L;
+            runCutoff = now - settings.lagMillis();
+            runLatestMergedRequest = latestMergedRequest;
+            latestMergedRequest = 0L;
+        }
     }
 
     private void metadataRunEnded()
     {
         submit(worker, () -> {
+            boolean missedMergedRequest;
+            synchronized (triggerLock)
+            {
+                missedMergedRequest = runLatestMergedRequest != 0L && runLatestMergedRequest >= runCutoff;
+                runLatestMergedRequest = 0L;
+            }
             if (registry.hasWatched(settings.core()))
             {
                 trackers.triggerCommit(settings.core());
+                if (missedMergedRequest)
+                {
+                    scheduleTrigger(false);
+                }
             }
         });
     }
