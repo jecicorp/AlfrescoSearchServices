@@ -57,6 +57,7 @@ public class AwaitService implements CommitListener
     private final CoreTrackers trackers;
     private final DatabaseReader database;
     private final IndexProbe index;
+    private final Executor repository;
     private final Executor worker;
     private final Executor sender;
     private final Delays delays;
@@ -70,19 +71,21 @@ public class AwaitService implements CommitListener
      * @param settings the awaited core, its lag and the capacity
      * @param trackers the trackers of the core
      * @param database reads the awaited nodes from the repository
-     * @param index    reads the awaited nodes from the index
-     * @param worker   runs every repository and Solr call, one at a time
-     * @param sender   writes the events, one at a time
-     * @param delays   runs the timeouts and the rechecks
-     * @param clock    the current time, in milliseconds
+     * @param index      reads the awaited nodes from the index
+     * @param repository runs every repository read, one at a time
+     * @param worker     runs every Solr call, one at a time
+     * @param sender     writes the events, one at a time
+     * @param delays     runs the timeouts and the rechecks
+     * @param clock      the current time, in milliseconds
      */
     public AwaitService(Settings settings, CoreTrackers trackers, DatabaseReader database, IndexProbe index,
-            Executor worker, Executor sender, Delays delays, LongSupplier clock)
+            Executor repository, Executor worker, Executor sender, Delays delays, LongSupplier clock)
     {
         this.settings = settings;
         this.trackers = trackers;
         this.database = database;
         this.index = index;
+        this.repository = repository;
         this.worker = worker;
         this.sender = sender;
         this.delays = delays;
@@ -91,7 +94,7 @@ public class AwaitService implements CommitListener
     }
 
     /**
-     * Registers a request and returns at once; the repository and the index are read on the worker thread.
+     * Registers a request and returns at once; the repository and the index are read on their own threads.
      *
      * @param dbids         the distinct DBIDs to wait for
      * @param timeoutMillis how long to wait before {@code end}
@@ -109,7 +112,7 @@ public class AwaitService implements CommitListener
         AwaitHandle handle = registry.open(settings.core(), dbids, sink);
         handle.setTimeoutCancel(delays.schedule(guarded(() -> registry.expire(handle)), timeoutMillis));
         List<Long> requested = List.copyOf(dbids);
-        submit(worker, () -> resolve(handle, requested));
+        submit(repository, () -> resolve(handle, requested));
         return handle;
     }
 
@@ -130,9 +133,10 @@ public class AwaitService implements CommitListener
         }
     }
 
-    /** Stops the worker, sender and timer threads. */
+    /** Stops the repository, worker, sender and timer threads. */
     public void shutdown()
     {
+        stop(repository);
         stop(worker);
         stop(sender);
         delays.shutdown();
@@ -163,6 +167,11 @@ public class AwaitService implements CommitListener
                 registry.watch(handle, dbid, node.tx());
             }
         }
+        submit(worker, () -> checkResolved(handle));
+    }
+
+    private void checkResolved(AwaitHandle handle)
+    {
         check(registry.watched(handle));
         if (!registry.watched(handle).isEmpty())
         {
@@ -172,10 +181,21 @@ public class AwaitService implements CommitListener
 
     private void hook()
     {
-        if (!hooked.get()
-                && trackers.hook(settings.core(), this::metadataRunStarted, this::metadataRunEnded, this))
+        if (!hooked.compareAndSet(false, true))
         {
-            hooked.set(true);
+            return;
+        }
+        boolean done = false;
+        try
+        {
+            done = trackers.hook(settings.core(), this::metadataRunStarted, this::metadataRunEnded, this);
+        }
+        finally
+        {
+            if (!done)
+            {
+                hooked.set(false);
+            }
         }
     }
 

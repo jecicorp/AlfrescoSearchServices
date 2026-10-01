@@ -35,7 +35,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Wires the index await service to the trackers, the repository and Solr, with its own three threads.
+ * Wires the index await service to the trackers, the repository and Solr, with its own four threads.
  */
 @Configuration
 @ConditionalOnProperty(prefix = "alfresco.tracker.await", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -52,6 +52,7 @@ public class AwaitConfiguration
                 new QuartzCoreTrackers(bootstrap),
                 new RepositoryDatabaseReader(repositoryClient, TrackerProperties.WORKSPACE_STORE),
                 new SolrIndexProbe(solrClient),
+                Executors.newSingleThreadExecutor(daemon("index-await-repository")),
                 Executors.newSingleThreadExecutor(daemon("index-await")),
                 Executors.newSingleThreadExecutor(daemon("index-await-stream")),
                 ScheduledDelays.daemon(),

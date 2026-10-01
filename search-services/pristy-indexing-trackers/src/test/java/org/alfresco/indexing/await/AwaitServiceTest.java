@@ -26,6 +26,8 @@ package org.alfresco.indexing.await;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_ERROR_NODE;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_NODE;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -37,7 +39,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.alfresco.indexing.tracker.CommitListener;
 import org.junit.Test;
@@ -52,6 +59,8 @@ public class AwaitServiceTest
     private final FakeDatabase database = new FakeDatabase();
     private final FakeIndex index = new FakeIndex();
     private final ManualDelays delays = new ManualDelays();
+    private final ManualExecutor repository = new ManualExecutor();
+    private final ManualExecutor worker = new ManualExecutor();
     private final AtomicLong clock = new AtomicLong(1_000_000L);
     private AwaitService service = service(CORE, 10000);
 
@@ -320,7 +329,59 @@ public class AwaitServiceTest
         service.open(Set.of(2L), TIMEOUT, new RecordingSink());
         service.open(Set.of(3L), TIMEOUT, new RecordingSink());
 
-        assertEquals(2, trackers.hooks);
+        assertEquals(2, trackers.hooks.get());
+    }
+
+    @Test
+    public void theTrackersAreHookedOnceUnderConcurrentFirstRequests() throws InterruptedException
+    {
+        trackers.firstHookEntered = new CountDownLatch(1);
+        trackers.firstHookRelease = new CountDownLatch(1);
+        database.live(1L, 10L);
+        database.live(2L, 10L);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread first = new Thread(() -> {
+            try
+            {
+                service.open(Set.of(1L), TIMEOUT, new RecordingSink());
+            }
+            catch (Throwable e)
+            {
+                failure.set(e);
+            }
+        });
+
+        first.start();
+        assertTrue(trackers.firstHookEntered.await(10, TimeUnit.SECONDS));
+        service.open(Set.of(2L), TIMEOUT, new RecordingSink());
+        trackers.firstHookRelease.countDown();
+        first.join(10000L);
+
+        assertFalse(first.isAlive());
+        assertNull(failure.get());
+        assertEquals(1, trackers.hooks.get());
+    }
+
+    @Test
+    public void aBlockedRepositoryReadDoesNotDelayAPostCommitRelease()
+    {
+        database.live(1L, 10L);
+        database.live(2L, 10L);
+        RecordingSink first = new RecordingSink();
+        RecordingSink second = new RecordingSink();
+        service.open(Set.of(1L), TIMEOUT, first);
+        repository.holding = true;
+        service.open(Set.of(2L), TIMEOUT, second);
+
+        index.node(1L, 10L);
+        trackers.commitListener.afterCommit(CORE);
+
+        assertEquals(List.of(new AwaitEvent.Searchable(1L), new AwaitEvent.End(List.of())), first.events);
+        assertEquals(List.of(), second.events);
+        assertEquals(1, repository.queued.size());
+        index.node(2L, 10L);
+        repository.release();
+        assertEquals(List.of(new AwaitEvent.Searchable(2L), new AwaitEvent.End(List.of())), second.events);
     }
 
     @Test
@@ -340,16 +401,18 @@ public class AwaitServiceTest
     private AwaitService service(String core, int maxWaiters)
     {
         return new AwaitService(new AwaitService.Settings(core, LAG, maxWaiters), trackers, database, index,
-                Runnable::run, Runnable::run, delays, clock::get);
+                repository, worker, Runnable::run, delays, clock::get);
     }
 
     private static final class FakeTrackers implements CoreTrackers
     {
         final List<Long> metadataTriggers = new ArrayList<>();
         int commitTriggers;
-        int hooks;
+        final AtomicInteger hooks = new AtomicInteger();
         boolean accepting = true;
         boolean hookable = true;
+        CountDownLatch firstHookEntered;
+        CountDownLatch firstHookRelease;
         Runnable started = () -> { };
         Runnable ended = () -> { };
         CommitListener commitListener = core -> { };
@@ -358,7 +421,19 @@ public class AwaitServiceTest
         public boolean hook(String core, Runnable metadataRunStarted, Runnable metadataRunEnded,
                 CommitListener listener)
         {
-            hooks++;
+            int call = hooks.incrementAndGet();
+            if (call == 1 && firstHookRelease != null)
+            {
+                firstHookEntered.countDown();
+                try
+                {
+                    firstHookRelease.await();
+                }
+                catch (InterruptedException e)
+                {
+                    Thread.currentThread().interrupt();
+                }
+            }
             if (!hookable)
             {
                 return false;
@@ -456,6 +531,33 @@ public class AwaitServiceTest
                 }
             }
             return found;
+        }
+    }
+
+    private static final class ManualExecutor implements Executor
+    {
+        final List<Runnable> queued = new ArrayList<>();
+        boolean holding;
+
+        @Override
+        public void execute(Runnable task)
+        {
+            if (holding)
+            {
+                queued.add(task);
+            }
+            else
+            {
+                task.run();
+            }
+        }
+
+        void release()
+        {
+            holding = false;
+            List<Runnable> tasks = new ArrayList<>(queued);
+            queued.clear();
+            tasks.forEach(Runnable::run);
         }
     }
 
