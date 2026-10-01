@@ -23,10 +23,10 @@
 
 package org.alfresco.indexing.await;
 
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -51,11 +51,14 @@ public class ScheduledDelays implements Delays
      */
     public static ScheduledDelays daemon()
     {
-        return new ScheduledDelays(Executors.newSingleThreadScheduledExecutor(task -> {
+        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1, task -> {
             Thread thread = new Thread(task, "index-await-delays");
             thread.setDaemon(true);
             return thread;
-        }));
+        });
+        executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+        executor.setRemoveOnCancelPolicy(true);
+        return new ScheduledDelays(executor);
     }
 
     @Override

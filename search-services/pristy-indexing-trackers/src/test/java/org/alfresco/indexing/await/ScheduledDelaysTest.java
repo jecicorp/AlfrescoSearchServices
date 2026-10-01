@@ -66,11 +66,34 @@ public class ScheduledDelaysTest
     }
 
     @Test
-    public void aStoppedTimerAcceptsNothingAndCancelsNothing()
+    public void aStoppedTimerAcceptsNothingAndCancelsNothing() throws Exception
     {
+        AtomicBoolean ran = new AtomicBoolean();
+        Runnable cancelBeforeStop = delays.schedule(() -> ran.set(true), 10000L);
         delays.shutdown();
 
-        delays.schedule(() -> { }, 50L).run();
+        Runnable cancelAfterStop = delays.schedule(() -> ran.set(true), 50L);
+        cancelAfterStop.run();
+        cancelBeforeStop.run();
+        delays.shutdown();
+
+        Thread.sleep(200L);
+        assertFalse(ran.get());
+    }
+
+    @Test
+    public void aFarTaskDoesNotDelayShutdownAndNeverRuns() throws Exception
+    {
+        ScheduledDelays daemonDelays = ScheduledDelays.daemon();
+        AtomicBoolean ran = new AtomicBoolean();
+        daemonDelays.schedule(() -> ran.set(true), 60000L);
+
+        long start = System.nanoTime();
+        daemonDelays.shutdown();
+        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+        assertTrue("shutdown took " + elapsedMillis + " ms", elapsedMillis < 500L);
+        assertFalse(ran.get());
     }
 
     @Test
