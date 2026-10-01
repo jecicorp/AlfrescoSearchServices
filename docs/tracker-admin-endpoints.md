@@ -365,8 +365,10 @@ event at once.
 2. For the nodes still pending it fires the core's `MetadataTracker` job once through Quartz,
    `lag` (1000 ms) after the request, so the cycle does not defer the transaction as too
    recent. A trigger fired during a running cycle waits for it to end. While such a trigger is
-   pending, later requests only register their nodes: fifty concurrent requests cost one extra
-   cycle.
+   pending, later requests only register their nodes; one more cycle follows when such a request
+   came after the cycle's cutoff (its start minus `lag`) and nodes are still pending. Fifty
+   concurrent requests cost at most two extra cycles. Shortening the wait through `lag` assumes
+   the trackers' and the repository's clocks are in sync (NTP).
 3. When that cycle ends, the `CommitTracker` job is fired once. Its own guard still applies: no
    commit within `commit-interval` (2000 ms) of the previous one, and the next scheduled commit
    then does it.
@@ -376,7 +378,8 @@ event at once.
    and again after each following commit.
 
 Waiters live on the core tracking `workspace://SpacesStore` (`alfresco` in the shipped
-configuration). A client that disconnects cancels its request and frees its waiters. The
+configuration). A client that disconnects frees its waiters at the next event or at the request's
+timeout, since Tomcat notices a disconnect only on write. The
 connection itself is closed at the accepted wait plus 10 s. The events of every stream are
 written by one sender thread: a client that stays connected without reading delays the other
 streams until its write fails.
