@@ -182,6 +182,20 @@ of re-tracking the whole repository (which can take days on a large index).
 > Dockerfile / `SOLR_BACKUP_DIR`). A `location` outside `allowPaths` makes Solr
 > reject the backup with HTTP 400.
 
+### Index await - `alfresco.tracker.await.*`
+
+`POST /api/v1/index/await` holds a stream open until given nodes are searchable; see
+[tracker-admin-endpoints.md](tracker-admin-endpoints.md). A wait wakes the `MetadataTracker`
+job `tuning.lag` after the request, then the `CommitTracker` job; `commit-interval` still
+bounds the commit rate.
+
+| Property | Env var | Default | Impact |
+|----------|---------|---------|--------|
+| `alfresco.tracker.await.enabled` | `ALFRESCO_TRACKER_AWAIT_ENABLED` | `true` | Registers the endpoint and turns the `index.await` capability on. When `false` the endpoint is absent and `GET /api/v1` reports `index.await` as disabled. |
+| `alfresco.tracker.await.max-timeout` | `ALFRESCO_TRACKER_AWAIT_MAXTIMEOUT` | `30000` ms | Upper bound of a request's `timeout`; a larger one is capped, not refused. |
+| `alfresco.tracker.await.max-batch` | `ALFRESCO_TRACKER_AWAIT_MAXBATCH` | `1000` | Most distinct DBIDs in one request; beyond it the request is refused with `400`. |
+| `alfresco.tracker.await.max-waiters` | `ALFRESCO_TRACKER_AWAIT_MAXWAITERS` | `10000` | Nodes awaited at once across every request; a request that would exceed it is refused with `503`. |
+
 ### Internal content settings (not externally configurable today)
 
 Both ContentTracker knobs are now configurable as

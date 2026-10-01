@@ -27,6 +27,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import org.alfresco.indexing.await.AwaitController;
 import org.alfresco.indexing.diagnostic.DiagnosticController;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,6 +53,9 @@ public class ApiDescriptorContextTest
     @Autowired
     private DiagnosticController diagnosticController;
 
+    @Autowired
+    private AwaitController awaitController;
+
     @Test
     public void everyCapabilityBeanCanBeInstantiated()
     {
@@ -74,5 +78,10 @@ public class ApiDescriptorContextTest
                 descriptor.capabilities().containsKey("index.diagnostic"));
         assertEquals("1.1.1", descriptor.capabilities().get("index.diagnostic").since());
         assertNotNull(diagnosticController);
+        assertTrue(descriptor.capabilities().keySet().toString(),
+                descriptor.capabilities().containsKey("index.await"));
+        assertEquals("1.1.2", descriptor.capabilities().get("index.await").since());
+        assertTrue(descriptor.capabilities().get("index.await").enabled());
+        assertNotNull(awaitController);
     }
 }

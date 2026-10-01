@@ -74,11 +74,12 @@ never has to map a version number to a feature set:
 ```json
 {
   "service": "pristy-indexing-trackers",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "api": "1",
   "capabilities": {
     "admin.actions":         { "since": "1.0", "enabled": true  },
     "admin.backup":          { "since": "1.0", "enabled": false },
+    "index.await":           { "since": "1.1.2", "enabled": true  },
     "index.diagnostic":      { "since": "1.1.1", "enabled": true  },
     "index.status":          { "since": "1.1", "enabled": true  },
     "index.unindexed-nodes": { "since": "1.1", "enabled": true  },
@@ -318,6 +319,83 @@ curl -s -X POST "http://localhost:8085/api/v1/index/diagnostic?user=admin" | pyt
 curl -s "http://localhost:8085/api/v1/index/diagnostic" | python3 -m json.tool
 curl -N "http://localhost:8085/api/v1/index/diagnostic/stream"
 curl -s -X DELETE "http://localhost:8085/api/v1/index/diagnostic" | python3 -m json.tool
+```
+
+## Waiting for nodes to become searchable (`POST /api/v1/index/await`)
+
+A change in the repository reaches a search only once the metadata tracker indexed it and a
+commit opened a searcher over it: about 11 s in the worst case with the shipped crons. This
+endpoint holds a stream open until the given nodes are searchable, so a client waits for the
+real answer instead of polling. Advertised by `GET /api/v1` as `index.await` (since `1.1.2`);
+`enabled` follows `alfresco.tracker.await.enabled`, and the endpoint is not registered when it
+is `false`.
+
+```json
+{ "dbids": [1234, 1235], "timeout": 20000 }
+```
+
+- `dbids`: positive DBIDs, duplicates collapsed, at most `max-batch` (1000) distinct ones.
+- `timeout`: milliseconds, optional; missing means `min(20000, max-timeout)`, a larger value is
+  capped at `max-timeout` (30000), not refused.
+
+| Status | Body | When |
+|---|---|---|
+| `200` | `text/event-stream` | the request is accepted |
+| `400` | `text/plain` reason | unreadable body, `dbids` missing or empty, a DBID not positive, more than `max-batch` DBIDs, `timeout` not positive |
+| `503` | `text/plain` reason | the DBIDs would exceed `max-waiters`, or no tracked core indexes `workspace://SpacesStore` |
+
+The endpoint never answers `404`. The stream carries `Cache-Control: no-store` and
+`X-Accel-Buffering: no`, and starts with an SSE comment, `:open`, sent as soon as the request
+is accepted: Spring MVC would otherwise hold the status line and headers until the first
+event, and a caller would block on them. Each `data` is one line of JSON:
+
+| Event | Data | Sent when |
+|---|---|---|
+| `searchable` | `{"dbid":1234}` | a `/query` request on the open searcher returns a `Node` document with `INTXID` at least the node's transaction in the repository, `HAS_INDEXING_ERROR` or not (one property failed, the node is searchable) |
+| `error` | `{"dbid":1234,"verdict":"ERROR"}` | the node will not become searchable: `ERROR` (an `ErrorNode`), `UNINDEXED` (an `UnindexedNode`, `cm:isIndexed=false`), `ORPHAN` (no live node of that DBID in `workspace://SpacesStore`), `UNREACHABLE` (the repository could not be read); verdicts are upper-case enum names |
+| `end` | `{"pending":[1235]}` | every DBID got its event (`pending` is `[]`), or the timeout expired; the stream then completes |
+
+Each DBID gets at most one `searchable` or `error`, and a node already searchable gets its
+event at once.
+
+### How the wait is shortened
+
+1. The service reads each node's transaction from the repository (`/api/solr/nodes`, one
+   range request per 2000 consecutive DBIDs) and checks the index at once.
+2. For the nodes still pending it fires the core's `MetadataTracker` job once through Quartz,
+   `lag` (1000 ms) after the request, so the cycle does not defer the transaction as too
+   recent. A trigger fired during a running cycle waits for it to end. While such a trigger is
+   pending, later requests only register their nodes: fifty concurrent requests cost one extra
+   cycle.
+3. When that cycle ends, the `CommitTracker` job is fired once. Its own guard still applies: no
+   commit within `commit-interval` (2000 ms) of the previous one, and the next scheduled commit
+   then does it.
+4. After every commit of the core, the pending DBIDs are queried on the open searcher, 500 per
+   request. Most commits return before their searcher opens (`waitSearcher` is only set once
+   per `new-searcher-interval`), so nodes still pending are checked once more a second later,
+   and again after each following commit.
+
+Waiters live on the core tracking `workspace://SpacesStore` (`alfresco` in the shipped
+configuration). A client that disconnects cancels its request and frees its waiters. The
+connection itself is closed at the accepted wait plus 10 s. The events of every stream are
+written by one sender thread: a client that stays connected without reading delays the other
+streams until its write fails.
+
+### Configuration
+
+Under `alfresco.tracker.await`, defaults in `TrackerProperties.AwaitConfig`.
+
+| Key | Default | Effect |
+|---|---|---|
+| `enabled` | `true` | registers the endpoint and turns the `index.await` capability on |
+| `max-timeout` | `30000` | upper bound of `timeout`, in ms |
+| `max-batch` | `1000` | most distinct DBIDs in one request |
+| `max-waiters` | `10000` | nodes awaited at once across every request; beyond this, `503` |
+
+```bash
+curl -N -X POST -H 'Content-Type: application/json' \
+  -d '{"dbids":[1234,1235],"timeout":20000}' \
+  "http://localhost:8085/api/v1/index/await"
 ```
 
 ## Maintenance (mutating, `POST`)

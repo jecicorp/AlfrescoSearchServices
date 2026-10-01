@@ -24,10 +24,12 @@
 package org.alfresco.indexing.api;
 
 import org.alfresco.indexing.admin.AdminService;
+import org.alfresco.indexing.await.AwaitService;
 import org.alfresco.indexing.backup.BackupService;
 import org.alfresco.indexing.config.RepairReportEndpoint;
 import org.alfresco.indexing.config.TrackerProperties;
 import org.alfresco.indexing.diagnostic.DiagnosticJobService;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -82,5 +84,11 @@ public class ApiCapabilities
     Capability indexDiagnosticCapability(DiagnosticJobService diagnosticJobService)
     {
         return Capability.of("index.diagnostic", "1.1.1");
+    }
+
+    @Bean
+    Capability indexAwaitCapability(TrackerProperties properties, ObjectProvider<AwaitService> awaitService)
+    {
+        return new Capability("index.await", "1.1.2", properties.getAwait().isEnabled());
     }
 }
