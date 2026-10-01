@@ -482,8 +482,8 @@ public class TrackerBootstrap implements ApplicationRunner
         return informationServers.values().iterator().next();
     }
 
-    // Visible for testing
-    TrackerScheduler getScheduler()
+    /** @return the scheduler of the tracker jobs, {@code null} until the trackers start */
+    public TrackerScheduler getScheduler()
     {
         return scheduler;
     }
