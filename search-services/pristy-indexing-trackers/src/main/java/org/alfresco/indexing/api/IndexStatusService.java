@@ -90,6 +90,10 @@ public class IndexStatusService
             Verdict.ERROR, Verdict.ORPHAN, Verdict.STALE, Verdict.UNVERIFIED,
             Verdict.UNINDEXED, Verdict.INDEXED);
 
+    /** The {@code DOC_TYPE} clause matching every document the index can hold for a node. */
+    public static final String NODE_DOCUMENTS = FIELD_DOC_TYPE + ":(" + DOC_TYPE_NODE + " OR "
+            + DOC_TYPE_ERROR_NODE + " OR " + DOC_TYPE_UNINDEXED_NODE + ")";
+
     private final TrackerBootstrap trackerBootstrap;
     private final SolrClient solrClient;
 
@@ -238,8 +242,7 @@ public class IndexStatusService
 
     private Core coreStatus(String coreName, long dbid, Database database)
     {
-        SolrQuery query = luceneQuery(FIELD_DBID + ":" + dbid + " AND " + FIELD_DOC_TYPE + ":("
-                + DOC_TYPE_NODE + " OR " + DOC_TYPE_ERROR_NODE + " OR " + DOC_TYPE_UNINDEXED_NODE + ")");
+        SolrQuery query = luceneQuery(FIELD_DBID + ":" + dbid + " AND " + NODE_DOCUMENTS);
         query.setRows(10);
         query.setFields(FIELD_DOC_TYPE, FIELD_INTXID, FIELD_ACLID, FIELD_HAS_INDEXING_ERROR);
         SolrDocumentList docs = search(coreName, query);
@@ -348,7 +351,11 @@ public class IndexStatusService
         }
     }
 
-    private static SolrQuery luceneQuery(String q)
+    /**
+     * @param q a query in Lucene syntax
+     * @return the query, sent to the {@code /query} handler, which searches the open searcher
+     */
+    public static SolrQuery luceneQuery(String q)
     {
         SolrQuery query = new SolrQuery(q);
         query.set("defType", "lucene");
@@ -356,13 +363,15 @@ public class IndexStatusService
         return query;
     }
 
-    private static String stringValue(SolrDocument document, String field)
+    /** @return the value of {@code field} as a string, {@code null} when absent */
+    public static String stringValue(SolrDocument document, String field)
     {
         Object value = document.getFieldValue(field);
         return value == null ? null : value.toString();
     }
 
-    private static Long longValue(SolrDocument document, String field)
+    /** @return the value of {@code field} as a long, {@code null} when absent or not a number */
+    public static Long longValue(SolrDocument document, String field)
     {
         Object value = document.getFieldValue(field);
         if (value instanceof Number number)
