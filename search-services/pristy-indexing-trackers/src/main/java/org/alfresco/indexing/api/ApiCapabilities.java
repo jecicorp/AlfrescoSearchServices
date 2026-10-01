@@ -87,8 +87,8 @@ public class ApiCapabilities
     }
 
     @Bean
-    Capability indexAwaitCapability(TrackerProperties properties, ObjectProvider<AwaitService> awaitService)
+    Capability indexAwaitCapability(ObjectProvider<AwaitService> awaitService)
     {
-        return new Capability("index.await", "1.1.2", properties.getAwait().isEnabled());
+        return new Capability("index.await", "1.1.2", awaitService.getIfAvailable() != null);
     }
 }

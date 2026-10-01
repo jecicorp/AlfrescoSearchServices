@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import org.alfresco.indexing.await.AwaitService;
 import org.alfresco.indexing.config.TrackerProperties;
 import org.junit.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -87,6 +88,23 @@ public class ApiDescriptorControllerTest
     }
 
     @Test
+    public void theAwaitCapabilityIsDisabledWithoutTheAwaitService()
+    {
+        Capability capability = new ApiCapabilities().indexAwaitCapability(awaitProvider(null));
+
+        assertEquals("index.await", capability.name());
+        assertFalse(capability.enabled());
+    }
+
+    @Test
+    public void theAwaitCapabilityIsEnabledWithTheAwaitService()
+    {
+        Capability capability = new ApiCapabilities().indexAwaitCapability(awaitProvider(mock(AwaitService.class)));
+
+        assertTrue(capability.enabled());
+    }
+
+    @Test
     public void everyAdvertisedCapabilityIsBackedByABeanOfTheFeatureThatServesIt()
     {
         long declaring = java.util.Arrays.stream(ApiCapabilities.class.getDeclaredMethods())
@@ -98,6 +116,14 @@ public class ApiDescriptorControllerTest
                 .count();
 
         assertEquals(declaring, takingAService);
+    }
+
+    private static ObjectProvider<AwaitService> awaitProvider(AwaitService service)
+    {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<AwaitService> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(service);
+        return provider;
     }
 
     private static ApiDescriptorController controller(List<Capability> capabilities, String version)
