@@ -66,6 +66,7 @@ public class AwaitService implements CommitListener
     private final AtomicLong pendingTriggerSince = new AtomicLong();
     private final AtomicBoolean hooked = new AtomicBoolean();
     private final AtomicBoolean recheckScheduled = new AtomicBoolean();
+    private final AtomicBoolean commitCheckScheduled = new AtomicBoolean();
 
     /**
      * @param settings the awaited core, its lag and the capacity
@@ -127,7 +128,8 @@ public class AwaitService implements CommitListener
     @Override
     public void afterCommit(String coreName)
     {
-        if (settings.core() != null && settings.core().equals(coreName))
+        if (settings.core() != null && settings.core().equals(coreName)
+                && commitCheckScheduled.compareAndSet(false, true))
         {
             submit(worker, this::checkAfterCommit);
         }
@@ -220,6 +222,7 @@ public class AwaitService implements CommitListener
 
     private void checkAfterCommit()
     {
+        commitCheckScheduled.set(false);
         check(registry.watched(settings.core()));
         if (registry.hasWatched(settings.core()) && recheckScheduled.compareAndSet(false, true))
         {

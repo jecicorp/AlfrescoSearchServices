@@ -280,6 +280,27 @@ public class AwaitServiceTest
     }
 
     @Test
+    public void commitsWhileTheWorkerIsBlockedEnqueueOneCheck()
+    {
+        database.live(1L, 10L);
+        RecordingSink sink = new RecordingSink();
+        service.open(Set.of(1L), TIMEOUT, sink);
+        worker.holding = true;
+
+        trackers.commitListener.afterCommit(CORE);
+        trackers.commitListener.afterCommit(CORE);
+        trackers.commitListener.afterCommit(CORE);
+
+        assertEquals(1, worker.queued.size());
+        index.node(1L, 10L);
+        worker.release();
+        assertEquals(List.of(new AwaitEvent.Searchable(1L), new AwaitEvent.End(List.of())), sink.events);
+        worker.holding = true;
+        trackers.commitListener.afterCommit(CORE);
+        assertEquals(1, worker.queued.size());
+    }
+
+    @Test
     public void aFailingIndexQueryLeavesTheNodesPending()
     {
         database.live(1L, 10L);
