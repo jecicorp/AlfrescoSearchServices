@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.alfresco.indexing.tracker.TrackerScheduler;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "alfresco.tracker")
@@ -53,6 +54,7 @@ public class TrackerProperties
     private boolean transformContent = true;
     private String solrHome = "/opt/solr/data";
     private int repairMaxRetries = 10;
+    private int schedulerThreadCount = TrackerScheduler.DEFAULT_THREAD_COUNT;
 
     /**
      * Per-core configuration overrides, keyed by core (collection) name.
@@ -320,6 +322,16 @@ public class TrackerProperties
     public void setRepairMaxRetries(int repairMaxRetries)
     {
         this.repairMaxRetries = repairMaxRetries;
+    }
+
+    public int getSchedulerThreadCount()
+    {
+        return schedulerThreadCount;
+    }
+
+    public void setSchedulerThreadCount(int schedulerThreadCount)
+    {
+        this.schedulerThreadCount = schedulerThreadCount;
     }
 
     public static class SslConfig

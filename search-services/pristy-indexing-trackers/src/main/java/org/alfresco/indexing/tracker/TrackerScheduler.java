@@ -57,22 +57,37 @@ import org.slf4j.LoggerFactory;
 public class TrackerScheduler
 {
     private static final String DEFAULT_CRON = "0/10 * * * * ? *";
+    public static final int DEFAULT_THREAD_COUNT = 40;
     public static final String SOLR_JOB_GROUP = "Solr";
     public static final String AWAIT_TRIGGER_GROUP = "IndexAwait";
     protected final static Logger log = LoggerFactory.getLogger(TrackerScheduler.class);
     protected Scheduler scheduler;
     private final AtomicLong triggerSequence = new AtomicLong();
 
+    /**
+     * Starts a Quartz scheduler with a pool of {@link #DEFAULT_THREAD_COUNT} threads.
+     */
     public TrackerScheduler(String schedulerName)
     {
-        // TODO: pick scheduler properties from SOLR config or file ...
+        this(schedulerName, DEFAULT_THREAD_COUNT);
+    }
+
+    /**
+     * Starts a Quartz scheduler whose pool runs at most {@code threadCount} jobs at once, all cores together.
+     */
+    public TrackerScheduler(String schedulerName, int threadCount)
+    {
+        if (threadCount < 1)
+        {
+            throw new IllegalArgumentException("The scheduler thread count must be at least 1, got " + threadCount);
+        }
         try
         {
             StdSchedulerFactory factory = new StdSchedulerFactory();
             Properties properties = new Properties();
             properties.setProperty("org.quartz.scheduler.instanceName", schedulerName);
             properties.setProperty("org.quartz.threadPool.class", "org.quartz.simpl.SimpleThreadPool");
-            properties.setProperty("org.quartz.threadPool.threadCount", "40");
+            properties.setProperty("org.quartz.threadPool.threadCount", Integer.toString(threadCount));
             properties.setProperty("org.quartz.threadPool.makeThreadsDaemons", "true");
             properties.setProperty("org.quartz.scheduler.makeSchedulerThreadDaemon", "true");
             properties.setProperty("org.quartz.jobStore.class", "org.quartz.simpl.RAMJobStore");

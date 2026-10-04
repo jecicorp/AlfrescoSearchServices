@@ -121,7 +121,7 @@ public class TrackerBootstrap implements ApplicationRunner
         // Shared registry and scheduler across all cores
         registry = new TrackerRegistry();
         String firstCore = collections.get(0);
-        scheduler = new TrackerScheduler(firstCore);
+        scheduler = new TrackerScheduler(firstCore, props.getSchedulerThreadCount());
 
         // ModelTracker is shared (one per repo, not per core) — init on first core.
         // It uses the first core's resolved properties (model sync is repo-global).
@@ -186,8 +186,8 @@ public class TrackerBootstrap implements ApplicationRunner
      */
     private void logEffectiveConfiguration(List<String> collections)
     {
-        LOGGER.info("Tracker configuration in effect (collections={}, repairMaxRetries={}):",
-                collections, props.getRepairMaxRetries());
+        LOGGER.info("Tracker configuration in effect (collections={}, repairMaxRetries={}, schedulerThreadCount={}):",
+                collections, props.getRepairMaxRetries(), props.getSchedulerThreadCount());
 
         for (String coreName : collections)
         {

@@ -37,6 +37,7 @@ import static org.mockito.Mockito.verify;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.UUID;
 
 import org.alfresco.indexing.server.InformationServer;
 import org.alfresco.service.namespace.QName;
@@ -95,6 +96,34 @@ public class TrackerSchedulerTest
         {
             this.trackerScheduler.shutdown();
         }
+    }
+
+    @Test
+    public void theDefaultPoolHasTheDefaultThreadCount() throws SchedulerException
+    {
+        Assert.assertEquals(TrackerScheduler.DEFAULT_THREAD_COUNT,
+                trackerScheduler.scheduler.getMetaData().getThreadPoolSize());
+    }
+
+    @Test
+    public void thePoolHasTheConfiguredThreadCount() throws SchedulerException
+    {
+        TrackerScheduler sized = new TrackerScheduler("sized-" + UUID.randomUUID(), 3);
+        try
+        {
+            Assert.assertEquals(3, sized.scheduler.getMetaData().getThreadPoolSize());
+        }
+        finally
+        {
+            sized.shutdown();
+        }
+    }
+
+    @Test
+    public void aThreadCountBelowOneIsRefused()
+    {
+        Assert.assertThrows(IllegalArgumentException.class,
+                () -> new TrackerScheduler("empty-" + UUID.randomUUID(), 0));
     }
 
     @Test

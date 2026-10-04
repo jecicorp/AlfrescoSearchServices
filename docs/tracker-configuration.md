@@ -154,6 +154,7 @@ says `0/10` for metadata and the yml says `0/5`, and only the yml ever runs.
 | `alfresco.tracker.transform-content` | `true` | Maps to the legacy `alfresco.index.transformContent`. When `false`, the tracker does **not** request text extraction for that core — useful for the `archive` core, where full-text search of trashed documents is rarely needed. |
 | `alfresco.tracker.max-live-searchers` | `2` | Maximum number of concurrent live Solr searchers a tracker keeps open while indexing. |
 | `alfresco.tracker.repair-max-retries` | `10` | How many times the RepairTracker retries a failing node before marking it permanently failed. |
+| `alfresco.tracker.scheduler-thread-count` | `40` | Quartz threads shared by every tracker job of every core, index-await runs included. A job that finds no free thread waits, so the trackers fall behind. Global (not per-core). |
 | `alfresco.tracker.solr-home` | `/opt/solr/data` | Local directory where the model dictionary is persisted. |
 | `alfresco.tracker.health.connect-timeout` | `5000` ms | Connection timeout for the repository health probe behind `/actuator/health` (`RepositoryHealthIndicator`). |
 | `alfresco.tracker.health.read-timeout` | `5000` ms | Read timeout for the repository health probe. Raise both on a slow/loaded repository to avoid the health endpoint reporting `DOWN` under transient latency. |
@@ -356,7 +357,7 @@ alfresco:
 
 `commit-interval` (2000 ms), `new-searcher-interval` (3000 ms),
 `transform-content` (`true`), `max-live-searchers` (2), `cron.repair` (1 min)
-and `repair-max-retries` (10) are not listed in `application.yml` and fall back
+`repair-max-retries` (10) and `scheduler-thread-count` (40) are not listed in `application.yml` and fall back
 to the defaults shown in the reference tables.
 
 No `cores` block is shipped: both `alfresco` and `archive` track the correct
