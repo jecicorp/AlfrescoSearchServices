@@ -136,9 +136,17 @@ public abstract class AbstractSearchExactTermTest extends AbstractE2EFunctionalT
                     createdFileModels.add(fileModel);
                     
                 });
-        
-        waitForContentIndexing(createdFileModels.get(createdFileModels.size() - 1).getName(), true);
-        
+
+        range(0, exactSearchData.size())
+                .forEach(id -> {
+
+                    String content = exactSearchData.get(id).get("content");
+                    String name = createdFileModels.get(id).getName();
+
+                    Assert.assertTrue(
+                                isContentInSearchResults(String.format("cm:content:'%s'", content), name, true),
+                                String.format("Content of document '%s' was not indexed in time.", name));
+                });
     }
     
     @BeforeClass(alwaysRun = true)
