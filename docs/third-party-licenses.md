@@ -141,5 +141,5 @@ inventory here only duplicates it, one Solr release behind. Do not re-enumerate 
 - The Solr per-jar licences ship **twice**: at `solr/licenses/` with the Solr tree, and again at
   `licenses/solr/` through the `copy-solr-licenses` execution. 1139 files each way.
 - `WEB-INF/lib` merges Solr's own webapp libs with ours, and the two disagree on several versions
-  (`zookeeper` 3.9.4 and 3.9.5, netty 4.1 and 4.2, jackson 2.18.0 and 2.18.8 all ship side by side).
+  (`zookeeper` 3.9.4 and 3.9.6, netty 4.1 and 4.2, jackson 2.18.0 and 2.18.8 all ship side by side).
   A `delete-duplicate-jars` antrun step exists but still targets Solr 6 file names.
