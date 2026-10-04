@@ -182,7 +182,6 @@ public class Lucene4QueryParserAdaptor implements QueryParserAdaptor<Query, Sort
     @Override
     public boolean sortFieldExists(String noLocalField)
     {
-        // TODO Auto-generated method stub
         //return false;
         throw new UnsupportedOperationException();
     }

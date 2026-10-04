@@ -107,7 +107,6 @@ public class SolrXPathHandler implements XPathHandler
 
     public void endCommentNodeStep() throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
@@ -127,13 +126,11 @@ public class SolrXPathHandler implements XPathHandler
 
     public void endFilterExpr() throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
     public void endFunction() throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
@@ -173,13 +170,11 @@ public class SolrXPathHandler implements XPathHandler
 
     public void endPredicate() throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
     public void endProcessingInstructionNodeStep() throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
@@ -206,7 +201,6 @@ public class SolrXPathHandler implements XPathHandler
 
     public void endTextNodeStep() throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
@@ -238,19 +232,16 @@ public class SolrXPathHandler implements XPathHandler
 
     public void literal(String arg0) throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
     public void number(double arg0) throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
     public void number(int arg0) throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
@@ -310,7 +301,6 @@ public class SolrXPathHandler implements XPathHandler
 
     public void startCommentNodeStep(int arg0) throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
@@ -321,13 +311,11 @@ public class SolrXPathHandler implements XPathHandler
 
     public void startFilterExpr() throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
     public void startFunction(String arg0, String arg1) throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
@@ -463,13 +451,11 @@ public class SolrXPathHandler implements XPathHandler
 
     public void startPredicate() throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
     public void startProcessingInstructionNodeStep(int arg0, String arg1) throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 
@@ -485,7 +471,6 @@ public class SolrXPathHandler implements XPathHandler
 
     public void startTextNodeStep(int arg0) throws SAXPathException
     {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException();
     }
 

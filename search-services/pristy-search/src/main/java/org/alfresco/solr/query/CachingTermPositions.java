@@ -35,9 +35,6 @@ import org.apache.lucene.util.BytesRef;
 
 /**
  * @author andyh
- * 
- * TODO To change the template for this generated type comment go to Window -
- * Preferences - Java - Code Style - Code Templates
  */
 public class CachingTermPositions extends PostingsEnum
 {

@@ -83,7 +83,6 @@ public class QueryLoggingComponent extends SearchComponent
     @Override
     public void prepare(ResponseBuilder rb) throws IOException
     {
-        // TODO Auto-generated method stub
 
     }
 
@@ -213,7 +212,6 @@ public class QueryLoggingComponent extends SearchComponent
     @Override
     public String getDescription()
     {
-        // TODO Auto-generated method stub
         return null;
     }
 

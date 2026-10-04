@@ -41,7 +41,7 @@ import org.apache.lucene.search.Weight;
 import org.apache.solr.search.SolrIndexSearcher;
 
 /**
- * TODO: comment me!
+ * Query for the documents readable by an authority.
  * @author Matt Ward
  */
 public class SolrReaderQuery extends AbstractAuthorityQuery
