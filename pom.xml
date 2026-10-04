@@ -137,7 +137,6 @@
       <dependency.jaxb-xjc.version>4.0.3</dependency.jaxb-xjc.version>
 
       <dependency.slf4j.version>2.0.17</dependency.slf4j.version>
-      <dependency.cxf.version>3.6.12</dependency.cxf.version>
 
       <!-- Solr 9 runs on Jetty 10, which still uses javax.servlet (Jakarta only lands in Solr 10). -->
       <dependency.javax.servlet.api.version>4.0.1</dependency.javax.servlet.api.version>
@@ -315,56 +314,6 @@
             <version>2.12.2</version>
          </dependency>
          <!-- alfresco-xmlfactory removed: disables XInclude needed for generated_copy_fields.xml -->
-         <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-core</artifactId>
-            <version>${dependency.cxf.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-rt-bindings-soap</artifactId>
-            <version>${dependency.cxf.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-rt-bindings-xml</artifactId>
-            <version>${dependency.cxf.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-rt-databinding-jaxb</artifactId>
-            <version>${dependency.cxf.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-rt-frontend-jaxws</artifactId>
-            <version>${dependency.cxf.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-rt-frontend-simple</artifactId>
-            <version>${dependency.cxf.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-rt-transports-http</artifactId>
-            <version>${dependency.cxf.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-rt-ws-addr</artifactId>
-            <version>${dependency.cxf.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-rt-ws-policy</artifactId>
-            <version>${dependency.cxf.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-rt-wsdl</artifactId>
-            <version>${dependency.cxf.version}</version>
-         </dependency>         
          <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>

@@ -49,7 +49,6 @@ import java.util.stream.Stream;
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.solr.AlfrescoSolrDataModel;
 import org.alfresco.solr.query.AbstractQParser;
-import org.apache.cxf.transport.http.auth.HttpAuthHeader;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.ExitableDirectoryReader;
 import org.apache.lucene.index.IndexableField;
