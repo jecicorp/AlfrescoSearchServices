@@ -76,18 +76,7 @@ public class ContentSizeGroupingCollector extends DelegatingCollector
         super.doSetNextReader(context);
         if(schemaField != null)
         {
-            if(true)
-            {
-                try
-                {
-                    numericDocValues = context.reader().getNumericDocValues(schemaFieldName);
-                }
-                catch (IOException e)
-                {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-            }
+            numericDocValues = context.reader().getNumericDocValues(schemaFieldName);
         }
     }
 
