@@ -74,13 +74,13 @@ never has to map a version number to a feature set:
 ```json
 {
   "service": "pristy-indexing-trackers",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "api": "1",
   "capabilities": {
     "admin.actions":         { "since": "1.0", "enabled": true  },
     "admin.backup":          { "since": "1.0", "enabled": false },
-    "index.await":           { "since": "1.1.2", "enabled": true  },
-    "index.diagnostic":      { "since": "1.1.1", "enabled": true  },
+    "index.await":           { "since": "1.2", "enabled": true  },
+    "index.diagnostic":      { "since": "1.2", "enabled": true  },
     "index.status":          { "since": "1.1", "enabled": true  },
     "index.unindexed-nodes": { "since": "1.1", "enabled": true  },
     "tracker.repair":        { "since": "1.0", "enabled": true  }
@@ -205,7 +205,7 @@ provide — and callers wanting a usable answer should use `/api/v1/index/node`.
 large index. The diagnostic job runs the same comparison **once, server-side**, reports
 its progress while it runs and keeps its last result in the index: every client sees the
 same running job and the same last result, across a page reload or a restart of this
-service. Advertised by `GET /api/v1` as `index.diagnostic` (since `1.1.1`). `REPORT` and
+service. Advertised by `GET /api/v1` as `index.diagnostic` (since `1.2`). `REPORT` and
 `/actuator/repairreport` are unchanged and still answer synchronously.
 
 | Method | Path | Answer |
@@ -326,7 +326,7 @@ curl -s -X DELETE "http://localhost:8085/api/v1/index/diagnostic" | python3 -m j
 A change in the repository reaches a search only once the metadata tracker indexed it and a
 commit opened a searcher over it: about 11 s in the worst case with the shipped crons. This
 endpoint holds a stream open until the given nodes are searchable, so a client waits for the
-real answer instead of polling. Advertised by `GET /api/v1` as `index.await` (since `1.1.2`);
+real answer instead of polling. Advertised by `GET /api/v1` as `index.await` (since `1.2`);
 `enabled` follows `alfresco.tracker.await.enabled`, and the endpoint is not registered when it
 is `false`.
 

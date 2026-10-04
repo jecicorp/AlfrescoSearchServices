@@ -83,12 +83,12 @@ public class ApiCapabilities
     @Bean
     Capability indexDiagnosticCapability(DiagnosticJobService diagnosticJobService)
     {
-        return Capability.of("index.diagnostic", "1.1.1");
+        return Capability.of("index.diagnostic", "1.2");
     }
 
     @Bean
     Capability indexAwaitCapability(ObjectProvider<AwaitService> awaitService)
     {
-        return new Capability("index.await", "1.1.2", awaitService.getIfAvailable() != null);
+        return new Capability("index.await", "1.2", awaitService.getIfAvailable() != null);
     }
 }

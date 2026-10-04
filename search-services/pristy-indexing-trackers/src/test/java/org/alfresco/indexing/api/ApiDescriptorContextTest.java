@@ -76,11 +76,11 @@ public class ApiDescriptorContextTest
                 descriptor.capabilities().containsKey("index.progress"));
         assertTrue(descriptor.capabilities().keySet().toString(),
                 descriptor.capabilities().containsKey("index.diagnostic"));
-        assertEquals("1.1.1", descriptor.capabilities().get("index.diagnostic").since());
+        assertEquals("1.2", descriptor.capabilities().get("index.diagnostic").since());
         assertNotNull(diagnosticController);
         assertTrue(descriptor.capabilities().keySet().toString(),
                 descriptor.capabilities().containsKey("index.await"));
-        assertEquals("1.1.2", descriptor.capabilities().get("index.await").since());
+        assertEquals("1.2", descriptor.capabilities().get("index.await").since());
         assertTrue(descriptor.capabilities().get("index.await").enabled());
         assertNotNull(awaitController);
     }
