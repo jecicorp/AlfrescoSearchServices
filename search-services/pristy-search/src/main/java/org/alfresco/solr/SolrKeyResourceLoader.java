@@ -58,9 +58,9 @@ public class SolrKeyResourceLoader implements KeyResourceLoader
         }
         catch (IOException e)
         {
-            // TODO: SOLR API changes mean that IOException must be handled.
-            // This may need revisiting.
-            throw new FileNotFoundException("Caused by " + e.getMessage());
+            FileNotFoundException notFound = new FileNotFoundException("Caused by " + e.getMessage());
+            notFound.initCause(e);
+            throw notFound;
         }
 	}
 
