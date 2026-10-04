@@ -8,6 +8,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Version numbers are plain, without a `v` prefix, matching the Git tags.
 
 
+## [1.2.0] - 2026-10-04
+
+### Features
+
+- *(diagnostic)* Add a progress listener
+- *(trackers)* Report index-comparison progress
+- *(trackers)* Report metadata db-walk progress
+- *(trackers)* Report ACL db-walk progress
+- *(diagnostic)* Map the diagnostic document
+- *(diagnostic)* Store the last result in Solr
+- *(diagnostic)* Add the job snapshot
+- *(diagnostic)* Run the diagnostic as a job
+- *(diagnostic)* Cancel a running diagnostic
+- *(diagnostic)* Restore the last result
+- *(diagnostic)* Stream throttled job events
+- *(api)* Serve the index diagnostic job
+- *(api)* Advertise index.diagnostic
+- *(tracker)* Fire a tracker job once on demand
+- *(tracker)* Notify listeners after a commit
+- *(await)* Validate index await requests
+- *(await)* Stream index await events
+- *(await)* Probe the index for awaited nodes
+- *(await)* Read the repository state of nodes
+- *(await)* Track waiters and their capacity
+- *(await)* Wait for nodes to become searchable
+- *(await)* Drive the trackers through Quartz
+- *(api)* Serve POST /api/v1/index/await
+- *(api)* Advertise and document index.await
+- *(trackers)* Set the scheduler thread count
+
+### Bug Fixes
+
+- *(diagnostic)* Fail the job on an Error
+- *(diagnostic)* Restore off the request path
+- *(diagnostic)* Read the snapshot under lock
+- *(diagnostic)* Send stream events off job thread
+- *(diagnostic)* Fall back to collections early
+- *(diagnostic)* Harden restore of stored result
+- *(tracker)* Isolate failing commit listeners
+- *(await)* Drop pending delays at shutdown
+- *(await)* Advertise index.await from its bean
+- *(await)* Read the repository on its own thread
+- *(await)* Coalesce the checks after a commit
+- *(await)* Rerun for requests past the cutoff
+- *(api)* Set capability since to 1.2
+- *(search)* Propagate content size read errors
+- *(search)* Keep the keystore load error cause
+- *(deps)* Bump ZooKeeper to 3.9.6
+- *(deps)* Drop the unused CXF stack
+
+### Documentation
+
+- *(diagnostic)* Describe the stream sender
+- *(readme)* Rework the README around a quick start and highlights
+- *(await)* State the await IOException contract
+- *(await)* Describe the extra run and NTP need
+
+### Refactor
+
+- *(admin)* Extract the per-core report
+
+### Styling
+
+- *(diagnostic)* Keep license header spacing
+
+### Testing
+
+- *(diagnostic)* Guard index counts
+- *(diagnostic)* Pin rerun, Error and no-commit
+- *(e2e)* Wait for every exact term document
+
+
 ## [1.1.1] - 2026-09-30
 
 ### Features
