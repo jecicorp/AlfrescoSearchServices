@@ -967,6 +967,7 @@ public class SolrDocumentMapperTest
     @Test
     public void theDiagnosticFieldIsStoredOnlyInEveryShippedTemplate() throws Exception
     {
+        Set<String> nonAlfrescoTemplates = Set.of("audit");
         Path templates = Path.of("..", "pristy-search", "src", "main", "resources", "solr", "instance", "templates");
         List<Path> schemas;
         try (Stream<Path> found = Files.walk(templates))
@@ -977,6 +978,10 @@ public class SolrDocumentMapperTest
         assertFalse("no template schema found under " + templates.toAbsolutePath(), schemas.isEmpty());
         for (Path schema : schemas)
         {
+            if (nonAlfrescoTemplates.contains(templates.relativize(schema).getName(0).toString()))
+            {
+                continue;
+            }
             String content = Files.readString(schema);
             assertTrue(schema.toString(), content.contains("<fieldType name=\"localePrefixedField\" "
                     + "class=\"org.alfresco.solr.schema.highlight.LanguagePrefixedTextField\" indexed=\"false\" stored=\"true\"/>"));
