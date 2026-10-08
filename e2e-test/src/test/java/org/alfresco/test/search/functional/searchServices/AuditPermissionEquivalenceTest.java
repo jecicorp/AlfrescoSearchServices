@@ -34,6 +34,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -65,6 +66,7 @@ public class AuditPermissionEquivalenceTest
 
         HttpRequest request = HttpRequest.newBuilder(URI.create(url.toString()))
                 .header("X-Alfresco-Search-Secret", SECRET)
+                .timeout(Duration.ofSeconds(30))
                 .GET()
                 .build();
         HttpResponse<String> response = HttpClient.newHttpClient()
@@ -82,7 +84,7 @@ public class AuditPermissionEquivalenceTest
     private static String[] plainSolrFilter(List<String> authorities)
     {
         String quoted = authorities.stream()
-                .map(authority -> '"' + authority + '"')
+                .map(AuditPermissionEquivalenceTest::quote)
                 .collect(Collectors.joining(" OR "));
 
         return new String[] {
@@ -92,6 +94,11 @@ public class AuditPermissionEquivalenceTest
                 "auditDeniedQuery", "DENIED:(" + quoted + ")",
                 "auditReader", "{!join from=ACLID to=ACLID v=$auditReaderQuery}",
                 "auditDenied", "{!join from=ACLID to=ACLID v=$auditDeniedQuery}" };
+    }
+
+    private static String quote(String value)
+    {
+        return '"' + value.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
     }
 
     private static String aftsFilter(List<String> authorities)
@@ -110,7 +117,7 @@ public class AuditPermissionEquivalenceTest
         for (int i = 0; i < values.size(); i += 2)
         {
             String authority = values.get(i).asText();
-            if (!authority.startsWith("ROLE_") && !authority.equals(ADMIN))
+            if (!authority.startsWith("ROLE_") && !authority.equalsIgnoreCase(ADMIN))
             {
                 authorities.add(authority);
             }
@@ -122,15 +129,25 @@ public class AuditPermissionEquivalenceTest
     public Object[][] authoritySets() throws Exception
     {
         List<String> readers = readersInTheRepository();
-        assertTrue(readers.size() >= 3,
-                "the repository declares too few authorities to compare on: " + readers);
+        List<Object[]> sets = new ArrayList<>();
+        for (int i = 0; i < Math.min(3, readers.size()); i++)
+        {
+            sets.add(new Object[] { List.of(readers.get(i)) });
+        }
+        if (readers.size() >= 2)
+        {
+            sets.add(new Object[] { List.copyOf(readers.subList(0, Math.min(5, readers.size()))) });
+        }
+        return sets.toArray(new Object[0][]);
+    }
 
-        return new Object[][] {
-                { List.of(readers.get(0)) },
-                { List.of(readers.get(1)) },
-                { List.of(readers.get(2)) },
-                { List.copyOf(readers.subList(0, Math.min(5, readers.size()))) },
-        };
+    @Test
+    public void theRepositoryDeclaresEnoughAuthoritiesToCompareOn() throws Exception
+    {
+        List<String> readers = readersInTheRepository();
+
+        assertTrue(readers.size() >= 3,
+                "the repository declares too few ordinary authorities to compare on: " + readers);
     }
 
     @Test(dataProvider = "authoritySets")
@@ -170,6 +187,8 @@ public class AuditPermissionEquivalenceTest
         long plain = count(plainSolrFilter(List.of(authority)));
         long afts = count("q", "*:*", "fq", "DOC_TYPE:Node", "fq", aftsFilter(List.of(authority)));
 
+        assertTrue(plain > 0,
+                "the plain-Solr filter returned nothing for " + authority + ", so it is broken");
         assertTrue(afts > plain, "AFTS no longer widens the privileged authority " + authority);
     }
 
