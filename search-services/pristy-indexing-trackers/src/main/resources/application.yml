@@ -54,6 +54,7 @@ alfresco:
       bootstrap-servers: ${ALFRESCO_TRACKER_AUDIT_BOOTSTRAP_SERVERS:kafka:9092}
       retention-days: ${ALFRESCO_TRACKER_AUDIT_RETENTION_DAYS:1825}
       purge-cron: ${ALFRESCO_TRACKER_AUDIT_PURGE_CRON:0 30 3 * * ?}
+      lag-threshold: ${ALFRESCO_TRACKER_AUDIT_LAG_THRESHOLD:10000}
     solr-home: /opt/solr/data
     health:
       connect-timeout: 5000   # ms — repository health probe (/actuator/health)
