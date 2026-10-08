@@ -214,6 +214,7 @@ so no purge runs.
 | `alfresco.tracker.audit.retention-days` | `ALFRESCO_TRACKER_AUDIT_RETENTION_DAYS` | `1825` | Events whose `EVENT_TIME` is older than this many days are deleted from the index. Zero or less disables the purge: nothing is deleted. |
 | `alfresco.tracker.audit.purge-cron` | `ALFRESCO_TRACKER_AUDIT_PURGE_CRON` | `0 30 3 * * ?` | Spring cron expression of the purge. Default: every day at 03:30. |
 | `alfresco.tracker.audit.lag-threshold` | `ALFRESCO_TRACKER_AUDIT_LAG_THRESHOLD` | `10000` | Committed lag above which `/actuator/health` reports the audit consumer `DOWN`. |
+| `alfresco.tracker.audit.allow-unfiltered` | `ALFRESCO_TRACKER_AUDIT_ALLOW_UNFILTERED` | `true` | When `false`, an audit query with `unfiltered=true` is refused with `400`, so the whole trail cannot be read without an authority set. |
 
 The Solr retention and the Kafka topic retention are aligned by hand. Nothing enforces that they
 match: set the topic retention to the same duration as `retention-days`. The configured value is
