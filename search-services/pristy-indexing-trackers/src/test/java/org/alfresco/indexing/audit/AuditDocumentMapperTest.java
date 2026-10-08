@@ -111,6 +111,20 @@ public class AuditDocumentMapperTest
     }
 
     @Test
+    public void datesAnEventNearNowWhenNeitherTimestampIsUsable()
+    {
+        AuditEventMessage m = message();
+        m.setTimestamp(null);
+        long before = System.currentTimeMillis();
+
+        SolrInputDocument doc = mapper.toDocument(m, 0, 0L, -1L);
+
+        long eventTime = java.time.Instant.parse((String) doc.getFieldValue("EVENT_TIME")).toEpochMilli();
+        assertTrue(eventTime >= before - 1000L);
+        assertTrue(eventTime <= System.currentTimeMillis() + 1000L);
+    }
+
+    @Test
     public void takesTheNodeNameFromTheCmNameProperty()
     {
         SolrInputDocument doc = mapper.toDocument(message(), 0, 0L, 0L);

@@ -24,6 +24,8 @@ package org.alfresco.indexing.audit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.internals.RecordHeaders;
+import org.apache.kafka.common.record.TimestampType;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrException;
@@ -35,6 +37,7 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
 
@@ -80,6 +83,20 @@ public class AuditIndexerTest
         assertEquals("event-1", captor.getValue().getFieldValue("id"));
         assertEquals(2L, captor.getValue().getFieldValue("KAFKA_PARTITION"));
         assertEquals(77L, captor.getValue().getFieldValue("KAFKA_OFFSET"));
+    }
+
+    @Test
+    public void forwardsTheRecordTimestampToTheMapper()
+    {
+        AuditEventMessage message = record("event-4", 2, 77L).value();
+        ConsumerRecord<String, AuditEventMessage> stamped = new ConsumerRecord<>("audit-pristy", 2, 77L, 555L,
+                TimestampType.CREATE_TIME, 0, 0, "event-4", message, new RecordHeaders(), Optional.empty());
+        AuditDocumentMapper spy = Mockito.mock(AuditDocumentMapper.class);
+        Mockito.when(spy.toDocument(message, 2, 77L, 555L)).thenReturn(new SolrInputDocument());
+
+        new AuditIndexer(solrClient, spy, "audit").consume(stamped);
+
+        Mockito.verify(spy).toDocument(message, 2, 77L, 555L);
     }
 
     @Test(expected = AuditException.class)

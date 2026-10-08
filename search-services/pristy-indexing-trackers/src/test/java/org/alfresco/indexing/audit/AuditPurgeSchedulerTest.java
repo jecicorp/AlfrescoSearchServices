@@ -98,6 +98,7 @@ public class AuditPurgeSchedulerTest
         ArgumentCaptor<SolrQuery> counted = ArgumentCaptor.forClass(SolrQuery.class);
         Mockito.verify(solrClient).query(Mockito.eq("audit"), counted.capture());
         assertEquals(scheduler.purgeQuery(), counted.getValue().getQuery());
+        Mockito.verify(solrClient).deleteByQuery("audit", counted.getValue().getQuery());
     }
 
     @Test

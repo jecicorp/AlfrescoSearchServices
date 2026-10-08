@@ -75,8 +75,7 @@ public class AuditDocumentMapper
         put(doc, "USER_LAST_NAME", message.getLastName());
         put(doc, "USER_EMAIL", message.getUserEmail());
 
-        long eventTime = message.getTimestamp() != null ? message.getTimestamp() : recordTimestamp;
-        doc.setField("EVENT_TIME", SOLR_DATE.format(Instant.ofEpochMilli(eventTime)));
+        doc.setField("EVENT_TIME", SOLR_DATE.format(Instant.ofEpochMilli(eventTime(message, recordTimestamp))));
 
         put(doc, "NODE_REF", ref(message.getNodeRef()));
         put(doc, "NODE_UUID", message.getNodeRef() == null ? null : message.getNodeRef().getId());
@@ -113,6 +112,21 @@ public class AuditDocumentMapper
         doc.setField("KAFKA_OFFSET", offset);
 
         return doc;
+    }
+
+    private static long eventTime(AuditEventMessage message, long recordTimestamp)
+    {
+        if (message.getTimestamp() != null)
+        {
+            return message.getTimestamp();
+        }
+        if (recordTimestamp >= 0)
+        {
+            return recordTimestamp;
+        }
+        LOGGER.warn("Audit event {} carries no timestamp and its record has none either; dating it now",
+                message.getId());
+        return System.currentTimeMillis();
     }
 
     private static String ref(AuditEventMessage.NodeRefDto nodeRef)
