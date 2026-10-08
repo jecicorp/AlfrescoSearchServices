@@ -240,6 +240,14 @@ public class AuditQueryServiceTest
         assertEquals("1000", captureQuery().get("facet.limit"));
     }
 
+    @Test
+    public void readsANonPositiveFacetLimitAsTheCapRatherThanAsOneValue() throws Exception
+    {
+        service.facet(filtered(), "PATH", -1);
+
+        assertEquals("1000", captureQuery().get("facet.limit"));
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void refusesABlankPathPrefix() throws Exception
     {

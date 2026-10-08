@@ -88,7 +88,7 @@ public class AuditQueryService
 
     /**
      * @param field the field to facet on
-     * @param limit the maximum number of values
+     * @param limit the maximum number of values; zero or less asks for as many as the cap allows
      * @return each value and how many events carry it
      */
     public Map<String, Long> facet(AuditQuery query, String field, int limit)
@@ -102,7 +102,7 @@ public class AuditQueryService
         solrQuery.setRows(0);
         solrQuery.setFacet(true);
         solrQuery.addFacetField(field);
-        solrQuery.setFacetLimit(Math.min(Math.max(limit, 1), MAX_FACET_LIMIT));
+        solrQuery.setFacetLimit(limit <= 0 ? MAX_FACET_LIMIT : Math.min(limit, MAX_FACET_LIMIT));
         solrQuery.setFacetMinCount(1);
 
         return counts(execute(solrQuery).getFacetField(field));

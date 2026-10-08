@@ -452,7 +452,8 @@ it was given. The response holds `events`, `total` and `nextCursor`.
 
 `field` is required and must be one of `PRINCIPAL`, `EVENT_TYPE`, `PATH`, `SITE_ID`,
 `NODE_TYPE`, `MIMETYPE`; any other value is a `400`. `limit` caps the number of values
-(default 100). Returns a map of value to event count.
+(default 100, maximum 1000); zero or less asks for as many as that maximum allows.
+Returns a map of value to event count.
 
 ### `GET /api/v1/audit/contributors`
 
