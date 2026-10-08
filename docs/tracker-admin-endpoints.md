@@ -92,7 +92,8 @@ never has to map a version number to a feature set:
 - **`404` on this path means the trackers service predates the API** - that is the whole
   point of having it: it replaces guessing from a version string, and it frees the other
   endpoints to use `404` for its ordinary meaning.
-- `since` is the service version a capability first shipped in; `version` is the running
+- `since` is the service version a capability first ships in, which is why it can be ahead of a
+  snapshot build; `version` is the running
   build, read from `build-info.properties` (`unknown` if the jar carries none).
 - **`enabled` is not the same as present.** `admin.backup` above is compiled in but turned
   off by configuration; `index.unindexed-nodes` reflects `alfresco.tracker.record-unindexed-nodes`,
