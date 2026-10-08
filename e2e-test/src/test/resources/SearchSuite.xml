@@ -24,6 +24,7 @@
         </packages>
         <!-- Despite this class is included in Search Services package, needs to be excluded in order to be executed as the last one -->
 		<classes>
+			<class name="org.alfresco.test.search.functional.searchServices.AuditPermissionEquivalenceTest" />
 			<class name="org.alfresco.test.search.functional.searchServices.solr.admin.SolrE2eAdminTest">
 				<methods>
 					<exclude name=".*" />
