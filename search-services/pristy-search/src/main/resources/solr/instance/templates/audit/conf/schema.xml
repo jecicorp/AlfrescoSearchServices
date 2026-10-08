@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema name="pristy-audit" version="1.6">
+
+  <fieldType name="string" class="solr.StrField" sortMissingLast="true" docValues="true"/>
+  <fieldType name="strings" class="solr.StrField" multiValued="true" docValues="true"/>
+  <fieldType name="tlong" class="solr.TrieLongField" precisionStep="6" positionIncrementGap="0"/>
+  <fieldType name="plong" class="solr.LongPointField" docValues="true"/>
+  <fieldType name="pdate" class="solr.DatePointField" docValues="true"/>
+  <fieldType name="boolean" class="solr.BoolField" sortMissingLast="true"/>
+  <fieldType name="text_general" class="solr.TextField" positionIncrementGap="100">
+    <analyzer>
+      <tokenizer class="solr.StandardTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+    </analyzer>
+  </fieldType>
+
+  <field name="id" type="string" indexed="true" stored="true" required="true"/>
+  <field name="_version_" type="plong" indexed="false" stored="false" docValues="true"/>
+
+  <field name="NODE_DBID" type="tlong" indexed="true" stored="false" docValues="true"/>
+  <field name="NODE_REF" type="string" indexed="true" stored="false"/>
+  <field name="NODE_UUID" type="string" indexed="true" stored="false"/>
+  <field name="PARENT_REF" type="string" indexed="true" stored="false"/>
+  <field name="ANCESTOR" type="strings" indexed="true" stored="false"/>
+
+  <field name="EVENT_TIME" type="pdate" indexed="true" stored="false" docValues="true"/>
+  <field name="EVENT_TYPE" type="string" indexed="true" stored="false"/>
+  <field name="PRINCIPAL" type="string" indexed="true" stored="false"/>
+  <field name="EXECUTING_USER" type="string" indexed="true" stored="false"/>
+  <field name="USER_FIRST_NAME" type="string" indexed="true" stored="false"/>
+  <field name="USER_LAST_NAME" type="string" indexed="true" stored="false"/>
+  <field name="USER_EMAIL" type="string" indexed="true" stored="false"/>
+
+  <field name="NODE_NAME" type="string" indexed="true" stored="false"/>
+  <field name="NODE_NAME_TXT" type="text_general" indexed="true" stored="false"/>
+  <field name="NODE_TYPE" type="string" indexed="true" stored="false"/>
+  <field name="NODE_TYPE_TITLE" type="string" indexed="true" stored="false"/>
+  <field name="NODE_ASPECT" type="strings" indexed="true" stored="false"/>
+  <field name="SITE_ID" type="string" indexed="true" stored="false"/>
+  <field name="PATH" type="string" indexed="true" stored="false"/>
+  <field name="PATH_TXT" type="text_general" indexed="true" stored="false"/>
+  <field name="SHORT_PATH" type="string" indexed="true" stored="false"/>
+
+  <field name="IS_FILE" type="boolean" indexed="true" stored="false" docValues="true"/>
+  <field name="MIMETYPE" type="string" indexed="true" stored="false"/>
+  <field name="FILE_SIZE" type="plong" indexed="true" stored="false"/>
+
+  <field name="PROPERTIES_JSON" type="string" indexed="false" stored="true" docValues="false"/>
+  <field name="KAFKA_PARTITION" type="plong" indexed="false" stored="true" docValues="false"/>
+  <field name="KAFKA_OFFSET" type="plong" indexed="false" stored="true" docValues="false"/>
+
+  <copyField source="NODE_NAME" dest="NODE_NAME_TXT"/>
+  <copyField source="PATH" dest="PATH_TXT"/>
+
+  <uniqueKey>id</uniqueKey>
+</schema>
