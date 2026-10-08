@@ -20,10 +20,10 @@ environment variable by upper-casing it and replacing `.` / `-` with `_`:
 | `alfresco.tracker.cores.archive.transform-content` | `ALFRESCO_TRACKER_CORES_ARCHIVE_TRANSFORM_CONTENT` |
 
 This means you can re-tune a running stack (e.g. `pristy-demo`) by adding
-environment variables to the `trackers` service — **no image rebuild required**.
+environment variables to the `trackers` service - **no image rebuild required**.
 
 > **Per-core settings** live under `alfresco.tracker.cores.<coreName>.*` and
-> override the global value for that core only — see
+> override the global value for that core only - see
 > [Per-core configuration & store selection](#per-core-configuration--store-selection).
 
 ## The indexing pipeline (why full-text is slower than metadata)
@@ -48,12 +48,12 @@ Worst-case **full-text latency** is therefore roughly:
 metadata cron  +  content cron  +  text extraction time  +  commit interval  +  newSearcher interval
 ```
 
-With the shipped defaults that is on the order of **25–30 s** (excluding the
-transform time), whereas metadata-only search is visible in **~5–8 s**.
+With the shipped defaults that is on the order of **25-30 s** (excluding the
+transform time), whereas metadata-only search is visible in **~5-8 s**.
 
 ## Settings reference
 
-### Cron schedules — `alfresco.tracker.cron.*`
+### Cron schedules - `alfresco.tracker.cron.*`
 
 These use the Quartz/Spring 6-field cron format (`sec min hour day month weekday`).
 `0/N * * * * ?` means "every N seconds". A cron only controls *how often a
@@ -84,7 +84,7 @@ tracker wakes up*; it does not by itself guarantee a commit (see commit settings
 
 The image sets `JAVA_OPTS=-XX:MaxRAMPercentage=75`, and the entrypoint passes it to the
 JVM. Without it the JVM applies its container default of **25%**, which measurably means
-512 MB of heap in a 2 GB container — regardless of how much memory the operator grants:
+512 MB of heap in a 2 GB container - regardless of how much memory the operator grants:
 
 ```bash
 # in the image, before this was set
@@ -102,10 +102,10 @@ tracked core, plus Solr's own client buffers.
 `JAVA_TOOL_OPTIONS` instead (the JVM reads both): setting `JAVA_OPTS` to
 `-XX:+HeapDumpOnOutOfMemoryError` alone would silently take the heap back to 25%.
 
-The entrypoint is `sh -c "exec java $JAVA_OPTS -jar … \"$@\""`, so the JVM is still PID 1
+The entrypoint is `sh -c "exec java $JAVA_OPTS -jar ... \"$@\""`, so the JVM is still PID 1
 and still receives `SIGTERM`: `docker stop` completes in ~170 ms with the Spring and Quartz
 shutdown hooks run, rather than waiting out the 10 s timeout. Arguments passed to the
-container reach Spring Boot (`--server.port=…` and friends).
+container reach Spring Boot (`--server.port=...` and friends).
 
 ### Throughput & batching
 
@@ -117,14 +117,14 @@ container reach Spring Boot (`--server.port=…` and friends).
 
 Everything under `alfresco.tracker.tuning.*` has a **per-core override** of the same
 name under `alfresco.tracker.cores.<core>.tuning.*`; an unset override inherits the
-global value. The resolved set is logged per core at startup on a `tuning:` line —
+global value. The resolved set is logged per core at startup on a `tuning:` line -
 check it there rather than assuming a value took effect.
 
 The defaults in the table below live **only** in `TrackerProperties.TuningConfig`. The
 packaged `application.yml` deliberately does not repeat them, and `TuningDefaultsTest`
 fails if it starts to: the yml ships inside the jar and wins over the Java field
 initialisers, so two layers of defaults are free to drift apart without anyone noticing
-— which is exactly what happened to the cron defaults, where `TrackerProperties.Cron`
+- which is exactly what happened to the cron defaults, where `TrackerProperties.Cron`
 says `0/10` for metadata and the yml says `0/5`, and only the yml ever runs.
 
 | Property (`alfresco.tracker.tuning.*`) | Default | Impact |
@@ -132,12 +132,12 @@ says `0/10` for metadata and the yml says `0/5`, and only the yml ever runs.
 | `node-batch-size` | `50` | Nodes per batch. Drives **both** the metadata request to the Repository and the Solr update: one round trip each per batch. Higher = fewer round trips, larger responses and more metadata held in memory at once, multiplied by `metadata-parallelism`. |
 | `transaction-docs-batch-size` | `2000` | Documents per transaction batch, used to group transactions before their nodes are fetched. |
 | `max-transactions-per-cycle` | `2000` | Transactions fetched per tracking cycle. |
-| `metadata-parallelism` | `8` | `ForkJoinPool` size indexing node batches. These threads write concurrently to a single Solr core, so raising it increases queueing at Solr rather than throughput. Measured: 32, 16, 8 and 4 threads all index a 30 000-node folder in the same time to within the noise (`docs/bench-large-folder.md` §*Tuning sweep*). The default is the value that sweep recommends — eight is as fast as thirty-two while leaving CPU and heap to the other core — and four is left as the per-core override the `archive` core already uses. |
+| `metadata-parallelism` | `8` | `ForkJoinPool` size indexing node batches. These threads write concurrently to a single Solr core, so raising it increases queueing at Solr rather than throughput. Measured: 32, 16, 8 and 4 threads all index a 30 000-node folder in the same time to within the noise (`docs/bench-large-folder.md` §*Tuning sweep*). The default is the value that sweep recommends - eight is as fast as thirty-two while leaving CPU and heap to the other core - and four is left as the per-core override the `archive` core already uses. |
 | `metadata-time-step` | `3600000` ms | Width of the time window scanned for new transactions. |
 | `acl-batch-size` | `100` | ACLs per batch. |
 | `change-set-acls-batch-size` | `2000` | ACLs per change-set batch. |
 | `max-acl-change-sets-per-cycle` | `2000` | ACL change sets fetched per cycle. |
-| `acl-parallelism` | `8` | `ForkJoinPool` size indexing ACL batches. Aligned on `metadata-parallelism` **by analogy** — these threads contend for the same single Solr core — but no run has measured it. `bench/large-folder` phase `c` exists to settle it; see `docs/bench-large-folder.md` §*Tuning sweep*. |
+| `acl-parallelism` | `8` | `ForkJoinPool` size indexing ACL batches. Aligned on `metadata-parallelism` **by analogy** - these threads contend for the same single Solr core - but no run has measured it. `bench/large-folder` phase `c` exists to settle it; see `docs/bench-large-folder.md` §*Tuning sweep*. |
 | `acl-time-step` | `3600000` ms | Time window scanned for new ACL change sets. |
 | `content-batch-size` | `2000` | Partition size for parallel content extraction within one cycle. |
 | `content-parallelism` | `8` | `ForkJoinPool` size extracting content. Higher = faster bulk extraction, more concurrent load on the transform service. |
@@ -152,20 +152,20 @@ says `0/10` for metadata and the yml says `0/5`, and only the yml ever runs.
 | Property | Default | Impact |
 |----------|---------|--------|
 | `alfresco.tracker.cascade-tracking-enabled` | `true` | Enables propagation of path changes to descendants. Disabling speeds up renames/moves of large subtrees but leaves descendant paths stale until a full reindex. |
-| `alfresco.tracker.transform-content` | `true` | Maps to the legacy `alfresco.index.transformContent`. When `false`, the tracker does **not** request text extraction for that core — useful for the `archive` core, where full-text search of trashed documents is rarely needed. |
+| `alfresco.tracker.transform-content` | `true` | Maps to the legacy `alfresco.index.transformContent`. When `false`, the tracker does **not** request text extraction for that core - useful for the `archive` core, where full-text search of trashed documents is rarely needed. |
 | `alfresco.tracker.max-live-searchers` | `2` | Maximum number of concurrent live Solr searchers a tracker keeps open while indexing. |
 | `alfresco.tracker.repair-max-retries` | `3`  | How many times the RepairTracker retries a failing node before marking it permanently failed. |
 | `alfresco.tracker.scheduler-thread-count` | `40` | Quartz threads shared by every tracker job of every core, index-await runs included. A job that finds no free thread waits, so the trackers fall behind. Global (not per-core). |
 | `alfresco.tracker.solr-home` | `/opt/solr/data` | Local directory where the model dictionary is persisted. |
 | `alfresco.tracker.health.connect-timeout` | `5000` ms | Connection timeout for the repository health probe behind `/actuator/health` (`RepositoryHealthIndicator`). |
 | `alfresco.tracker.health.read-timeout` | `5000` ms | Read timeout for the repository health probe. Raise both on a slow/loaded repository to avoid the health endpoint reporting `DOWN` under transient latency. |
-| `alfresco.tracker.solr.collections` | `alfresco,archive` | Cores/collections to track. Must match the cores created in the Solr image. The **store** each core tracks is resolved separately — see [Per-core configuration & store selection](#per-core-configuration--store-selection). |
+| `alfresco.tracker.solr.collections` | `alfresco,archive` | Cores/collections to track. Must match the cores created in the Solr image. The **store** each core tracks is resolved separately - see [Per-core configuration & store selection](#per-core-configuration--store-selection). |
 
-### Backup — `alfresco.tracker.backup.*`
+### Backup - `alfresco.tracker.backup.*`
 
 The trackers can drive Solr index backup (and restore) through Solr's
 ReplicationHandler on a cron schedule, one job per tracked core. The index is a
-*derived* store — it can always be rebuilt from the repository — so a backup is
+*derived* store - it can always be rebuilt from the repository - so a backup is
 purely a **recovery-time** optimisation: after a crash or a lost data volume you
 restore the last backup and the tracker re-indexes only the delta since, instead
 of re-tracking the whole repository (which can take days on a large index).
@@ -198,11 +198,31 @@ bounds the commit rate.
 | `alfresco.tracker.await.max-batch` | `ALFRESCO_TRACKER_AWAIT_MAXBATCH` | `1000` | Most distinct DBIDs in one request; beyond it the request is refused with `400`. |
 | `alfresco.tracker.await.max-waiters` | `ALFRESCO_TRACKER_AWAIT_MAXWAITERS` | `10000` | Nodes awaited at once across every request; a request that would exceed it is refused with `503`. |
 
+### Audit indexing and retention - `alfresco.tracker.audit.*`
+
+The whole audit feature (Kafka indexer, `/api/v1/audit/*`, retention purge) exists only when
+`alfresco.tracker.audit.enabled` is `true`. When it is `false`, none of those beans is created,
+so no purge runs.
+
+| Property | Env var | Default | Impact |
+|----------|---------|---------|--------|
+| `alfresco.tracker.audit.enabled` | `ALFRESCO_TRACKER_AUDIT_ENABLED` | `false` | Turns the audit feature on, purge included. |
+| `alfresco.tracker.audit.core` | `ALFRESCO_TRACKER_AUDIT_CORE` | `audit` | Solr core holding the audit events. |
+| `alfresco.tracker.audit.topic` | `ALFRESCO_TRACKER_AUDIT_TOPIC` | `audit-pristy` | Kafka topic the indexer consumes. |
+| `alfresco.tracker.audit.group-id` | `ALFRESCO_TRACKER_AUDIT_GROUP_ID` | `pristy-audit-indexer` | Kafka consumer group. |
+| `alfresco.tracker.audit.bootstrap-servers` | `ALFRESCO_TRACKER_AUDIT_BOOTSTRAP_SERVERS` | `kafka:9092` | Kafka bootstrap servers. |
+| `alfresco.tracker.audit.retention-days` | `ALFRESCO_TRACKER_AUDIT_RETENTION_DAYS` | `1825` | Events whose `EVENT_TIME` is older than this many days are deleted from the index. Zero or less disables the purge: nothing is deleted. |
+| `alfresco.tracker.audit.purge-cron` | `ALFRESCO_TRACKER_AUDIT_PURGE_CRON` | `0 30 3 * * ?` | Spring cron expression of the purge. Default: every day at 03:30. |
+
+The Solr retention and the Kafka topic retention are aligned by hand. Nothing enforces that they
+match: set the topic retention to the same duration as `retention-days`. The configured value is
+logged at startup.
+
 ### Internal content settings (not externally configurable today)
 
 Both ContentTracker knobs are now configurable as
 `alfresco.tracker.tuning.content-batch-size` and
-`alfresco.tracker.tuning.content-parallelism` — see
+`alfresco.tracker.tuning.content-parallelism` - see
 [Throughput & batching](#throughput--batching).
 
 Each ContentTracker cycle pulls at most **2000** outdated documents
@@ -232,10 +252,10 @@ Thanks to the convention, a standard `alfresco` + `archive` deployment needs
 > **Why this exists.** `AbstractTracker` falls back to `workspace://SpacesStore`
 > when no store is set. Previously the configuration was shared across all cores
 > and never carried a store, so *every* core defaulted to the workspace store and
-> the `archive` core indexed the live nodes instead of the trashcan — two distinct
+> the `archive` core indexed the live nodes instead of the trashcan - two distinct
 > indexes holding identical documents. The resolved store of every core is now
 > logged at startup (`TrackerBootstrap`), e.g.
-> `[core 'archive'] store=archive://SpacesStore …`.
+> `[core 'archive'] store=archive://SpacesStore ...`.
 
 ### Global default vs. per-core override
 
@@ -248,7 +268,7 @@ Overridable per core:
 
 | Per-core key | Global counterpart |
 |--------------|--------------------|
-| `cores.<name>.store` | *(convention — see above)* |
+| `cores.<name>.store` | *(convention - see above)* |
 | `cores.<name>.batch-count` | `batch-count` |
 | `cores.<name>.max-live-searchers` | `max-live-searchers` |
 | `cores.<name>.transform-content` | `transform-content` |
@@ -271,7 +291,7 @@ alfresco:
       collections: [alfresco, archive]
     cores:
       archive:
-        # store is "archive://SpacesStore" by convention — no need to set it
+        # store is "archive://SpacesStore" by convention - no need to set it
         transform-content: false        # skip full-text extraction for the trash
         max-live-searchers: 1
         batch-count: 1000
@@ -298,7 +318,7 @@ searchable promptly.
 The equivalent with environment variables (no image rebuild):
 
 ```yaml
-# compose.yml — trackers service
+# compose.yml - trackers service
 environment:
   ALFRESCO_TRACKER_CORES_ARCHIVE_TRANSFORM_CONTENT: "false"
   ALFRESCO_TRACKER_CORES_ARCHIVE_CRON_METADATA: "0 0/5 * * * ?"
@@ -315,7 +335,7 @@ low-volume stack, dropping it from 20 s to 5 s brings full-text latency close to
 metadata latency:
 
 ```yaml
-# compose.yml — trackers service
+# compose.yml - trackers service
 environment:
   ALFRESCO_TRACKER_CRON_CONTENT: "0/5 * * * * ?"     # was 0/20
 ```
@@ -331,7 +351,7 @@ interval:
 
 - A faster content cron means more frequent Solr queries and more frequent calls
   to the transform service. On a busy repository with heavy documents this can
-  saturate the transform engine — tune conservatively in production.
+  saturate the transform engine - tune conservatively in production.
 - A shorter `new-searcher-interval` and `commit-interval` increase commit/cache
   overhead. For high write throughput, keep them higher and accept some latency.
 - Metadata/ACL crons are already at 5 s; lowering them further yields little
