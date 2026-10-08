@@ -97,4 +97,25 @@ public class AuditIndexerTest
 
         Mockito.verifyNoInteractions(solrClient);
     }
+
+    @Test
+    public void skipsARecordWithNoIdWithoutTouchingSolr()
+    {
+        indexer.consume(record(null, 0, 6L));
+
+        Mockito.verifyNoInteractions(solrClient);
+    }
+
+    @Test
+    public void aMappingFailureDoesNotEscapeNorReachSolr()
+    {
+        AuditDocumentMapper failing = Mockito.mock(AuditDocumentMapper.class);
+        Mockito.when(failing.toDocument(Mockito.any(), Mockito.anyInt(), Mockito.anyLong()))
+                .thenThrow(new IllegalStateException("unreadable"));
+        AuditIndexer strict = new AuditIndexer(solrClient, failing, "audit");
+
+        strict.consume(record("event-3", 1, 9L));
+
+        Mockito.verifyNoInteractions(solrClient);
+    }
 }

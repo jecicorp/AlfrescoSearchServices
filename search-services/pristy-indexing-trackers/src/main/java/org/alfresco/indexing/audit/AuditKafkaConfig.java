@@ -33,8 +33,13 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -44,13 +49,14 @@ import java.util.Map;
 @ConditionalOnProperty(prefix = "alfresco.tracker.audit", name = "enabled", havingValue = "true")
 public class AuditKafkaConfig
 {
+    static final long RETRY_INTERVAL_MILLIS = 5000L;
+
     @Bean
     ConsumerFactory<String, AuditEventMessage> auditConsumerFactory(
             @Value("${alfresco.tracker.audit.bootstrap-servers}") String bootstrapServers,
             ObjectMapper objectMapper)
     {
         JsonDeserializer<AuditEventMessage> payload = new JsonDeserializer<>(AuditEventMessage.class, objectMapper, false);
-        payload.addTrustedPackages("*");
 
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -68,6 +74,15 @@ public class AuditKafkaConfig
         ConcurrentKafkaListenerContainerFactory<String, AuditEventMessage> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(auditConsumerFactory);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
+        factory.setCommonErrorHandler(auditErrorHandler());
         return factory;
+    }
+
+    static DefaultErrorHandler auditErrorHandler()
+    {
+        DefaultErrorHandler handler = new DefaultErrorHandler(new FixedBackOff(RETRY_INTERVAL_MILLIS, FixedBackOff.UNLIMITED_ATTEMPTS));
+        handler.addNotRetryableExceptions(DeserializationException.class);
+        return handler;
     }
 }

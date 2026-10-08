@@ -24,12 +24,16 @@ package org.alfresco.indexing.audit;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+
+import java.io.IOException;
 
 /**
  * Indexes the audit topic into the audit Solr core. Makes no call to the Alfresco
@@ -69,13 +73,26 @@ public class AuditIndexer
             return;
         }
 
+        SolrInputDocument document;
         try
         {
-            solrClient.add(core, mapper.toDocument(message, record.partition(), record.offset()));
+            document = mapper.toDocument(message, record.partition(), record.offset());
         }
-        catch (Exception e)
+        catch (RuntimeException e)
         {
-            throw new AuditException("Could not index audit event " + message.getId(), e);
+            LOGGER.error("Skipping unmappable audit event {} at {}-{}-{}", message.getId(), record.topic(),
+                    record.partition(), record.offset(), e);
+            return;
+        }
+
+        try
+        {
+            solrClient.add(core, document);
+        }
+        catch (SolrServerException | IOException | RuntimeException e)
+        {
+            throw new AuditException("Could not index audit event " + message.getId() + " at " + record.topic()
+                    + "-" + record.partition() + "-" + record.offset(), e);
         }
     }
 }

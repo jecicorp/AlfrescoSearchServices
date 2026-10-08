@@ -22,7 +22,7 @@
  */
 package org.alfresco.indexing.audit;
 
-/** Raised when an audit event could not be indexed, so its offset is not committed. */
+/** Raised when an audit operation fails against the audit core. */
 public class AuditException extends RuntimeException
 {
     public AuditException(String message, Throwable cause)
