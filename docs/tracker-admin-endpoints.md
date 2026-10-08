@@ -466,6 +466,31 @@ curl -s "http://localhost:8085/api/v1/audit/events?authority=abeecher&authority=
 curl -s "http://localhost:8085/api/v1/audit/facets?field=EVENT_TYPE&unfiltered=true"
 ```
 
+### Health: `audit` in `/actuator/health`
+
+When `alfresco.tracker.audit.enabled` is `true`, `/actuator/health` carries an `audit` component. With audit disabled the component does not exist.
+
+- A listener container that is not running is `DOWN` on that fact alone, with no Kafka call.
+- Otherwise the component reports the group's committed lag: the end offset of each partition minus the offset the group has committed, summed. Above `alfresco.tracker.audit.lag-threshold` (default `10000`) it is `DOWN`, else `UP`; the details carry `lag` and `threshold`.
+- When the lag cannot be measured (broker unreachable, unknown topic, no partition) the component is `UNKNOWN`, never a zero.
+
+The lag is read from outside the consumer on purpose. The consumer's own `records-lag` metric is not updated once the consumer stops fetching, so it would freeze instead of growing in exactly the case this check exists for. The committed lag keeps growing while the consumer is dead, which is what `kafka-consumer-groups.sh --describe` reports. The measurement opens a short-lived consumer that never subscribes, so it does not join the group or trigger a rebalance.
+
+The lag computation has **not** been exercised against a broker: the development stack runs no Kafka. It is covered by unit tests against a mocked consumer only.
+
+### Replaying the topic
+
+A full rebuild of the `audit` core is a consumer-group reset, not an endpoint. Stop the trackers service, then:
+
+```bash
+kafka-consumer-groups.sh --bootstrap-server <broker> --reset-offsets --to-earliest \
+  --group <group-id> --topic <topic> --execute
+```
+
+Start the trackers service again; it re-reads the topic from the beginning. Indexing is idempotent because the document key is the producer's own event id, so replaying events already indexed overwrites them with identical documents.
+
+The retention purge runs on a schedule and trims everything older than `alfresco.tracker.audit.retention-days`. A replay of events older than that window restores nothing: the purge removes them again.
+
 ## Maintenance (mutating, `POST`)
 
 | Endpoint | Solr-compat `action` | Params | Effect |

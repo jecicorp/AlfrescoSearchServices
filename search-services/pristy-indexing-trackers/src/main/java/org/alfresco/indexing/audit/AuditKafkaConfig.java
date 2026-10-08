@@ -31,10 +31,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
@@ -77,6 +79,19 @@ public class AuditKafkaConfig
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
         factory.setCommonErrorHandler(auditErrorHandler());
         return factory;
+    }
+
+    @Bean
+    AuditHealthIndicator auditHealthIndicator(KafkaListenerEndpointRegistry registry,
+            ConsumerFactory<String, AuditEventMessage> auditConsumerFactory,
+            @Value("${alfresco.tracker.audit.topic}") String topic,
+            @Value("${alfresco.tracker.audit.group-id}") String groupId,
+            @Value("${alfresco.tracker.audit.lag-threshold:10000}") long threshold)
+    {
+        return new AuditHealthIndicator(
+                () -> registry.getListenerContainers().stream().anyMatch(MessageListenerContainer::isRunning),
+                new AuditConsumerLag(auditConsumerFactory, topic, groupId),
+                threshold);
     }
 
     static DefaultErrorHandler auditErrorHandler()
