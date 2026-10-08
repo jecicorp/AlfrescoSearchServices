@@ -27,11 +27,14 @@ import org.mockito.Mockito;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.classify.BinaryExceptionClassifier;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.backoff.FixedBackOff;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class AuditKafkaConfigTest
@@ -59,5 +62,14 @@ public class AuditKafkaConfigTest
     public void theFactoryCommitsRecordByRecord()
     {
         assertEquals(ContainerProperties.AckMode.RECORD, factory().getContainerProperties().getAckMode());
+    }
+
+    @Test
+    public void aDeserializationFailureIsNotRetried()
+    {
+        DefaultErrorHandler handler = AuditKafkaConfig.auditErrorHandler();
+        BinaryExceptionClassifier classifier = ReflectionTestUtils.invokeMethod(handler, "getClassifier");
+
+        assertFalse(classifier.classify(new DeserializationException("bad", new byte[0], false, new RuntimeException())));
     }
 }

@@ -25,6 +25,7 @@ package org.alfresco.indexing.audit;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,10 +90,32 @@ public class AuditIndexer
         {
             solrClient.add(core, document);
         }
+        catch (SolrException e)
+        {
+            if (isRejection(e))
+            {
+                LOGGER.error("Skipping audit event {} refused by Solr at {}-{}-{}: {}", message.getId(),
+                        record.topic(), record.partition(), record.offset(), e.getMessage(), e);
+                return;
+            }
+            throw failure(message, record, e);
+        }
         catch (SolrServerException | IOException | RuntimeException e)
         {
-            throw new AuditException("Could not index audit event " + message.getId() + " at " + record.topic()
-                    + "-" + record.partition() + "-" + record.offset(), e);
+            throw failure(message, record, e);
         }
+    }
+
+    private static boolean isRejection(SolrException e)
+    {
+        int code = e.code();
+        return code >= 400 && code < 500 && code != 408 && code != 429;
+    }
+
+    private static AuditException failure(AuditEventMessage message, ConsumerRecord<String, AuditEventMessage> record,
+            Exception cause)
+    {
+        return new AuditException("Could not index audit event " + message.getId() + " at " + record.topic()
+                + "-" + record.partition() + "-" + record.offset(), cause);
     }
 }

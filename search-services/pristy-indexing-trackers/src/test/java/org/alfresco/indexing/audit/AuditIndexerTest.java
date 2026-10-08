@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.Before;
 import org.junit.Test;
@@ -117,5 +118,43 @@ public class AuditIndexerTest
         strict.consume(record("event-3", 1, 9L));
 
         Mockito.verifyNoInteractions(solrClient);
+    }
+
+    @Test
+    public void aSolrRejectionIsSkippedSoThePartitionIsNotStalled() throws Exception
+    {
+        Mockito.when(solrClient.add(Mockito.eq("audit"), Mockito.any(SolrInputDocument.class)))
+                .thenThrow(new SolrException(SolrException.ErrorCode.BAD_REQUEST, "unknown field"));
+
+        indexer.consume(record("event-4", 0, 11L));
+
+        Mockito.verify(solrClient).add(Mockito.eq("audit"), Mockito.any(SolrInputDocument.class));
+    }
+
+    @Test(expected = AuditException.class)
+    public void aServerErrorIsRetried() throws Exception
+    {
+        Mockito.when(solrClient.add(Mockito.eq("audit"), Mockito.any(SolrInputDocument.class)))
+                .thenThrow(new SolrException(SolrException.ErrorCode.SERVICE_UNAVAILABLE, "overloaded"));
+
+        indexer.consume(record("event-5", 0, 12L));
+    }
+
+    @Test(expected = AuditException.class)
+    public void aThrottledWriteIsRetried() throws Exception
+    {
+        Mockito.when(solrClient.add(Mockito.eq("audit"), Mockito.any(SolrInputDocument.class)))
+                .thenThrow(new SolrException(SolrException.ErrorCode.getErrorCode(429), "slow down"));
+
+        indexer.consume(record("event-6", 0, 13L));
+    }
+
+    @Test(expected = AuditException.class)
+    public void aConnectionFailureIsRetried() throws Exception
+    {
+        Mockito.when(solrClient.add(Mockito.eq("audit"), Mockito.any(SolrInputDocument.class)))
+                .thenThrow(new IOException("connection refused"));
+
+        indexer.consume(record("event-7", 0, 14L));
     }
 }
