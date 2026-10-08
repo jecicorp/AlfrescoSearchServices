@@ -122,6 +122,7 @@
       <dependency.alfresco-data-model.version>18.20</dependency.alfresco-data-model.version>
 
       <dependency.jackson.version>2.18.8</dependency.jackson.version>
+      <spring-kafka.version>3.3.0</spring-kafka.version>
 
       <dependency.google.guava.version>33.1.0-jre</dependency.google.guava.version>
       <dependency.apache-commons-compress.version>1.26.1</dependency.apache-commons-compress.version>

@@ -70,6 +70,7 @@ public class TrackerProperties
     private ProgressConfig progress = new ProgressConfig();
     private DiagnosticConfig diagnostic = new DiagnosticConfig();
     private AwaitConfig await = new AwaitConfig();
+    private AuditConfig audit = new AuditConfig();
 
     public SolrConfig getSolr()
     {
@@ -229,6 +230,16 @@ public class TrackerProperties
     public void setDiagnostic(DiagnosticConfig diagnostic)
     {
         this.diagnostic = diagnostic;
+    }
+
+    public AuditConfig getAudit()
+    {
+        return audit;
+    }
+
+    public void setAudit(AuditConfig audit)
+    {
+        this.audit = audit;
     }
 
     public AwaitConfig getAwait()
@@ -1008,5 +1019,34 @@ public class TrackerProperties
         public void setMaxBatch(int maxBatch) { this.maxBatch = maxBatch; }
         public int getMaxWaiters() { return maxWaiters; }
         public void setMaxWaiters(int maxWaiters) { this.maxWaiters = maxWaiters; }
+    }
+
+    /**
+     * Settings of the audit trail indexing: the Kafka topic read and the Solr core written.
+     */
+    public static class AuditConfig
+    {
+        private boolean enabled = false;
+        private String core = "audit";
+        private String topic = "audit-pristy";
+        private String groupId = "pristy-audit-indexer";
+        private String bootstrapServers = "kafka:9092";
+        private int retentionDays = 1825;
+        private String purgeCron = "0 30 3 * * ?";
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getCore() { return core; }
+        public void setCore(String core) { this.core = core; }
+        public String getTopic() { return topic; }
+        public void setTopic(String topic) { this.topic = topic; }
+        public String getGroupId() { return groupId; }
+        public void setGroupId(String groupId) { this.groupId = groupId; }
+        public String getBootstrapServers() { return bootstrapServers; }
+        public void setBootstrapServers(String bootstrapServers) { this.bootstrapServers = bootstrapServers; }
+        public int getRetentionDays() { return retentionDays; }
+        public void setRetentionDays(int retentionDays) { this.retentionDays = retentionDays; }
+        public String getPurgeCron() { return purgeCron; }
+        public void setPurgeCron(String purgeCron) { this.purgeCron = purgeCron; }
     }
 }
