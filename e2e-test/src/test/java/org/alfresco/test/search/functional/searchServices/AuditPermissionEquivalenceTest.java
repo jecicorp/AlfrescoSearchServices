@@ -36,7 +36,9 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.testng.Assert.assertEquals;
@@ -206,5 +208,112 @@ public class AuditPermissionEquivalenceTest
                 "AFTS no longer widens a set holding one privileged authority");
         assertTrue(afts > plain,
                 "the two filters agree on a set holding a privileged authority, which they did not");
+    }
+
+    private static final String PROBE_IN = "audit-probe-readable";
+    private static final String PROBE_OUT = "audit-probe-unreadable";
+    private static final long UNKNOWN_DBID = 987654321098L;
+
+    private static JsonNode send(HttpRequest.Builder builder) throws Exception
+    {
+        HttpResponse<String> response = HttpClient.newHttpClient().send(
+                builder.header("X-Alfresco-Search-Secret", SECRET).timeout(Duration.ofSeconds(30)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(response.statusCode(), 200, "Solr answered " + response.body());
+        return MAPPER.readTree(response.body());
+    }
+
+    private static JsonNode select(String core, String... nameValuePairs) throws Exception
+    {
+        StringBuilder url = new StringBuilder(SOLR).append('/').append(core)
+                .append("/select?omitHeader=true&defType=lucene");
+        for (int i = 0; i < nameValuePairs.length; i += 2)
+        {
+            url.append('&').append(nameValuePairs[i]).append('=')
+                    .append(URLEncoder.encode(nameValuePairs[i + 1], StandardCharsets.UTF_8));
+        }
+        return send(HttpRequest.newBuilder(URI.create(url.toString())).GET());
+    }
+
+    private static void updateAudit(String json) throws Exception
+    {
+        send(HttpRequest.newBuilder(URI.create(SOLR + "/audit/update?commit=true"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json)));
+    }
+
+    private static String productionFilter()
+    {
+        return "{!lucene}"
+                + "_query_:\"{!join fromIndex=alfresco from=DBID to=NODE_DBID v=$auditScope}\""
+                + " OR "
+                + "_query_:\"{!join fromIndex=archive from=DBID to=NODE_DBID v=$auditScope}\"";
+    }
+
+    private static List<String> productionParams(List<String> authorities)
+    {
+        String quoted = authorities.stream()
+                .map(AuditPermissionEquivalenceTest::quote)
+                .collect(Collectors.joining(" OR "));
+        return List.of(
+                "auditType", "DOC_TYPE:Node",
+                "auditReaderQuery", "READER:(" + quoted + ")",
+                "auditDeniedQuery", "DENIED:(" + quoted + ")",
+                "auditReader", "{!join from=ACLID to=ACLID v=$auditReaderQuery}",
+                "auditDenied", "{!join from=ACLID to=ACLID v=$auditDeniedQuery}",
+                "auditScope", "{!bool filter=$auditType must=$auditReader must_not=$auditDenied}");
+    }
+
+    private static Set<String> probeIds(JsonNode response)
+    {
+        Set<String> ids = new HashSet<>();
+        for (JsonNode doc : response.path("response").path("docs"))
+        {
+            ids.add(doc.path("id").asText());
+        }
+        return ids;
+    }
+
+    @Test
+    public void theAuditCoreJoinsNodeDbidToDbidThroughBothCores() throws Exception
+    {
+        List<String> authorities = List.of(readersInTheRepository().get(0));
+        String[] readable = plainSolrFilter(authorities);
+        String[] withFields = new String[readable.length + 4];
+        System.arraycopy(readable, 0, withFields, 0, readable.length);
+        withFields[readable.length] = "fl";
+        withFields[readable.length + 1] = "DBID";
+        withFields[readable.length + 2] = "rows";
+        withFields[readable.length + 3] = "1";
+        JsonNode node = select("alfresco", withFields).path("response").path("docs");
+        assertTrue(node.size() == 1, "no node is readable by " + authorities);
+        long readableDbid = node.get(0).path("DBID").asLong();
+
+        assertEquals(select("alfresco", "q", "DBID:" + UNKNOWN_DBID, "rows", "0")
+                .path("response").path("numFound").asLong(), 0L, "the unknown DBID is taken");
+        assertEquals(select("archive", "q", "DBID:" + UNKNOWN_DBID, "rows", "0")
+                .path("response").path("numFound").asLong(), 0L, "the unknown DBID is taken in archive");
+
+        try
+        {
+            updateAudit("[{\"id\":\"" + PROBE_IN + "\",\"NODE_DBID\":" + readableDbid + "},"
+                    + "{\"id\":\"" + PROBE_OUT + "\",\"NODE_DBID\":" + UNKNOWN_DBID + "}]");
+
+            String[] probes = { "q", "id:audit-probe-*", "fl", "id", "rows", "10" };
+            assertEquals(probeIds(select("audit", probes)), Set.of(PROBE_IN, PROBE_OUT),
+                    "the probes were not indexed");
+
+            List<String> request = new ArrayList<>(List.of(probes));
+            request.addAll(List.of("fq", productionFilter()));
+            request.addAll(productionParams(authorities));
+            Set<String> found = probeIds(select("audit", request.toArray(new String[0])));
+
+            assertEquals(found, Set.of(PROBE_IN),
+                    "the audit-core join must return the probe of a readable node and only that one");
+        }
+        finally
+        {
+            updateAudit("{\"delete\":[\"" + PROBE_IN + "\",\"" + PROBE_OUT + "\"]}");
+        }
     }
 }
