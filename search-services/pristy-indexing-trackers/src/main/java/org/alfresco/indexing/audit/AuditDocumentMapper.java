@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -41,6 +42,7 @@ import java.util.Objects;
  * which is what makes replaying the topic independent of the repository's current state.
  */
 @Component
+@ConditionalOnProperty(prefix = "alfresco.tracker.audit", name = "enabled", havingValue = "true")
 public class AuditDocumentMapper
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(AuditDocumentMapper.class);
