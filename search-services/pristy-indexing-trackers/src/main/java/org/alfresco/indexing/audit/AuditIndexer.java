@@ -77,7 +77,8 @@ public class AuditIndexer
         SolrInputDocument document;
         try
         {
-            document = mapper.toDocument(message, record.partition(), record.offset());
+            document = mapper.toDocument(message, record.partition(), record.offset(),
+                    record.timestamp());
         }
         catch (RuntimeException e)
         {

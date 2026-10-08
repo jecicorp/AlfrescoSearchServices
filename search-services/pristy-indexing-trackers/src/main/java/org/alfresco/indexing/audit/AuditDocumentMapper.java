@@ -59,9 +59,11 @@ public class AuditDocumentMapper
      * @param message the event as it arrived on the topic
      * @param partition the Kafka partition it came from
      * @param offset its offset in that partition
+     * @param recordTimestamp the Kafka record timestamp, used as the event time when the message has none
      * @return the document to index, keyed by the producer's own event id
      */
-    public SolrInputDocument toDocument(AuditEventMessage message, int partition, long offset)
+    public SolrInputDocument toDocument(AuditEventMessage message, int partition, long offset,
+            long recordTimestamp)
     {
         SolrInputDocument doc = new SolrInputDocument();
 
@@ -73,10 +75,8 @@ public class AuditDocumentMapper
         put(doc, "USER_LAST_NAME", message.getLastName());
         put(doc, "USER_EMAIL", message.getUserEmail());
 
-        if (message.getTimestamp() != null)
-        {
-            doc.setField("EVENT_TIME", SOLR_DATE.format(Instant.ofEpochMilli(message.getTimestamp())));
-        }
+        long eventTime = message.getTimestamp() != null ? message.getTimestamp() : recordTimestamp;
+        doc.setField("EVENT_TIME", SOLR_DATE.format(Instant.ofEpochMilli(eventTime)));
 
         put(doc, "NODE_REF", ref(message.getNodeRef()));
         put(doc, "NODE_UUID", message.getNodeRef() == null ? null : message.getNodeRef().getId());

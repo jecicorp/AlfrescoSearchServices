@@ -111,7 +111,7 @@ public class AuditIndexerTest
     public void aMappingFailureDoesNotEscapeNorReachSolr()
     {
         AuditDocumentMapper failing = Mockito.mock(AuditDocumentMapper.class);
-        Mockito.when(failing.toDocument(Mockito.any(), Mockito.anyInt(), Mockito.anyLong()))
+        Mockito.when(failing.toDocument(Mockito.any(), Mockito.anyInt(), Mockito.anyLong(), Mockito.anyLong()))
                 .thenThrow(new IllegalStateException("unreadable"));
         AuditIndexer strict = new AuditIndexer(solrClient, failing, "audit");
 

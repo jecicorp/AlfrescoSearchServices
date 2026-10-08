@@ -80,7 +80,7 @@ public class AuditDocumentMapperTest
     @Test
     public void mapsTheIdentityAndTheJoinKey()
     {
-        SolrInputDocument doc = mapper.toDocument(message(), 3, 987L);
+        SolrInputDocument doc = mapper.toDocument(message(), 3, 987L, 0L);
 
         assertEquals("5a9f8e7d-0000-4000-8000-000000000001", doc.getFieldValue("id"));
         assertEquals(4242L, doc.getFieldValue("NODE_DBID"));
@@ -94,7 +94,18 @@ public class AuditDocumentMapperTest
     @Test
     public void mapsTheEventTimeAsAnInstant()
     {
-        SolrInputDocument doc = mapper.toDocument(message(), 0, 0L);
+        SolrInputDocument doc = mapper.toDocument(message(), 0, 0L, 1000L);
+
+        assertEquals("2026-01-01T00:00:00Z", doc.getFieldValue("EVENT_TIME"));
+    }
+
+    @Test
+    public void fallsBackToTheRecordTimestampWhenTheMessageHasNone()
+    {
+        AuditEventMessage m = message();
+        m.setTimestamp(null);
+
+        SolrInputDocument doc = mapper.toDocument(m, 0, 0L, 1767225600000L);
 
         assertEquals("2026-01-01T00:00:00Z", doc.getFieldValue("EVENT_TIME"));
     }
@@ -102,7 +113,7 @@ public class AuditDocumentMapperTest
     @Test
     public void takesTheNodeNameFromTheCmNameProperty()
     {
-        SolrInputDocument doc = mapper.toDocument(message(), 0, 0L);
+        SolrInputDocument doc = mapper.toDocument(message(), 0, 0L, 0L);
 
         assertEquals("piece.pdf", doc.getFieldValue("NODE_NAME"));
     }
@@ -110,7 +121,7 @@ public class AuditDocumentMapperTest
     @Test
     public void carriesEveryAncestor()
     {
-        SolrInputDocument doc = mapper.toDocument(message(), 0, 0L);
+        SolrInputDocument doc = mapper.toDocument(message(), 0, 0L, 0L);
 
         assertEquals(2, doc.getFieldValues("ANCESTOR").size());
         assertTrue(doc.getFieldValues("ANCESTOR")
@@ -120,7 +131,7 @@ public class AuditDocumentMapperTest
     @Test
     public void serialisesThePropertiesAsJson()
     {
-        SolrInputDocument doc = mapper.toDocument(message(), 0, 0L);
+        SolrInputDocument doc = mapper.toDocument(message(), 0, 0L, 0L);
         String json = (String) doc.getFieldValue("PROPERTIES_JSON");
 
         assertTrue(json.contains("\"cm:name\""));
@@ -134,7 +145,7 @@ public class AuditDocumentMapperTest
         m.setNodeDbId(null);
         m.setAncestorNodeRefs(null);
 
-        SolrInputDocument doc = mapper.toDocument(m, 0, 0L);
+        SolrInputDocument doc = mapper.toDocument(m, 0, 0L, 0L);
 
         assertNull(doc.getFieldValue("NODE_DBID"));
         assertNull(doc.getFieldValue("ANCESTOR"));
@@ -164,7 +175,7 @@ public class AuditDocumentMapperTest
                 """;
 
         AuditEventMessage m = new ObjectMapper().readValue(json, AuditEventMessage.class);
-        SolrInputDocument doc = mapper.toDocument(m, 0, 0L);
+        SolrInputDocument doc = mapper.toDocument(m, 0, 0L, 0L);
 
         assertEquals("workspace://SpacesStore/44444444-4444-4444-4444-444444444444",
                 doc.getFieldValue("NODE_REF"));
@@ -181,7 +192,7 @@ public class AuditDocumentMapperTest
         AuditEventMessage m = message();
         m.setProperties(null);
 
-        SolrInputDocument doc = mapper.toDocument(m, 0, 0L);
+        SolrInputDocument doc = mapper.toDocument(m, 0, 0L, 0L);
 
         assertNull(doc.getFieldValue("NODE_NAME"));
         assertNull(doc.getFieldValue("PROPERTIES_JSON"));

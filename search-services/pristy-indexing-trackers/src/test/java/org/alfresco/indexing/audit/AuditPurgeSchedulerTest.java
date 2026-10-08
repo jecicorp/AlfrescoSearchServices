@@ -27,6 +27,7 @@ import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocumentList;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import static org.junit.Assert.assertEquals;
@@ -74,6 +75,29 @@ public class AuditPurgeSchedulerTest
         new AuditPurgeScheduler(solrClient, "audit", 0).purge();
 
         Mockito.verifyNoInteractions(solrClient);
+    }
+
+    @Test
+    public void doesNothingWhenRetentionIsNegative() throws Exception
+    {
+        SolrClient solrClient = Mockito.mock(SolrClient.class);
+
+        new AuditPurgeScheduler(solrClient, "audit", -5).purge();
+
+        Mockito.verifyNoInteractions(solrClient);
+    }
+
+    @Test
+    public void countsWithTheSameQueryItDeletesWith() throws Exception
+    {
+        SolrClient solrClient = clientMatching(3);
+        AuditPurgeScheduler scheduler = new AuditPurgeScheduler(solrClient, "audit", 1825);
+
+        scheduler.purge();
+
+        ArgumentCaptor<SolrQuery> counted = ArgumentCaptor.forClass(SolrQuery.class);
+        Mockito.verify(solrClient).query(Mockito.eq("audit"), counted.capture());
+        assertEquals(scheduler.purgeQuery(), counted.getValue().getQuery());
     }
 
     @Test

@@ -123,8 +123,8 @@ check it there rather than assuming a value took effect.
 The defaults in the table below live **only** in `TrackerProperties.TuningConfig`. The
 packaged `application.yml` deliberately does not repeat them, and `TuningDefaultsTest`
 fails if it starts to: the yml ships inside the jar and wins over the Java field
-initialisers, so two layers of defaults are free to drift apart without anyone noticing
-- which is exactly what happened to the cron defaults, where `TrackerProperties.Cron`
+initialisers, so two layers of defaults are free to drift apart without anyone noticing -
+which is exactly what happened to the cron defaults, where `TrackerProperties.Cron`
 says `0/10` for metadata and the yml says `0/5`, and only the yml ever runs.
 
 | Property (`alfresco.tracker.tuning.*`) | Default | Impact |
@@ -217,6 +217,10 @@ so no purge runs.
 The Solr retention and the Kafka topic retention are aligned by hand. Nothing enforces that they
 match: set the topic retention to the same duration as `retention-days`. The configured value is
 logged at startup.
+
+The retention is measured on `EVENT_TIME`, the event's own time and not its index time, so replaying
+the topic re-indexes old events and the next run removes them again. A `purge-cron` of `-` disables
+the schedule outright (Spring's marker for a disabled cron).
 
 ### Internal content settings (not externally configurable today)
 
