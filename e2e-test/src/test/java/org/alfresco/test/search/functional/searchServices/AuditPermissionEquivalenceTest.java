@@ -49,6 +49,7 @@ public class AuditPermissionEquivalenceTest
 {
     private static final String SOLR = System.getProperty("solr.url", "http://localhost:8983/solr");
     private static final String SECRET = System.getProperty("solr.secret", "secret");
+    private static final String ADMIN = System.getProperty("alfresco.admin", "admin");
     private static final String SCOPE = "{!bool filter=$auditType must=$auditReader must_not=$auditDenied}";
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -109,7 +110,7 @@ public class AuditPermissionEquivalenceTest
         for (int i = 0; i < values.size(); i += 2)
         {
             String authority = values.get(i).asText();
-            if (!authority.startsWith("ROLE_"))
+            if (!authority.startsWith("ROLE_") && !authority.equals(ADMIN))
             {
                 authorities.add(authority);
             }
@@ -157,14 +158,34 @@ public class AuditPermissionEquivalenceTest
                 "the filter returned every node, so it is not filtering at all");
     }
 
-    @Test
-    public void aDynamicRoleAuthorityIsNotComparable() throws Exception
+    @DataProvider(name = "privilegedAuthorities")
+    public Object[][] privilegedAuthorities()
     {
-        long all = count("q", "*:*", "fq", "DOC_TYPE:Node");
-        long plain = count(plainSolrFilter(List.of("ROLE_OWNER")));
-        long afts = count("q", "*:*", "fq", "DOC_TYPE:Node", "fq", aftsFilter(List.of("ROLE_OWNER")));
+        return new Object[][] { { "ROLE_OWNER" }, { ADMIN } };
+    }
 
-        assertEquals(afts, all, "AFTS no longer widens a ROLE_ authority to every node");
-        assertTrue(plain < all, "the plain-Solr filter no longer restricts a ROLE_ authority");
+    @Test(dataProvider = "privilegedAuthorities")
+    public void aPrivilegedAuthorityIsNotComparable(String authority) throws Exception
+    {
+        long plain = count(plainSolrFilter(List.of(authority)));
+        long afts = count("q", "*:*", "fq", "DOC_TYPE:Node", "fq", aftsFilter(List.of(authority)));
+
+        assertTrue(afts > plain, "AFTS no longer widens the privileged authority " + authority);
+    }
+
+    @Test
+    public void onePrivilegedAuthorityWidensTheWholeSet() throws Exception
+    {
+        List<String> ordinary = List.of(readersInTheRepository().get(0));
+        List<String> mixed = List.of(ordinary.get(0), ADMIN);
+
+        long plain = count(plainSolrFilter(mixed));
+        long afts = count("q", "*:*", "fq", "DOC_TYPE:Node", "fq", aftsFilter(mixed));
+        long ordinaryAfts = count("q", "*:*", "fq", "DOC_TYPE:Node", "fq", aftsFilter(ordinary));
+
+        assertTrue(afts > ordinaryAfts,
+                "AFTS no longer widens a set holding one privileged authority");
+        assertTrue(afts > plain,
+                "the two filters agree on a set holding a privileged authority, which they did not");
     }
 }
