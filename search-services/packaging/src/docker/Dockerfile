@@ -43,6 +43,7 @@ RUN set -x \
    && mv $DIST_DIR/solrhome/alfrescoModels $DIST_DIR/data/ \
    && mkdir -p $DIST_DIR/solr-defaults \
    && cp $DIST_DIR/solrhome/solr.xml $DIST_DIR/solr-defaults/solr.xml \
+   && cp -r $DIST_DIR/solrhome/templates $DIST_DIR/solr-defaults/templates \
    && chown -R ${USERNAME}:${USERNAME} $DIST_DIR $SOLR_BACKUP_DIR \
    && echo '#Docker Setup' >> $DIST_DIR/solr.in.sh \
    && echo "SOLR_OPTS=\"\$SOLR_OPTS -Dsolr.data.dir.root=\$SOLR_DATA_DIR_ROOT -Dsolr.solr.model.dir=\$SOLR_SOLR_MODEL_DIR -Dsolr.allowPaths=\$DIST_DIR/solrhome,\$SOLR_BACKUP_DIR\"" >> $DIST_DIR/solr.in.sh \

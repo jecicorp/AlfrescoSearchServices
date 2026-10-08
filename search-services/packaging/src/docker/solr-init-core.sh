@@ -22,6 +22,11 @@ if [ -f "$NODE_CONFIG_PRISTINE" ]; then
     fi
 fi
 
+TEMPLATES_DIR="${SOLR_HOME}/templates"
+if [ -d "/opt/pristy-search-services/solr-defaults/templates" ]; then
+    TEMPLATES_DIR="/opt/pristy-search-services/solr-defaults/templates"
+fi
+
 # Split comma-separated core names and create each one
 IFS=','
 for CORE_NAME in $CORE_LIST; do
@@ -31,13 +36,13 @@ for CORE_NAME in $CORE_LIST; do
             *)     CORE_TEMPLATE="${TEMPLATE}" ;;
         esac
 
-        if [ ! -d "${SOLR_HOME}/templates/${CORE_TEMPLATE}/conf" ]; then
-            echo "ERROR: no template '${CORE_TEMPLATE}' in ${SOLR_HOME}/templates (available:$(for d in "${SOLR_HOME}"/templates/*/; do printf ' %s' "$(basename "$d")"; done))" >&2
+        if [ ! -d "${TEMPLATES_DIR}/${CORE_TEMPLATE}/conf" ]; then
+            echo "ERROR: no template '${CORE_TEMPLATE}' in ${TEMPLATES_DIR} (available:$(for d in "${TEMPLATES_DIR}"/*/; do printf ' %s' "$(basename "$d")"; done))" >&2
             exit 1
         fi
         echo "Creating core '${CORE_NAME}' from template '${CORE_TEMPLATE}'..."
         mkdir -p "${SOLR_HOME}/${CORE_NAME}"
-        cp -r "${SOLR_HOME}/templates/${CORE_TEMPLATE}/conf" "${SOLR_HOME}/${CORE_NAME}/conf"
+        cp -r "${TEMPLATES_DIR}/${CORE_TEMPLATE}/conf" "${SOLR_HOME}/${CORE_NAME}/conf"
 
         # Configure solrcore.properties
         PROPS="${SOLR_HOME}/${CORE_NAME}/conf/solrcore.properties"
