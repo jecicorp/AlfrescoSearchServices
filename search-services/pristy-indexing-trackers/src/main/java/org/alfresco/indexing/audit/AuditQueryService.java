@@ -137,20 +137,21 @@ public class AuditQueryService
             throw new IllegalArgumentException("pathPrefix is blank; omit it for no path restriction");
         }
 
+        if (query.folder() != null)
+        {
+            solrQuery.addFilterQuery("ANCESTOR:" + AuditPermissionFilter.quote(query.folder()));
+        }
+
         if (query.unfiltered())
         {
             if (query.authorities() != null && !query.authorities().isEmpty())
             {
                 throw new IllegalArgumentException("an unfiltered query carries no authority set");
             }
-            if (query.folder() != null)
-            {
-                solrQuery.addFilterQuery("ANCESTOR:" + AuditPermissionFilter.quote(query.folder()));
-            }
         }
         else
         {
-            AuditPermissionFilter.Filter filter = AuditPermissionFilter.build(query.authorities(), query.folder());
+            AuditPermissionFilter.Filter filter = AuditPermissionFilter.build(query.authorities());
             solrQuery.addFilterQuery(filter.fq());
             filter.params().forEach(solrQuery::set);
         }

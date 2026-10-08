@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class AuditQueryServiceTest
@@ -89,20 +90,21 @@ public class AuditQueryServiceTest
         SolrQuery q = captureQuery();
 
         Map<String, String> params = AuditPermissionFilter
-                .build(List.of("abeecher", "GROUP_EVERYONE"), null).params();
+                .build(List.of("abeecher", "GROUP_EVERYONE")).params();
         assertEquals(6, params.size());
         params.forEach((name, value) -> assertEquals(value, q.get(name)));
     }
 
     @Test
-    public void carriesAFolderScopeInsideTheJoin() throws Exception
+    public void appliesTheFolderScopeOnTheAuditCoreWhenFiltered() throws Exception
     {
         service.search(new AuditQuery(null, null, null, null, null, null, FOLDER,
                 List.of("abeecher"), false, null, 50));
         SolrQuery q = captureQuery();
 
-        assertEquals("ANCESTOR:\"" + FOLDER + "\"", q.get("auditAncestor"));
-        assertTrue(q.get("auditScope").contains("filter=$auditAncestor"));
+        assertTrue(List.of(q.getFilterQueries()).contains("ANCESTOR:\"" + FOLDER + "\""));
+        assertEquals(null, q.get("auditAncestor"));
+        assertFalse(q.get("auditScope").contains("ANCESTOR"));
     }
 
     @Test

@@ -36,7 +36,6 @@ public final class AuditPermissionFilter
 {
     private static final String SCOPE = "auditScope";
     private static final String TYPE = "auditType";
-    private static final String ANCESTOR = "auditAncestor";
     private static final String READER = "auditReader";
     private static final String READER_QUERY = "auditReaderQuery";
     private static final String DENIED = "auditDenied";
@@ -56,11 +55,10 @@ public final class AuditPermissionFilter
 
     /**
      * @param authorities the caller's authorities; never empty, never holding a blank entry
-     * @param folderNodeRef restrict to the subtree of this node, or null for the whole repository
      * @return the filter query and the parameters it references
-     * @throws IllegalArgumentException if the authority set is unusable or the folder is blank
+     * @throws IllegalArgumentException if the authority set is unusable
      */
-    public static Filter build(List<String> authorities, String folderNodeRef)
+    public static Filter build(List<String> authorities)
     {
         if (authorities == null || authorities.isEmpty())
         {
@@ -75,10 +73,6 @@ public final class AuditPermissionFilter
             throw new IllegalArgumentException(
                     "an authority contains a comma, which request parameter binding would split in two");
         }
-        if (folderNodeRef != null && folderNodeRef.isBlank())
-        {
-            throw new IllegalArgumentException("folderNodeRef is blank; pass null for the whole repository");
-        }
 
         String quoted = authorities.stream()
                 .map(AuditPermissionFilter::quote)
@@ -91,14 +85,7 @@ public final class AuditPermissionFilter
         params.put(READER, "{!join from=ACLID to=ACLID v=$" + READER_QUERY + "}");
         params.put(DENIED, "{!join from=ACLID to=ACLID v=$" + DENIED_QUERY + "}");
 
-        StringBuilder scope = new StringBuilder("{!bool filter=$").append(TYPE);
-        if (folderNodeRef != null)
-        {
-            params.put(ANCESTOR, "ANCESTOR:" + quote(folderNodeRef));
-            scope.append(" filter=$").append(ANCESTOR);
-        }
-        scope.append(" must=$").append(READER).append(" must_not=$").append(DENIED).append("}");
-        params.put(SCOPE, scope.toString());
+        params.put(SCOPE, "{!bool filter=$" + TYPE + " must=$" + READER + " must_not=$" + DENIED + "}");
 
         String fq = "{!lucene}"
                 + "_query_:\"{!join fromIndex=alfresco from=DBID to=NODE_DBID v=$" + SCOPE + "}\""

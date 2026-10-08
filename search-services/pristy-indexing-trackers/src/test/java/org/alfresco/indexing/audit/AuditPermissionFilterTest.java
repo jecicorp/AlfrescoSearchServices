@@ -37,7 +37,7 @@ public class AuditPermissionFilterTest
     @Test
     public void joinsBothCoresSoDeletionsStayVisible()
     {
-        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(List.of("abeecher"), null);
+        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(List.of("abeecher"));
 
         assertTrue(f.fq().contains("fromIndex=alfresco"));
         assertTrue(f.fq().contains("fromIndex=archive"));
@@ -47,7 +47,7 @@ public class AuditPermissionFilterTest
     @Test
     public void bothJoinsShareOneScopeParameter()
     {
-        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(List.of("abeecher"), null);
+        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(List.of("abeecher"));
 
         assertEquals(2, countOccurrences(f.fq(), "v=$auditScope"));
         assertTrue(f.params().containsKey("auditScope"));
@@ -57,8 +57,7 @@ public class AuditPermissionFilterTest
     public void noQuotedStringIsNestedInsideAnother()
     {
         AuditPermissionFilter.Filter f = AuditPermissionFilter.build(
-                List.of("abeecher", "GROUP_EVERYONE"),
-                "workspace://SpacesStore/33333333-3333-3333-3333-333333333333");
+                List.of("abeecher", "GROUP_EVERYONE"));
 
         for (Map.Entry<String, String> entry : f.params().entrySet())
         {
@@ -72,10 +71,9 @@ public class AuditPermissionFilterTest
     @Test
     public void everyParameterTheScopeReferencesIsSupplied()
     {
-        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(
-                List.of("abeecher"), "workspace://SpacesStore/33333333-3333-3333-3333-333333333333");
+        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(List.of("abeecher"));
 
-        for (String name : List.of("auditType", "auditAncestor", "auditReader", "auditDenied"))
+        for (String name : List.of("auditType", "auditReader", "auditDenied"))
         {
             assertTrue("scope references $" + name, f.params().get("auditScope").contains("$" + name));
             assertTrue("missing parameter " + name, f.params().containsKey(name));
@@ -90,37 +88,27 @@ public class AuditPermissionFilterTest
     public void putsEveryAuthorityOnBothSidesOfTheFilter()
     {
         AuditPermissionFilter.Filter f = AuditPermissionFilter.build(
-                List.of("abeecher", "GROUP_EVERYONE"), null);
+                List.of("abeecher", "GROUP_EVERYONE"));
 
         assertEquals("READER:(\"abeecher\" OR \"GROUP_EVERYONE\")", f.params().get("auditReaderQuery"));
         assertEquals("DENIED:(\"abeecher\" OR \"GROUP_EVERYONE\")", f.params().get("auditDeniedQuery"));
     }
 
     @Test
-    public void pushesTheFolderScopeInsideTheSubquery()
+    public void alwaysProducesSixParametersAndNoAncestorScope()
     {
-        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(
-                List.of("abeecher"), "workspace://SpacesStore/33333333-3333-3333-3333-333333333333");
+        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(List.of("abeecher"));
 
-        assertEquals("ANCESTOR:\"workspace://SpacesStore/33333333-3333-3333-3333-333333333333\"",
-                f.params().get("auditAncestor"));
-        assertTrue(f.params().get("auditScope").contains("filter=$auditAncestor"));
-        assertFalse(f.fq().contains("ANCESTOR"));
-    }
-
-    @Test
-    public void omitsTheAncestorClauseWhenThereIsNoFolder()
-    {
-        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(List.of("abeecher"), null);
-
+        assertEquals(6, f.params().size());
         assertFalse(f.params().containsKey("auditAncestor"));
-        assertFalse(f.params().get("auditScope").contains("auditAncestor"));
+        assertFalse(f.fq().contains("ANCESTOR"));
+        assertFalse(f.params().get("auditScope").contains("ANCESTOR"));
     }
 
     @Test
     public void escapesAQuoteInsideAnAuthority()
     {
-        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(List.of("od\"d"), null);
+        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(List.of("od\"d"));
 
         assertEquals("READER:(\"od\\\"d\")", f.params().get("auditReaderQuery"));
     }
@@ -128,7 +116,7 @@ public class AuditPermissionFilterTest
     @Test
     public void escapesABackslashInsideAnAuthority()
     {
-        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(List.of("do\\main"), null);
+        AuditPermissionFilter.Filter f = AuditPermissionFilter.build(List.of("do\\main"));
 
         assertEquals("READER:(\"do\\\\main\")", f.params().get("auditReaderQuery"));
     }
@@ -137,7 +125,7 @@ public class AuditPermissionFilterTest
     public void aHostileAuthorityCannotEscapeItsTerm()
     {
         AuditPermissionFilter.Filter f = AuditPermissionFilter.build(
-                List.of("x\") OR *:* OR (\"y"), null);
+                List.of("x\") OR *:* OR (\"y"));
 
         assertEquals("READER:(\"x\\\") OR *:* OR (\\\"y\")", f.params().get("auditReaderQuery"));
         assertEquals("DENIED:(\"x\\\") OR *:* OR (\\\"y\")", f.params().get("auditDeniedQuery"));
@@ -146,37 +134,31 @@ public class AuditPermissionFilterTest
     @Test(expected = IllegalArgumentException.class)
     public void refusesAnEmptyAuthoritySet()
     {
-        AuditPermissionFilter.build(List.of(), null);
+        AuditPermissionFilter.build(List.of());
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void refusesANullAuthoritySet()
     {
-        AuditPermissionFilter.build(null, null);
+        AuditPermissionFilter.build(null);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void refusesANullAuthority()
     {
-        AuditPermissionFilter.build(Arrays.asList("abeecher", null), null);
+        AuditPermissionFilter.build(Arrays.asList("abeecher", null));
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void refusesABlankAuthority()
     {
-        AuditPermissionFilter.build(Arrays.asList("abeecher", " "), null);
+        AuditPermissionFilter.build(Arrays.asList("abeecher", " "));
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void refusesAnAuthorityHoldingAComma()
     {
-        AuditPermissionFilter.build(List.of("GROUP_a,b"), null);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void refusesABlankFolder()
-    {
-        AuditPermissionFilter.build(List.of("abeecher"), "  ");
+        AuditPermissionFilter.build(List.of("GROUP_a,b"));
     }
 
     private static int countOccurrences(String text, String needle)

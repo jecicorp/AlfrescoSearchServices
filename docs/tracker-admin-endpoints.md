@@ -427,9 +427,9 @@ inside the stack.
 A query must either carry at least one `authority` or set `unfiltered=true`; otherwise it is
 refused with `400`. An unfiltered query must carry no `authority`. A blank `folder` is a `400`.
 
-A `folder` scope applies on both paths: through the permission join when filtered, and against
-the audit core's own `ANCESTOR` field when unfiltered, which keeps the events of a purged node
-scopable.
+A `folder` scope applies on both paths, against the audit core's own `ANCESTOR` field and never
+through the permission join. It matches the ancestry recorded on the event, so an event is found
+under the folder it happened in even if the node has since moved or been deleted.
 
 ### `GET /api/v1/audit/events`
 
