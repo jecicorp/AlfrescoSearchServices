@@ -31,7 +31,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.DateTimeException;
 import java.util.List;
 import java.util.Map;
 
@@ -91,7 +90,7 @@ public class AuditController
                 authority, unfiltered, null, 0));
     }
 
-    @ExceptionHandler({IllegalArgumentException.class, DateTimeException.class})
+    @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> badRequest(RuntimeException e)
     {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
