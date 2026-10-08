@@ -25,12 +25,15 @@ package org.alfresco.indexing.audit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
+import org.apache.solr.common.SolrException;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -42,13 +45,14 @@ public class AuditQueryServiceTest
     private static final String FOLDER = "workspace://SpacesStore/5f0e-folder";
 
     private SolrClient solrClient;
+    private QueryResponse response;
     private AuditQueryService service;
 
     @Before
     public void setUp() throws Exception
     {
         this.solrClient = Mockito.mock(SolrClient.class);
-        QueryResponse response = Mockito.mock(QueryResponse.class);
+        this.response = Mockito.mock(QueryResponse.class);
         Mockito.when(response.getResults()).thenReturn(new SolrDocumentList());
         Mockito.when(response.getNextCursorMark()).thenReturn("AoE/Bw==");
         Mockito.when(solrClient.query(Mockito.eq("audit"), Mockito.any(SolrQuery.class))).thenReturn(response);
@@ -129,6 +133,7 @@ public class AuditQueryServiceTest
         SolrQuery q = captureQuery();
 
         assertEquals(null, q.getFilterQueries());
+        assertEquals(null, q.get("auditScope"));
     }
 
     @Test
@@ -161,17 +166,102 @@ public class AuditQueryServiceTest
     @Test
     public void escapesAValueThatCouldCloseItsOwnQuotedTerm() throws Exception
     {
-        service.search(new AuditQuery("ab\"eecher", null, null, "/Company Home/x", null, null, null,
+        service.search(new AuditQuery("ab\"eecher", "ev\"t", "u\"id", "/Company Home\\x*", null, null, null,
                 List.of("abeecher"), false, null, 50));
         List<String> fqs = List.of(captureQuery().getFilterQueries());
 
+        assertTrue(fqs.contains("EVENT_TYPE:\"ev\\\"t\""));
+        assertTrue(fqs.contains("NODE_UUID:\"u\\\"id\""));
+        assertTrue(fqs.contains("PATH:\\/Company\\ Home\\\\x\\**"));
+
         assertTrue(fqs.contains("PRINCIPAL:\"ab\\\"eecher\""));
-        assertTrue(fqs.contains("PATH:\\/Company\\ Home\\/x*"));
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void refusesAFacetFieldOutsideTheAllowedSet() throws Exception
     {
         service.facet(filtered(), "PROPERTIES_JSON", 10);
+    }
+
+    @Test
+    public void mapsAPopulatedResultWithAnIsoEventTime() throws Exception
+    {
+        SolrDocument doc = new SolrDocument();
+        doc.setField("id", "e1");
+        doc.setField("EVENT_TIME", Date.from(java.time.Instant.parse("2026-10-08T12:34:56.789Z")));
+        doc.setField("EVENT_TYPE", "content-read");
+        doc.setField("PRINCIPAL", "abeecher");
+        doc.setField("NODE_UUID", "n1");
+        doc.setField("NODE_NAME", "a.txt");
+        doc.setField("PATH", "/Company Home/a.txt");
+        doc.setField("PROPERTIES_JSON", "{}");
+        SolrDocumentList list = new SolrDocumentList();
+        list.add(doc);
+        list.setNumFound(7);
+        Mockito.when(response.getResults()).thenReturn(list);
+
+        AuditPage page = service.search(filtered());
+
+        assertEquals(7, page.total());
+        assertEquals("AoE/Bw==", page.nextCursor());
+        assertEquals(new AuditEvent("e1", "2026-10-08T12:34:56.789Z", "content-read", "abeecher", "n1",
+                "a.txt", "/Company Home/a.txt", "{}"), page.events().get(0));
+    }
+
+    @Test
+    public void facetCarriesThePermissionFilter() throws Exception
+    {
+        service.facet(filtered(), "PRINCIPAL", 10);
+        SolrQuery q = captureQuery();
+
+        assertTrue(List.of(q.getFilterQueries()).stream().anyMatch(f -> f.contains("fromIndex=alfresco")));
+        assertEquals("READER:(\"abeecher\" OR \"GROUP_EVERYONE\")", q.get("auditReaderQuery"));
+    }
+
+    @Test
+    public void contributorsCarryThePermissionFilterAndTheEventTypes() throws Exception
+    {
+        service.contributors(new AuditQuery(null, null, null, null, null, null, FOLDER,
+                List.of("abeecher", "GROUP_EVERYONE"), false, null, 0));
+        SolrQuery q = captureQuery();
+        List<String> fqs = List.of(q.getFilterQueries());
+
+        assertTrue(fqs.stream().anyMatch(f -> f.contains("fromIndex=alfresco")));
+        assertEquals("READER:(\"abeecher\" OR \"GROUP_EVERYONE\")", q.get("auditReaderQuery"));
+        assertTrue(fqs.contains(
+                "EVENT_TYPE:(\"create-node\" OR \"content-update\" OR \"update-properties\" OR \"create-version\" OR \"check-in\")"));
+    }
+
+    @Test
+    public void clampsTheFacetLimit() throws Exception
+    {
+        service.facet(filtered(), "PATH", 5000);
+
+        assertEquals("1000", captureQuery().get("facet.limit"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void refusesABlankPathPrefix() throws Exception
+    {
+        service.search(new AuditQuery(null, null, null, " ", null, null, null,
+                List.of("abeecher"), false, null, 50));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void aSolrBadRequestIsAClientError() throws Exception
+    {
+        Mockito.when(solrClient.query(Mockito.eq("audit"), Mockito.any(SolrQuery.class)))
+                .thenThrow(new SolrException(SolrException.ErrorCode.BAD_REQUEST, "bad cursor"));
+
+        service.search(filtered());
+    }
+
+    @Test(expected = AuditException.class)
+    public void aSolrServerErrorStaysAnAuditException() throws Exception
+    {
+        Mockito.when(solrClient.query(Mockito.eq("audit"), Mockito.any(SolrQuery.class)))
+                .thenThrow(new SolrException(SolrException.ErrorCode.SERVER_ERROR, "down"));
+
+        service.search(filtered());
     }
 }

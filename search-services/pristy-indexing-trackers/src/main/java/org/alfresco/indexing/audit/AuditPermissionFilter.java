@@ -70,6 +70,11 @@ public final class AuditPermissionFilter
         {
             throw new IllegalArgumentException("an authority is null or blank");
         }
+        if (authorities.stream().anyMatch(a -> a.indexOf(',') >= 0))
+        {
+            throw new IllegalArgumentException(
+                    "an authority contains a comma, which request parameter binding would split in two");
+        }
         if (folderNodeRef != null && folderNodeRef.isBlank())
         {
             throw new IllegalArgumentException("folderNodeRef is blank; pass null for the whole repository");

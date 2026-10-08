@@ -28,10 +28,13 @@ import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.util.ClientUtils;
 import org.apache.solr.common.SolrDocument;
+import org.apache.solr.common.SolrException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Date;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,10 +43,13 @@ import java.util.Set;
 
 /** Runs audit questions against the audit core. */
 @Service
+@ConditionalOnProperty(prefix = "alfresco.tracker.audit", name = "enabled", havingValue = "true")
 public class AuditQueryService
 {
     private static final List<String> CONTRIBUTING_EVENTS = List.of(
             "create-node", "content-update", "update-properties", "create-version", "check-in");
+
+    private static final int MAX_FACET_LIMIT = 1000;
 
     private static final Set<String> FACETABLE = Set.of(
             "PRINCIPAL", "EVENT_TYPE", "PATH", "SITE_ID", "NODE_TYPE", "MIMETYPE");
@@ -96,7 +102,7 @@ public class AuditQueryService
         solrQuery.setRows(0);
         solrQuery.setFacet(true);
         solrQuery.addFacetField(field);
-        solrQuery.setFacetLimit(limit);
+        solrQuery.setFacetLimit(Math.min(Math.max(limit, 1), MAX_FACET_LIMIT));
         solrQuery.setFacetMinCount(1);
 
         return counts(execute(solrQuery).getFacetField(field));
@@ -124,6 +130,11 @@ public class AuditQueryService
         if (query.folder() != null && query.folder().isBlank())
         {
             throw new IllegalArgumentException("folder is blank; omit it for the whole repository");
+        }
+
+        if (query.pathPrefix() != null && query.pathPrefix().isBlank())
+        {
+            throw new IllegalArgumentException("pathPrefix is blank; omit it for no path restriction");
         }
 
         if (query.unfiltered())
@@ -161,6 +172,14 @@ public class AuditQueryService
         {
             return solrClient.query(core, solrQuery);
         }
+        catch (SolrException e)
+        {
+            if (e.code() == 400)
+            {
+                throw new IllegalArgumentException("Audit query refused: " + e.getMessage(), e);
+            }
+            throw new AuditException("Audit query failed", e);
+        }
         catch (Exception e)
         {
             throw new AuditException("Audit query failed", e);
@@ -185,6 +204,10 @@ public class AuditQueryService
     private static String str(SolrDocument doc, String field)
     {
         Object value = doc.getFieldValue(field);
+        if (value instanceof Date date)
+        {
+            return date.toInstant().toString();
+        }
         return value == null ? null : value.toString();
     }
 }

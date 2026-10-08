@@ -24,6 +24,7 @@
 package org.alfresco.indexing.api;
 
 import org.alfresco.indexing.admin.AdminService;
+import org.alfresco.indexing.audit.AuditQueryService;
 import org.alfresco.indexing.await.AwaitService;
 import org.alfresco.indexing.backup.BackupService;
 import org.alfresco.indexing.config.RepairReportEndpoint;
@@ -93,8 +94,8 @@ public class ApiCapabilities
     }
 
     @Bean
-    Capability auditSearchCapability(org.alfresco.indexing.audit.AuditQueryService auditQueryService)
+    Capability auditSearchCapability(ObjectProvider<AuditQueryService> auditQueryService)
     {
-        return Capability.of("audit.search", "1.3");
+        return new Capability("audit.search", "1.3", auditQueryService.getIfAvailable() != null);
     }
 }

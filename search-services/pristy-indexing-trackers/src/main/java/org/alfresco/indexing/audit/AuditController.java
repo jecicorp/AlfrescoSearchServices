@@ -22,6 +22,7 @@
  */
 package org.alfresco.indexing.audit;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.DateTimeException;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +39,7 @@ import java.util.Map;
  * Audit consultation API, version 1. The caller supplies its own authority set; the
  * trackers service does not authenticate it, so this surface must stay inside the stack.
  */
+@ConditionalOnProperty(prefix = "alfresco.tracker.audit", name = "enabled", havingValue = "true")
 @RestController
 @RequestMapping("/api/v1/audit")
 public class AuditController
@@ -88,8 +91,8 @@ public class AuditController
                 authority, unfiltered, null, 0));
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> badRequest(IllegalArgumentException e)
+    @ExceptionHandler({IllegalArgumentException.class, DateTimeException.class})
+    public ResponseEntity<String> badRequest(RuntimeException e)
     {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
     }

@@ -168,6 +168,12 @@ public class AuditPermissionFilterTest
     }
 
     @Test(expected = IllegalArgumentException.class)
+    public void refusesAnAuthorityHoldingAComma()
+    {
+        AuditPermissionFilter.build(List.of("GROUP_a,b"), null);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
     public void refusesABlankFolder()
     {
         AuditPermissionFilter.build(List.of("abeecher"), "  ");
