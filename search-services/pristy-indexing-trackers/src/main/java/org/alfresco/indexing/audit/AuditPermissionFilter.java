@@ -103,7 +103,7 @@ public final class AuditPermissionFilter
         return new Filter(fq, params);
     }
 
-    private static String quote(String value)
+    static String quote(String value)
     {
         return '"' + value.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
     }

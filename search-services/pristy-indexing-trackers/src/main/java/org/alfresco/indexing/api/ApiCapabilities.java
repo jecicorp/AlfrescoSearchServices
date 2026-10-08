@@ -91,4 +91,10 @@ public class ApiCapabilities
     {
         return new Capability("index.await", "1.2", awaitService.getIfAvailable() != null);
     }
+
+    @Bean
+    Capability auditSearchCapability(org.alfresco.indexing.audit.AuditQueryService auditQueryService)
+    {
+        return Capability.of("audit.search", "1.0");
+    }
 }
