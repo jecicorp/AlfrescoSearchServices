@@ -22,6 +22,9 @@
  */
 package org.alfresco.test.search.functional.searchServices;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -31,26 +34,32 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+/**
+ * Pins the load-bearing claim of the audit design: the plain-Solr permission filter
+ * selects exactly the nodes Alfresco's own {@code +(AUTHSET) -(DENYSET)} selects.
+ */
 public class AuditPermissionEquivalenceTest
 {
     private static final String SOLR = System.getProperty("solr.url", "http://localhost:8983/solr");
     private static final String SECRET = System.getProperty("solr.secret", "secret");
-    private static final Pattern NUM_FOUND = Pattern.compile("\"numFound\":(\\d+)");
+    private static final String SCOPE = "{!bool filter=$auditType must=$auditReader must_not=$auditDenied}";
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private static long count(String query, String... filters) throws Exception
+    private static JsonNode query(String... nameValuePairs) throws Exception
     {
-        StringBuilder url = new StringBuilder(SOLR).append("/alfresco/select?rows=0&omitHeader=true&defType=lucene");
-        url.append("&q=").append(URLEncoder.encode(query, StandardCharsets.UTF_8));
-        for (String f : filters)
+        StringBuilder url = new StringBuilder(SOLR)
+                .append("/alfresco/select?rows=0&omitHeader=true&defType=lucene");
+        for (int i = 0; i < nameValuePairs.length; i += 2)
         {
-            url.append("&fq=").append(URLEncoder.encode(f, StandardCharsets.UTF_8));
+            url.append('&').append(nameValuePairs[i]).append('=')
+                    .append(URLEncoder.encode(nameValuePairs[i + 1], StandardCharsets.UTF_8));
         }
 
         HttpRequest request = HttpRequest.newBuilder(URI.create(url.toString()))
@@ -61,52 +70,101 @@ public class AuditPermissionEquivalenceTest
                 .send(request, HttpResponse.BodyHandlers.ofString());
 
         assertEquals(response.statusCode(), 200, "Solr answered " + response.body());
-        Matcher m = NUM_FOUND.matcher(response.body());
-        assertTrue(m.find(), "no numFound in " + response.body());
-        return Long.parseLong(m.group(1));
+        return MAPPER.readTree(response.body());
     }
 
-    private static String plainSolr(List<String> authorities)
+    private static long count(String... nameValuePairs) throws Exception
     {
-        String quoted = "\\\"" + String.join("\\\" OR \\\"", authorities) + "\\\"";
-        return "+DOC_TYPE:Node"
-                + " +_query_:\"{!join from=ACLID to=ACLID}READER:(" + quoted + ")\""
-                + " -_query_:\"{!join from=ACLID to=ACLID}DENIED:(" + quoted + ")\"";
+        return query(nameValuePairs).path("response").path("numFound").asLong();
     }
 
-    private static String native_(List<String> authorities)
+    private static String[] plainSolrFilter(List<String> authorities)
+    {
+        String quoted = authorities.stream()
+                .map(authority -> '"' + authority + '"')
+                .collect(Collectors.joining(" OR "));
+
+        return new String[] {
+                "q", SCOPE,
+                "auditType", "DOC_TYPE:Node",
+                "auditReaderQuery", "READER:(" + quoted + ")",
+                "auditDeniedQuery", "DENIED:(" + quoted + ")",
+                "auditReader", "{!join from=ACLID to=ACLID v=$auditReaderQuery}",
+                "auditDenied", "{!join from=ACLID to=ACLID v=$auditDeniedQuery}" };
+    }
+
+    private static String aftsFilter(List<String> authorities)
     {
         return "{!afts}|AUTHSET:\":" + String.join(":", authorities) + "\"";
     }
 
-    @DataProvider(name = "authoritySets")
-    public Object[][] authoritySets()
+    private static List<String> readersInTheRepository() throws Exception
     {
+        JsonNode values = query("q", "*:*", "fq", "DOC_TYPE:Acl",
+                "facet", "true", "facet.field", "READER",
+                "facet.limit", "40", "facet.mincount", "1")
+                .path("facet_counts").path("facet_fields").path("READER");
+
+        List<String> authorities = new ArrayList<>();
+        for (int i = 0; i < values.size(); i += 2)
+        {
+            String authority = values.get(i).asText();
+            if (!authority.startsWith("ROLE_"))
+            {
+                authorities.add(authority);
+            }
+        }
+        return authorities;
+    }
+
+    @DataProvider(name = "authoritySets")
+    public Object[][] authoritySets() throws Exception
+    {
+        List<String> readers = readersInTheRepository();
+        assertTrue(readers.size() >= 3,
+                "the repository declares too few authorities to compare on: " + readers);
+
         return new Object[][] {
-                { List.of("GROUP_site_swsdp_SiteConsumer") },
-                { List.of("abeecher") },
-                { List.of("abeecher", "mjackson", "GROUP_site_swsdp_SiteConsumer") },
-                { List.of("GROUP_EVERYONE") },
+                { List.of(readers.get(0)) },
+                { List.of(readers.get(1)) },
+                { List.of(readers.get(2)) },
+                { List.copyOf(readers.subList(0, Math.min(5, readers.size()))) },
         };
     }
 
     @Test(dataProvider = "authoritySets")
     public void plainSolrFilterMatchesAftsFilter(List<String> authorities) throws Exception
     {
-        long plain = count(plainSolr(authorities));
-        long alfresco = count("*:*", "DOC_TYPE:Node", native_(authorities));
+        long plain = count(plainSolrFilter(authorities));
+        long afts = count("q", "*:*", "fq", "DOC_TYPE:Node", "fq", aftsFilter(authorities));
 
-        assertEquals(plain, alfresco,
+        assertTrue(plain > 0, "no node is readable by " + authorities
+                + ", so the comparison proves nothing");
+        assertEquals(plain, afts,
                 "plain-Solr and AFTS permission filters disagree for " + authorities);
     }
 
     @Test
     public void theFilterIsSelective() throws Exception
     {
-        long all = count("*:*", "DOC_TYPE:Node");
-        long restricted = count(plainSolr(List.of("GROUP_site_swsdp_SiteConsumer")));
+        List<String> readers = readersInTheRepository();
+        long all = count("q", "*:*", "fq", "DOC_TYPE:Node");
+        long restricted = count(plainSolrFilter(List.of(readers.get(readers.size() - 1))));
 
+        assertTrue(all > 0, "the alfresco core holds no node document");
+        assertTrue(restricted > 0, "the filter returned nothing at all");
         assertTrue(restricted < all,
                 "the filter returned every node, so it is not filtering at all");
+    }
+
+    @Test
+    public void aDynamicRoleAuthorityIsNotComparable() throws Exception
+    {
+        long all = count("q", "*:*", "fq", "DOC_TYPE:Node");
+        long plain = count(plainSolrFilter(List.of("ROLE_OWNER")));
+        long afts = count("q", "*:*", "fq", "DOC_TYPE:Node", "fq", aftsFilter(List.of("ROLE_OWNER")));
+
+        assertEquals(afts, all, "AFTS no longer widens a ROLE_ authority to every node");
+        assertTrue(plain < all, "the plain-Solr filter no longer restricts a ROLE_ authority");
     }
 }
