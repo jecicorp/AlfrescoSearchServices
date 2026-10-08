@@ -95,6 +95,6 @@ public class ApiCapabilities
     @Bean
     Capability auditSearchCapability(org.alfresco.indexing.audit.AuditQueryService auditQueryService)
     {
-        return Capability.of("audit.search", "1.0");
+        return Capability.of("audit.search", "1.3");
     }
 }
