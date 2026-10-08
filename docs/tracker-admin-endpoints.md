@@ -420,7 +420,7 @@ inside the stack.
 
 | Parameter    | Description                                                                                        |
 |--------------|----------------------------------------------------------------------------------------------------|
-| `authority`  | One authority of the caller. Repeat the parameter for each one: `authority=abeecher&authority=GROUP_EVERYONE`. An authority must not contain a comma |
+| `authority`  | One authority of the caller. Repeat the parameter for each one: `authority=abeecher&authority=GROUP_EVERYONE`. An authority must not contain a comma. This filter reads the ACL documents literally, where Alfresco's own filter also widens a `ROLE_` authority and the administrator account, so those return more nodes through Alfresco than through this filter; one such authority anywhere in a set widens the whole query. Route an administrator to `unfiltered=true`, and strip dynamic roles and the administrator account before building an authority list |
 | `unfiltered` | `true` skips the permission filter (auditor path). Default `false`                                 |
 | `folder`     | Node reference of a folder; restricts to its subtree                                               |
 
