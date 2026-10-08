@@ -216,6 +216,11 @@ so no purge runs.
 | `alfresco.tracker.audit.lag-threshold` | `ALFRESCO_TRACKER_AUDIT_LAG_THRESHOLD` | `10000` | Committed lag above which `/actuator/health` reports the audit consumer `DOWN`. |
 | `alfresco.tracker.audit.allow-unfiltered` | `ALFRESCO_TRACKER_AUDIT_ALLOW_UNFILTERED` | `true` | When `false`, an audit query with `unfiltered=true` is refused with `400`, so the whole trail cannot be read without an authority set. |
 
+The Solr image builds the `audit` core from the `audit` template only for the core named by
+`SOLR_AUDIT_CORE` (default `audit`). When `alfresco.tracker.audit.core` is not `audit`, set
+`SOLR_AUDIT_CORE` to the same name, or the core is built from the Alfresco template and the
+permission join matches nothing.
+
 The Solr retention and the Kafka topic retention are aligned by hand. Nothing enforces that they
 match: set the topic retention to the same duration as `retention-days`. The configured value is
 logged at startup.

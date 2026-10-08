@@ -6,6 +6,7 @@
 SOLR_HOME="/opt/pristy-search-services/solrhome"
 CORE_LIST="${SOLR_CREATE_ALFRESCO_DEFAULTS:-alfresco}"
 TEMPLATE="${SOLR_TEMPLATE:-rerank}"
+AUDIT_CORE="${SOLR_AUDIT_CORE:-audit}"
 DATA_DIR="/opt/pristy-search-services/data"
 NODE_CONFIG="${SOLR_HOME}/solr.xml"
 NODE_CONFIG_PRISTINE="/opt/pristy-search-services/solr-defaults/solr.xml"
@@ -32,7 +33,7 @@ IFS=','
 for CORE_NAME in $CORE_LIST; do
     if [ ! -d "${SOLR_HOME}/${CORE_NAME}/conf" ]; then
         case "${CORE_NAME}" in
-            audit) CORE_TEMPLATE="audit" ;;
+            "${AUDIT_CORE}") CORE_TEMPLATE="audit" ;;
             *)     CORE_TEMPLATE="${TEMPLATE}" ;;
         esac
 
