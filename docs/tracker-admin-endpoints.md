@@ -472,7 +472,7 @@ When `alfresco.tracker.audit.enabled` is `true`, `/actuator/health` carries an `
 
 - A listener container that is not running is `DOWN` on that fact alone, with no Kafka call.
 - Otherwise the component reports the group's committed lag: the end offset of each partition minus the offset the group has committed, summed. Above `alfresco.tracker.audit.lag-threshold` (default `10000`) it is `DOWN`, else `UP`; the details carry `lag` and `threshold`.
-- When the lag cannot be measured (broker unreachable, unknown topic, no partition) the component is `UNKNOWN`, never a zero.
+- When the lag cannot be measured (broker unreachable, unknown topic, no partition, missing offsets) the component is `DOWN` with the reason, never a zero. This is deliberate: Spring Boot ranks `UNKNOWN` below `UP` when aggregating, so an `UNKNOWN` component would leave the top-level status `UP`, and an audit indexer nobody can question is not healthy. Each Kafka request is bounded to 5 seconds.
 
 The lag is read from outside the consumer on purpose. The consumer's own `records-lag` metric is not updated once the consumer stops fetching, so it would freeze instead of growing in exactly the case this check exists for. The committed lag keeps growing while the consumer is dead, which is what `kafka-consumer-groups.sh --describe` reports. The measurement opens a short-lived consumer that never subscribes, so it does not join the group or trigger a rebalance.
 
@@ -487,7 +487,7 @@ kafka-consumer-groups.sh --bootstrap-server <broker> --reset-offsets --to-earlie
   --group <group-id> --topic <topic> --execute
 ```
 
-Start the trackers service again; it re-reads the topic from the beginning. Indexing is idempotent because the document key is the producer's own event id, so replaying events already indexed overwrites them with identical documents.
+Start the trackers service again; it re-reads the topic from the beginning. The `audit` health component stays `DOWN` until the group catches up, since the backlog exceeds the threshold by design. Indexing is idempotent because the document key is the producer's own event id, so replaying events already indexed overwrites them with identical documents.
 
 The retention purge runs on a schedule and trims everything older than `alfresco.tracker.audit.retention-days`. A replay of events older than that window restores nothing: the purge removes them again.
 

@@ -27,13 +27,16 @@ import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.Status;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class AuditHealthIndicatorTest
 {
     @Test
-    public void isDownWhenTheListenerContainerIsNotRunning()
+    public void isDownWithoutAskingKafkaWhenTheListenerContainerIsNotRunning()
     {
-        AuditHealthIndicator indicator = new AuditHealthIndicator(() -> false, () -> 0L, 1000L);
+        AuditHealthIndicator indicator = new AuditHealthIndicator(() -> false, () -> {
+            throw new AssertionError("Kafka must not be called");
+        }, 1000L);
 
         assertEquals(Status.DOWN, indicator.health().getStatus());
     }
@@ -47,6 +50,15 @@ public class AuditHealthIndicatorTest
 
         assertEquals(Status.UP, health.getStatus());
         assertEquals(12L, health.getDetails().get("lag"));
+        assertEquals(1000L, health.getDetails().get("threshold"));
+    }
+
+    @Test
+    public void isUpWhenTheLagEqualsTheThreshold()
+    {
+        AuditHealthIndicator indicator = new AuditHealthIndicator(() -> true, () -> 1000L, 1000L);
+
+        assertEquals(Status.UP, indicator.health().getStatus());
     }
 
     @Test
@@ -58,12 +70,28 @@ public class AuditHealthIndicatorTest
     }
 
     @Test
-    public void isUnknownWhenTheLagCannotBeRead()
+    public void isDownWhenTheLagCannotBeRead()
     {
         AuditHealthIndicator indicator = new AuditHealthIndicator(() -> true, () -> {
             throw new IllegalStateException("no consumer");
         }, 1000L);
 
-        assertEquals(Status.UNKNOWN, indicator.health().getStatus());
+        Health health = indicator.health();
+
+        assertEquals(Status.DOWN, health.getStatus());
+        assertNotNull(health.getDetails().get("reason"));
+    }
+
+    @Test
+    public void isDownWhenTheFailureCarriesNoMessage()
+    {
+        AuditHealthIndicator indicator = new AuditHealthIndicator(() -> true, () -> {
+            throw new IllegalStateException();
+        }, 1000L);
+
+        Health health = indicator.health();
+
+        assertEquals(Status.DOWN, health.getStatus());
+        assertNotNull(health.getDetails().get("reason"));
     }
 }

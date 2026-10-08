@@ -28,6 +28,7 @@ import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.kafka.core.ConsumerFactory;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,6 +41,8 @@ import java.util.stream.Collectors;
  */
 public class AuditConsumerLag implements Supplier<Long>
 {
+    static final Duration TIMEOUT = Duration.ofSeconds(5);
+
     private final ConsumerFactory<String, AuditEventMessage> consumerFactory;
     private final String topic;
     private final String groupId;
@@ -58,7 +61,7 @@ public class AuditConsumerLag implements Supplier<Long>
     {
         try (Consumer<String, AuditEventMessage> consumer = consumerFactory.createConsumer(groupId, "-lag"))
         {
-            List<PartitionInfo> partitions = consumer.partitionsFor(topic);
+            List<PartitionInfo> partitions = consumer.partitionsFor(topic, TIMEOUT);
             if (partitions == null || partitions.isEmpty())
             {
                 throw new IllegalStateException("topic " + topic + " has no partition");
@@ -68,15 +71,21 @@ public class AuditConsumerLag implements Supplier<Long>
                     .map(partition -> new TopicPartition(partition.topic(), partition.partition()))
                     .collect(Collectors.toSet());
 
-            Map<TopicPartition, Long> ends = consumer.endOffsets(assigned);
-            Map<TopicPartition, OffsetAndMetadata> committed = consumer.committed(assigned);
+            Map<TopicPartition, Long> ends = consumer.endOffsets(assigned, TIMEOUT);
+            Map<TopicPartition, Long> beginnings = consumer.beginningOffsets(assigned, TIMEOUT);
+            Map<TopicPartition, OffsetAndMetadata> committed = consumer.committed(assigned, TIMEOUT);
 
             long lag = 0;
             for (TopicPartition partition : assigned)
             {
-                long end = ends.getOrDefault(partition, 0L);
+                Long end = ends.get(partition);
+                if (end == null)
+                {
+                    throw new IllegalStateException("no end offset for " + partition);
+                }
                 OffsetAndMetadata offset = committed.get(partition);
-                lag += offset == null ? end : end - offset.offset();
+                long from = offset != null ? offset.offset() : beginnings.getOrDefault(partition, 0L);
+                lag += Math.max(0L, end - from);
             }
             return lag;
         }

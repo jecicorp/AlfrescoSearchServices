@@ -36,11 +36,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 public class AuditConsumerLagTest
@@ -49,6 +47,7 @@ public class AuditConsumerLagTest
     private static final String GROUP = "audit-indexer";
     private static final TopicPartition P0 = new TopicPartition(TOPIC, 0);
     private static final TopicPartition P1 = new TopicPartition(TOPIC, 1);
+    private static final Set<TopicPartition> BOTH = Set.of(P0, P1);
 
     private ConsumerFactory<String, AuditEventMessage> factory;
     private Consumer<String, AuditEventMessage> consumer;
@@ -64,62 +63,109 @@ public class AuditConsumerLagTest
 
     private void twoPartitions()
     {
-        when(consumer.partitionsFor(TOPIC)).thenReturn(List.of(
+        when(consumer.partitionsFor(TOPIC, AuditConsumerLag.TIMEOUT)).thenReturn(List.of(
                 new PartitionInfo(TOPIC, 0, null, null, null),
                 new PartitionInfo(TOPIC, 1, null, null, null)));
+    }
+
+    private void offsets(Map<TopicPartition, Long> ends, Map<TopicPartition, Long> beginnings,
+            Map<TopicPartition, OffsetAndMetadata> committed)
+    {
+        when(consumer.endOffsets(BOTH, AuditConsumerLag.TIMEOUT)).thenReturn(ends);
+        when(consumer.beginningOffsets(BOTH, AuditConsumerLag.TIMEOUT)).thenReturn(beginnings);
+        when(consumer.committed(BOTH, AuditConsumerLag.TIMEOUT)).thenReturn(committed);
+    }
+
+    private long lag()
+    {
+        return new AuditConsumerLag(factory, TOPIC, GROUP).get();
     }
 
     @Test
     public void sumsTheLagOfEveryPartition()
     {
         twoPartitions();
-        when(consumer.endOffsets(any())).thenReturn(Map.of(P0, 100L, P1, 50L));
-        when(consumer.committed(Set.of(P0, P1))).thenReturn(Map.of(
-                P0, new OffsetAndMetadata(90L), P1, new OffsetAndMetadata(20L)));
+        offsets(Map.of(P0, 100L, P1, 50L), Map.of(P0, 0L, P1, 0L),
+                Map.of(P0, new OffsetAndMetadata(90L), P1, new OffsetAndMetadata(20L)));
 
-        assertEquals(40L, (long) new AuditConsumerLag(factory, TOPIC, GROUP).get());
+        assertEquals(40L, lag());
     }
 
     @Test
-    public void countsAPartitionWithNothingCommittedWhole()
+    public void countsAnUncommittedPartitionFromItsBeginningOffset()
     {
         twoPartitions();
-        when(consumer.endOffsets(any())).thenReturn(Map.of(P0, 100L, P1, 50L));
         Map<TopicPartition, OffsetAndMetadata> committed = new HashMap<>();
         committed.put(P0, new OffsetAndMetadata(90L));
         committed.put(P1, null);
-        when(consumer.committed(Set.of(P0, P1))).thenReturn(committed);
+        offsets(Map.of(P0, 100L, P1, 50L), Map.of(P0, 0L, P1, 30L), committed);
 
-        assertEquals(60L, (long) new AuditConsumerLag(factory, TOPIC, GROUP).get());
+        assertEquals(30L, lag());
+    }
+
+    @Test
+    public void clampsAPartitionWhoseCommittedOffsetExceedsItsEnd()
+    {
+        twoPartitions();
+        offsets(Map.of(P0, 10L, P1, 50L), Map.of(P0, 0L, P1, 0L),
+                Map.of(P0, new OffsetAndMetadata(90L), P1, new OffsetAndMetadata(20L)));
+
+        assertEquals(30L, lag());
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void raisesWhenAPartitionHasNoEndOffset()
+    {
+        twoPartitions();
+        offsets(Map.of(P1, 50L), Map.of(P0, 0L, P1, 0L),
+                Map.of(P0, new OffsetAndMetadata(90L), P1, new OffsetAndMetadata(20L)));
+
+        lag();
     }
 
     @Test(expected = IllegalStateException.class)
     public void raisesWhenTheBrokerDoesNotKnowTheTopic()
     {
-        when(consumer.partitionsFor(TOPIC)).thenReturn(null);
+        when(consumer.partitionsFor(TOPIC, AuditConsumerLag.TIMEOUT)).thenReturn(null);
 
-        new AuditConsumerLag(factory, TOPIC, GROUP).get();
+        try
+        {
+            lag();
+        }
+        finally
+        {
+            verify(consumer).close();
+        }
     }
 
     @Test(expected = IllegalStateException.class)
     public void raisesWhenTheTopicHasNoPartition()
     {
-        when(consumer.partitionsFor(TOPIC)).thenReturn(List.of());
+        when(consumer.partitionsFor(TOPIC, AuditConsumerLag.TIMEOUT)).thenReturn(List.of());
 
-        new AuditConsumerLag(factory, TOPIC, GROUP).get();
+        try
+        {
+            lag();
+        }
+        finally
+        {
+            verify(consumer).close();
+        }
     }
 
     @Test
-    public void neverSubscribesAndClosesTheConsumer()
+    public void onlyIssuesMetadataAndOffsetRequestsThenClosesTheConsumer()
     {
         twoPartitions();
-        when(consumer.endOffsets(any())).thenReturn(Map.of(P0, 1L, P1, 1L));
-        when(consumer.committed(anySet())).thenReturn(Map.of());
+        offsets(Map.of(P0, 1L, P1, 1L), Map.of(P0, 0L, P1, 0L), Map.of());
 
-        new AuditConsumerLag(factory, TOPIC, GROUP).get();
+        lag();
 
-        verify(consumer, never()).subscribe(any(java.util.Collection.class));
-        verify(consumer, never()).assign(any());
+        verify(consumer).partitionsFor(TOPIC, AuditConsumerLag.TIMEOUT);
+        verify(consumer).endOffsets(BOTH, AuditConsumerLag.TIMEOUT);
+        verify(consumer).beginningOffsets(BOTH, AuditConsumerLag.TIMEOUT);
+        verify(consumer).committed(BOTH, AuditConsumerLag.TIMEOUT);
         verify(consumer).close();
+        verifyNoMoreInteractions(consumer);
     }
 }

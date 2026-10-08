@@ -60,7 +60,9 @@ public class AuditHealthIndicator implements HealthIndicator
         }
         catch (Exception e)
         {
-            return Health.unknown().withDetail("reason", e.getMessage()).build();
+            return Health.down()
+                    .withDetail("reason", "the lag cannot be measured: " + e.getClass().getSimpleName() + ": " + e.getMessage())
+                    .build();
         }
 
         Health.Builder builder = current > threshold ? Health.down() : Health.up();
