@@ -23,7 +23,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS == null
 
 default:
-  image: docker.io/maven:3.9-eclipse-temurin-21
+  image: rg.fr-par.scw.cloud/public/docker.io/library/maven:3.9.16-eclipse-temurin-21-noble
   tags:
     - docker
     - pristy
@@ -47,6 +47,17 @@ cache:
   paths:
     - .m2/repository
 
+.distrust-emudhra:
+  before_script:
+    - sed -i 's|^mozilla/emSign_|!mozilla/emSign_|' /etc/ca-certificates.conf
+    - update-ca-certificates
+    - printf '%s\n'
+      BC4D809B15189D78DB3E1D8CF4F9726A795DA1643CA5F1358E1DDB0EDC0D7EB3
+      86A1ECBA089C4A8D3BBE2734C612BA341D813E043CF9E8A862CD5C57A36BBE6B
+      125609AA301DA0A249B97A8239CB6A34216F44DCAC9F3954B14292F2E8C8608F
+      40F6AF0346A99AA1CD1D555A4E9CCE62C7F9634603EE406615833DC8C8D00367
+      >> "${JAVA_HOME}/lib/security/blocked.certs"
+
 ####
 ## Build + unit tests ##
 ##
@@ -57,6 +68,8 @@ cache:
 # stays the blocking gate on the unit tests.
 maven-build:
   stage: build
+  before_script:
+    - !reference [.distrust-emudhra, before_script]
   script:
     - mvn $MAVEN_CLI_OPTS verify -DskipITs $MAVEN_REACTOR
   artifacts:
@@ -78,6 +91,8 @@ maven-build:
 integration-tests:
   stage: build
   allow_failure: true
+  before_script:
+    - !reference [.distrust-emudhra, before_script]
   # There is no "only the ITs" flag: surefire exposes skipTests, which failsafe
   # honours too. So this job reruns the whole suite — runner time, not a risk,
   # and it blocks nothing.
@@ -103,6 +118,8 @@ integration-tests:
 #     provided by Solr 9 and by the Alfresco repository.
 sbom:
   stage: security
+  before_script:
+    - !reference [.distrust-emudhra, before_script]
   script:
     - mvn $MAVEN_CLI_OPTS $MAVEN_REACTOR org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom
       -DoutputFormat=json -DoutputName=bom-runtime
@@ -122,7 +139,7 @@ sbom:
 dependency-scan:
   stage: security
   image:
-    name: docker.io/aquasec/trivy:0.74.0
+    name: rg.fr-par.scw.cloud/public/docker.io/aquasec/trivy:0.74.0
     entrypoint: [""]
   needs:
     - job: sbom
@@ -165,7 +182,7 @@ dependency-scan:
 .kaniko:
   extends: .docker-publish
   image:
-    name: ghcr.io/osscontainertools/kaniko:v1.28.2-debug
+    name: rg.fr-par.scw.cloud/public/ghcr.io/osscontainertools/kaniko:v1.29.0-debug
     entrypoint: [""]
   needs:
     - job: maven-build
@@ -259,6 +276,8 @@ docker-manifest:
 # Maven Central (namespace fr.pristy) is planned for 1.1.
 maven-deploy:
   stage: deploy
+  before_script:
+    - !reference [.distrust-emudhra, before_script]
   script:
     - mvn $MAVEN_CLI_OPTS deploy -DskipTests $MAVEN_REACTOR
   needs:
