@@ -23,7 +23,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS == null
 
 default:
-  image: rg.fr-par.scw.cloud/public/docker.io/library/maven:3.9.16-eclipse-temurin-21-noble
+  image: rg.fr-par.scw.cloud/public/docker.io/library/maven:3.10.0-eclipse-temurin-21-noble
   tags:
     - docker
     - pristy
@@ -139,7 +139,7 @@ sbom:
 dependency-scan:
   stage: security
   image:
-    name: rg.fr-par.scw.cloud/public/docker.io/aquasec/trivy:0.74.0
+    name: rg.fr-par.scw.cloud/public/docker.io/aquasec/trivy:0.76.1
     entrypoint: [""]
   needs:
     - job: sbom
