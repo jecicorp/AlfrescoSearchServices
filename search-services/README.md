@@ -411,7 +411,7 @@ $ docker run -p 8984:8983 -e REPLICATION_TYPE=slave -e ALFRESCO_SECURE_COMMS=sec
 ```
 Solr-slave End point: [http://localhost:8984/solr](http://localhost:8984/solr)
 
-To generate your own Docker-compose file please follow [generator-alfresco-docker-compose](../e2e-test/generator-alfresco-docker-compose/README.md)
+To generate your own Docker-compose file please follow [e2e-test](../e2e-test/README.md)
 
 ### Use Alfresco Search Services Docker Image with Docker Compose
 
