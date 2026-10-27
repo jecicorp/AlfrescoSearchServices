@@ -7,7 +7,7 @@ for that, see [solr6-to-solr9-migration.md](solr6-to-solr9-migration.md).
 
 ## In one paragraph
 
-Search now runs on **vanilla Apache Solr 9.10.1** (instead of the old
+Search now runs on **vanilla Apache Solr 9.11.0** (instead of the old
 Alfresco-patched Solr 6) on **Java 17**. The biggest operational change is that the
 **indexing trackers now run as their own separate service/container**, no longer
 inside Solr. Your search queries, permissions filtering and AFTS syntax behave the

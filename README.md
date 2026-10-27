@@ -3,7 +3,7 @@
 **Alfresco search, rebuilt on vanilla Apache Solr 9.**
 
 [![License: LGPL v3](https://img.shields.io/badge/license-LGPL--3.0-blue.svg)](LICENSE)
-[![Solr 9.10.1](https://img.shields.io/badge/Solr-9.10.1-d9411e.svg)](https://solr.apache.org/)
+[![Solr 9.11.0](https://img.shields.io/badge/Solr-9.11.0-d9411e.svg)](https://solr.apache.org/)
 [![Java 17](https://img.shields.io/badge/Java-17-orange.svg)](https://adoptium.net/)
 [![Docker: search services](https://img.shields.io/docker/v/jeci/pristy-search-services?sort=semver&label=pristy-search-services&logo=docker)](https://hub.docker.com/r/jeci/pristy-search-services)
 [![Docker: indexing trackers](https://img.shields.io/docker/v/jeci/pristy-indexing-trackers?sort=semver&label=pristy-indexing-trackers&logo=docker)](https://hub.docker.com/r/jeci/pristy-indexing-trackers)
@@ -17,7 +17,7 @@ behind a stock Alfresco Community repository.
 
 ## Highlights
 
-- **Vanilla Solr 9.10.1 / Lucene 9.12.3 on Java 17.** No Alfresco-patched Solr build:
+- **Vanilla Solr 9.11.0 / Lucene 9.12.3 on Java 17.** No Alfresco-patched Solr build:
   upgrading Solr becomes a version bump, not a port.
 - **Indexing as a separate service.** The trackers run in `pristy-indexing-trackers`,
   a Spring Boot application. Restart, scale and tune indexing without touching query serving.
