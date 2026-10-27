@@ -31,6 +31,9 @@ import org.alfresco.solr.client.TenantDbId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -48,17 +51,26 @@ public class RepairTracker extends ActivatableTracker
     private static final Map<String, Semaphore> RUN_LOCK_BY_CORE = new ConcurrentHashMap<>();
     private static final Map<String, Semaphore> WRITE_LOCK_BY_CORE = new ConcurrentHashMap<>();
 
+    private static final Duration CONTENT_RETRY_BASE_DELAY = Duration.ofMinutes(1);
+    private static final int CONTENT_RETRY_BATCH_SIZE = 100;
+
+    private record ContentRetry(int attempts, Instant nextAttempt) {}
+
     private final List<RepairStrategy> strategies;
+    private final RepairStrategy contentStrategy;
     private final TrackerRegistry registry;
     private final int maxRetries;
     private final RepairReport report = new RepairReport();
+    private final Map<Long, ContentRetry> contentRetries = new ConcurrentHashMap<>();
+    private Clock clock = Clock.systemUTC();
 
     public RepairTracker(Properties p, SOLRAPIClient client, String coreName,
                          InformationServer informationServer, List<RepairStrategy> strategies,
-                         TrackerRegistry registry, int maxRetries)
+                         RepairStrategy contentStrategy, TrackerRegistry registry, int maxRetries)
     {
         super(p, client, coreName, informationServer, Type.REPAIR);
         this.strategies = strategies;
+        this.contentStrategy = contentStrategy;
         this.registry = registry;
         this.maxRetries = maxRetries;
 
@@ -89,17 +101,21 @@ public class RepairTracker extends ActivatableTracker
 
         List<TenantDbId> flaggedDocs = infoSrv.getDocsWithIndexingError();
         List<TenantDbId> errorNodeDocs = infoSrv.getErrorNodeDocs();
+        List<TenantDbId> transformFailedDocs = infoSrv.getDocsWithContentTransformFailure();
         flaggedDocs = flaggedDocs != null ? flaggedDocs : List.of();
         errorNodeDocs = errorNodeDocs != null ? errorNodeDocs : List.of();
+        transformFailedDocs = transformFailedDocs != null ? transformFailedDocs : List.of();
 
-        if (flaggedDocs.isEmpty() && errorNodeDocs.isEmpty())
+        if (flaggedDocs.isEmpty() && errorNodeDocs.isEmpty() && transformFailedDocs.isEmpty())
         {
             LOGGER.trace("No documents with indexing errors found.");
             return;
         }
 
-        LOGGER.info("{}-[CORE {}] Found {} flagged node documents and {} error node documents",
-                Thread.currentThread().getId(), coreName, flaggedDocs.size(), errorNodeDocs.size());
+        LOGGER.info("{}-[CORE {}] Found {} flagged node documents, {} error node documents"
+                        + " and {} content transform failures",
+                Thread.currentThread().getId(), coreName, flaggedDocs.size(), errorNodeDocs.size(),
+                transformFailedDocs.size());
 
         MetadataTracker metadataTracker = registry.getTrackerForCore(coreName, MetadataTracker.class);
         Semaphore metadataWriteLock = (metadataTracker != null) ? metadataTracker.getWriteLock() : null;
@@ -122,6 +138,8 @@ public class RepairTracker extends ActivatableTracker
                 checkShutdown();
                 processErrorNode(docRef, false);
             }
+
+            retryContentExtraction(transformFailedDocs);
         }
         finally
         {
@@ -207,6 +225,59 @@ public class RepairTracker extends ActivatableTracker
             LOGGER.error("[CORE {}] Error processing DBID={}: {}",
                     coreName, docRef.dbId, e.getMessage(), e);
         }
+    }
+
+    /**
+     * Fetches again the text of the nodes whose content transformation failed, each one after
+     * a delay that doubles with every failed attempt, and gives up after {@code maxRetries}.
+     */
+    private void retryContentExtraction(List<TenantDbId> transformFailedDocs)
+    {
+        Instant now = clock.instant();
+        int processed = 0;
+        for (TenantDbId docRef : transformFailedDocs)
+        {
+            if (processed >= CONTENT_RETRY_BATCH_SIZE)
+            {
+                return;
+            }
+            ContentRetry retry = contentRetries.get(docRef.dbId);
+            if (retry != null && (retry.attempts() >= maxRetries || now.isBefore(retry.nextAttempt())))
+            {
+                continue;
+            }
+            checkShutdown();
+            processed++;
+
+            RepairResult result = contentStrategy.tryRepair(null, docRef);
+            report.recordResult(result);
+            if (result.success())
+            {
+                contentRetries.remove(docRef.dbId);
+                LOGGER.info("[CORE {}] Repaired DBID={}: {}", coreName, docRef.dbId, result.message());
+                continue;
+            }
+
+            int attempts = retry != null ? retry.attempts() + 1 : 1;
+            Duration delay = CONTENT_RETRY_BASE_DELAY.multipliedBy(1L << Math.min(attempts - 1, 20));
+            contentRetries.put(docRef.dbId, new ContentRetry(attempts, now.plus(delay)));
+            if (attempts >= maxRetries)
+            {
+                LOGGER.warn("[CORE {}] DBID={} content extraction given up after {} attempts: {}",
+                        coreName, docRef.dbId, attempts, result.message());
+                report.markPermanentlyFailed(docRef.dbId);
+            }
+            else
+            {
+                LOGGER.debug("[CORE {}] DBID={} content extraction attempt {}/{} failed, next in {}: {}",
+                        coreName, docRef.dbId, attempts, maxRetries, delay, result.message());
+            }
+        }
+    }
+
+    void setClock(Clock clock)
+    {
+        this.clock = clock;
     }
 
     public RepairReport getReport()

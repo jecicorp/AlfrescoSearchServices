@@ -70,6 +70,7 @@ public class SolrJInformationServer implements InformationServer
     private static final Logger LOGGER = LoggerFactory.getLogger(SolrJInformationServer.class);
 
     private static final int ERROR_NODE_BATCH_SIZE = 100;
+    private static final int CONTENT_TRANSFORM_FAILURE_BATCH_SIZE = 10000;
 
     private final SolrClient solrClient;
     private final String collection;
@@ -600,6 +601,12 @@ public class SolrJInformationServer implements InformationServer
     }
 
     @Override
+    public List<TenantDbId> getDocsWithContentTransformFailure() throws IOException
+    {
+        return queryService.getDocsWithContentTransformFailure(CONTENT_TRANSFORM_FAILURE_BATCH_SIZE);
+    }
+
+    @Override
     public void markIndexingError(long dbId, String tenant) throws IOException
     {
         indexingService.markIndexingError(dbId, tenant);
@@ -612,9 +619,9 @@ public class SolrJInformationServer implements InformationServer
     }
 
     @Override
-    public void updateContent(TenantDbId docRef) throws Exception
+    public boolean updateContent(TenantDbId docRef) throws Exception
     {
-        indexingService.updateContent(docRef);
+        return indexingService.updateContent(docRef);
     }
 
     @Override

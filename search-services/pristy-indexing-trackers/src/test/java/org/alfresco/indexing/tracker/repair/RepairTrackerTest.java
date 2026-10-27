@@ -35,6 +35,10 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -51,6 +55,7 @@ public class RepairTrackerTest
     @Mock private TrackerRegistry registry;
     @Mock private MetadataTracker metadataTracker;
     @Mock private RepairStrategy strategy;
+    @Mock private RepairStrategy contentStrategy;
     @Mock private TrackerStats trackerStats;
 
     private RepairTracker tracker;
@@ -70,7 +75,7 @@ public class RepairTrackerTest
         when(metadataTracker.getWriteLock()).thenReturn(writeLock);
 
         tracker = new RepairTracker(props, client, "alfresco", infoSrv,
-                List.of(strategy), registry, 10);
+                List.of(strategy), contentStrategy, registry, 10);
     }
 
     @Test
@@ -124,7 +129,7 @@ public class RepairTrackerTest
     public void doTrack_strategyFails_maxRetries_marksAsPermanent() throws Throwable
     {
         tracker = new RepairTracker(props, client, "alfresco", infoSrv,
-                List.of(strategy), registry, 2);
+                List.of(strategy), contentStrategy, registry, 2);
 
         TenantDbId docRef = new TenantDbId();
         docRef.dbId = 42L;
@@ -172,7 +177,7 @@ public class RepairTrackerTest
     public void doTrack_stopsRetryingAnErrorNodeOnceItHasBeenGivenUpOn() throws Throwable
     {
         tracker = new RepairTracker(props, client, "alfresco", infoSrv,
-                List.of(strategy), registry, 2);
+                List.of(strategy), contentStrategy, registry, 2);
 
         when(infoSrv.getDocsWithIndexingError()).thenReturn(Collections.emptyList());
         when(infoSrv.getErrorNodeDocs()).thenReturn(List.of(docRef(7L)));
@@ -188,6 +193,66 @@ public class RepairTrackerTest
 
         verify(strategy, times(2)).tryRepair(any(), any());
         verify(infoSrv, never()).clearIndexingError(anyLong(), anyString());
+    }
+
+    @Test
+    public void doTrack_extractsAgainTheContentOfANodeWhoseTransformFailed() throws Throwable
+    {
+        when(infoSrv.getDocsWithContentTransformFailure()).thenReturn(List.of(docRef(5L)));
+        when(contentStrategy.tryRepair(any(), any())).thenReturn(
+                new RepairResult(5L, true, "CONTENT_EXTRACTION", "Content text extracted"));
+
+        tracker.doTrack("content-1");
+
+        verify(contentStrategy).tryRepair(isNull(), any(TenantDbId.class));
+        verify(strategy, never()).tryRepair(any(), any());
+        verify(infoSrv, never()).clearIndexingError(anyLong(), anyString());
+        assertEquals(1, tracker.getReport().getRecentRepairs().size());
+    }
+
+    @Test
+    public void doTrack_waitsLongerAfterEachFailedContentExtraction() throws Throwable
+    {
+        Instant start = Instant.parse("2026-10-27T12:00:00Z");
+        when(infoSrv.getDocsWithContentTransformFailure()).thenReturn(List.of(docRef(5L)));
+        when(contentStrategy.tryRepair(any(), any())).thenReturn(
+                new RepairResult(5L, false, "CONTENT_EXTRACTION", "Content transformation still failing"));
+
+        trackAt(start);
+        trackAt(start.plus(Duration.ofSeconds(59)));
+        verify(contentStrategy, times(1)).tryRepair(any(), any());
+
+        trackAt(start.plus(Duration.ofMinutes(1)));
+        trackAt(start.plus(Duration.ofMinutes(2)));
+        verify(contentStrategy, times(2)).tryRepair(any(), any());
+
+        trackAt(start.plus(Duration.ofMinutes(3)));
+        verify(contentStrategy, times(3)).tryRepair(any(), any());
+        assertEquals(3, tracker.getReport().getAttemptCount(5L));
+    }
+
+    @Test
+    public void doTrack_givesUpOnAContentExtractionAfterMaxRetries() throws Throwable
+    {
+        tracker = new RepairTracker(props, client, "alfresco", infoSrv,
+                List.of(strategy), contentStrategy, registry, 2);
+        Instant start = Instant.parse("2026-10-27T12:00:00Z");
+        when(infoSrv.getDocsWithContentTransformFailure()).thenReturn(List.of(docRef(5L)));
+        when(contentStrategy.tryRepair(any(), any())).thenReturn(
+                new RepairResult(5L, false, "CONTENT_EXTRACTION", "Content transformation still failing"));
+
+        trackAt(start);
+        trackAt(start.plus(Duration.ofMinutes(1)));
+        trackAt(start.plus(Duration.ofDays(1)));
+
+        verify(contentStrategy, times(2)).tryRepair(any(), any());
+        assertEquals(1, tracker.getReport().getPermanentlyFailedCount());
+    }
+
+    private void trackAt(Instant instant) throws Throwable
+    {
+        tracker.setClock(Clock.fixed(instant, ZoneOffset.UTC));
+        tracker.doTrack("at-" + instant);
     }
 
     private static TenantDbId docRef(long dbId)

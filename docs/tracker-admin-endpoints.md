@@ -465,12 +465,13 @@ it is queued, not synchronous.
 
 ## Error nodes & RepairTracker
 
-A failed node is recorded in one of two ways, and the **RepairTracker** reads both:
+A failed node is recorded in one of three ways, and the **RepairTracker** reads all of them:
 
 | Trace | Written when | What the index holds |
 |-------|--------------|----------------------|
 | `HAS_INDEXING_ERROR:true` on the node document | the document was built and written, but a property could not be resolved | the node is indexed and searchable, minus that property |
 | an `ErrorNode` document (`id = ERROR-<dbid>`) | building or fetching the node threw — including a type the repository reports as unindexable (`… is not registered in DictionaryService`), which fails the batch metadata call and then the per-node retry — or Solr answered `400`, refusing the document itself | nothing of the node at all; the error document carries `EXCEPTIONMESSAGE` and `EXCEPTIONSTACK` |
+| `content@s__tr_status@{...}content:transform_failed` on the node document | the repository could not extract the text of `cm:content`, Transform Core being down included | the node is indexed and searchable by its metadata, not by its text |
 
 **An unreachable Solr is not an error node.** The two are decided apart on the write path:
 a `400` means Solr will never accept this document, so retrying is pointless and the node
@@ -482,11 +483,16 @@ later cycle instead of leaving a permanent hole: before, every write failure was
 and the cursor moved on regardless, so a few seconds of Solr downtime lost those nodes for
 good, with nothing in `REPORT` to show it.
 
-Inspect both with:
+Inspect them with:
 
 ```bash
 curl -s "http://localhost:8085/actuator/repairreport" | python3 -m json.tool
 ```
+
+The third form is retried by fetching the text again, after a delay that doubles with every
+failed attempt (1, 2, 4... minutes): with the default `repair-max-retries` of 10 the node is
+given up after about 8.5 hours. Only `cm:content` is read, and like every other give-up, it is
+forgotten on restart.
 
 `POST /api/admin/retry` re-queues those error nodes. See
 [tracker-configuration.md](tracker-configuration.md) for the repair cron and

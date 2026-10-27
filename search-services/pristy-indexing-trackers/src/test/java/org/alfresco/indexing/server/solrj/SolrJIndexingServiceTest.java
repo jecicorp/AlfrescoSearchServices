@@ -63,6 +63,8 @@ import org.alfresco.solr.client.Node.SolrApiNodeStatus;
 import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.NodeMetaDataParameters;
 import org.alfresco.solr.client.SOLRAPIClient;
+import org.alfresco.solr.client.SOLRAPIClient.GetTextContentResponse;
+import org.alfresco.solr.client.SOLRAPIClient.SolrApiContentStatus;
 import org.alfresco.solr.client.StringPropertyValue;
 import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.solr.client.Transaction;
@@ -818,12 +820,38 @@ public class SolrJIndexingServiceTest
         when(repositoryClient.getTextContent(eq(5L), eq(ContentModel.PROP_CONTENT), any()))
                 .thenThrow(new AlfrescoRuntimeException("GetTextContentResponse return status is 404"));
 
-        serviceWithDeps.updateContent(contentRef(5L));
+        assertFalse(serviceWithDeps.updateContent(contentRef(5L)));
 
         ArgumentCaptor<SolrInputDocument> captor = ArgumentCaptor.forClass(SolrInputDocument.class);
         verify(solrClient).add(eq(COLLECTION), captor.capture());
         assertEquals("TRANSFORM_FAILED",
                 captor.getValue().getFieldValue("content@s__tr_status@" + ContentModel.PROP_CONTENT));
+    }
+
+    @Test
+    public void aContentRepositoryReportsAsTransformFailedIsNotExtracted() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Collections.singletonList(contentMetaDataOf(5L)));
+        GetTextContentResponse response = mock(GetTextContentResponse.class);
+        when(response.getStatus()).thenReturn(SolrApiContentStatus.TRANSFORM_FAILED);
+        when(repositoryClient.getTextContent(eq(5L), eq(ContentModel.PROP_CONTENT), any()))
+                .thenReturn(response);
+
+        assertFalse(serviceWithDeps.updateContent(contentRef(5L)));
+    }
+
+    @Test
+    public void aContentWithNoTransformerCountsAsExtracted() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Collections.singletonList(contentMetaDataOf(5L)));
+        GetTextContentResponse response = mock(GetTextContentResponse.class);
+        when(response.getStatus()).thenReturn(SolrApiContentStatus.NO_TRANSFORM);
+        when(repositoryClient.getTextContent(eq(5L), eq(ContentModel.PROP_CONTENT), any()))
+                .thenReturn(response);
+
+        assertTrue(serviceWithDeps.updateContent(contentRef(5L)));
     }
 
     private static TenantDbId contentRef(long id)

@@ -175,13 +175,17 @@ public interface InformationServer extends InformationServerCollectionProvider
     /** Returns the nodes an ErrorNode document stands for — nothing of them is indexed */
     List<TenantDbId> getErrorNodeDocs() throws IOException;
 
+    /** Returns nodes whose cm:content text could not be extracted (transform status TRANSFORM_FAILED) */
+    List<TenantDbId> getDocsWithContentTransformFailure() throws IOException;
+
     /** Marks a node with HAS_INDEXING_ERROR:true via atomic update */
     void markIndexingError(long dbId, String tenant) throws IOException;
 
     /** Clears HAS_INDEXING_ERROR on a node via atomic update */
     void clearIndexingError(long dbId, String tenant) throws IOException;
 
-    void updateContent(TenantDbId docRef) throws Exception;
+    /** Re-extracts the text of a node; returns false when a content property still failed to transform */
+    boolean updateContent(TenantDbId docRef) throws Exception;
 
     void addCommonNodeReportInfo(NodeReport nodeReport);
 

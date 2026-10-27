@@ -824,13 +824,15 @@ public class SolrJIndexingService
      *   <li>Add content fields (text, transform status/exception/duration)</li>
      *   <li>Mark as synchronized and send to Solr</li>
      * </ol>
+     *
+     * @return false when the text of a content property failed to transform
      */
-    public void updateContent(TenantDbId docRef) throws IOException
+    public boolean updateContent(TenantDbId docRef) throws IOException
     {
         if (repositoryClient == null)
         {
             LOGGER.warn("updateContent: repositoryClient is null — cannot fetch content for DBID={}", docRef.dbId);
-            return;
+            return true;
         }
 
         // 1. Fetch node metadata
@@ -854,7 +856,7 @@ public class SolrJIndexingService
             // Mark as irrecoverable (-30) so the ContentTracker stops retrying this DBID.
             LOGGER.warn("No metadata returned for DBID={} — marking as irrecoverable", docRef.dbId);
             markContentIrrecoverable(docRef.tenant, docRef.dbId);
-            return;
+            return true;
         }
 
         NodeMetaData metadata = metadatas.get(0);
@@ -870,6 +872,7 @@ public class SolrJIndexingService
         // 3. Fetch and add content for each content property
         Map<QName, PropertyValue> properties = metadata.getProperties();
         boolean contentExtracted = false;
+        boolean transformFailed = false;
         if (properties != null)
         {
             for (Map.Entry<QName, PropertyValue> entry : properties.entrySet())
@@ -881,6 +884,11 @@ public class SolrJIndexingService
                     if (ok)
                     {
                         contentExtracted = true;
+                    }
+                    if (SolrApiContentStatus.TRANSFORM_FAILED.name().equals(
+                            doc.getFieldValue("content@s__tr_status@" + propQName)))
+                    {
+                        transformFailed = true;
                     }
                 }
             }
@@ -902,6 +910,7 @@ public class SolrJIndexingService
         {
             LOGGER.debug("No extractable content for DBID={}, marked as Clean", docRef.dbId);
         }
+        return !transformFailed;
     }
 
     /**

@@ -68,6 +68,7 @@ import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.util.ClientUtils;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.params.FacetParams;
@@ -100,6 +101,9 @@ public class SolrJQueryService
     static final String DOC_TYPE_STATE = "State";
 
     private static final String AND = " AND ";
+    private static final String FIELD_CM_CONTENT_TRANSFORM_STATUS =
+            "content@s__tr_status@{http://www.alfresco.org/model/content/1.0}content";
+    private static final String TRANSFORM_FAILED_STATUS = "transform_failed";
     private static final int BATCH_FACET_TXS = 4096;
     private static final int DEFAULT_FACET_LIMIT = 100;
 
@@ -576,6 +580,50 @@ public class SolrJQueryService
         catch (SolrServerException e)
         {
             throw new IOException("Failed to query for docs with indexing errors", e);
+        }
+        return result;
+    }
+
+    /**
+     * Returns the node documents whose {@code cm:content} text could not be extracted.
+     */
+    public List<org.alfresco.solr.client.TenantDbId> getDocsWithContentTransformFailure(int batchSize) throws IOException
+    {
+        List<org.alfresco.solr.client.TenantDbId> result = new ArrayList<>();
+        try
+        {
+            String queryStr = ClientUtils.escapeQueryChars(FIELD_CM_CONTENT_TRANSFORM_STATUS) + ":"
+                    + TRANSFORM_FAILED_STATUS
+                    + AND + FIELD_DOC_TYPE + ":" + DOC_TYPE_NODE;
+
+            SolrQuery query = luceneQuery(queryStr);
+            query.setRows(batchSize);
+            query.addSort(FIELD_DBID, SolrQuery.ORDER.asc);
+            query.setFields(FIELD_DBID, FIELD_TENANT);
+
+            QueryResponse response = solrClient.query(collection, query);
+            SolrDocumentList docs = response.getResults();
+            if (docs != null)
+            {
+                for (SolrDocument doc : docs)
+                {
+                    Long dbId = getFieldValueLong(doc, FIELD_DBID);
+                    if (dbId == null)
+                    {
+                        continue;
+                    }
+                    org.alfresco.solr.client.TenantDbId tenantDbId = new org.alfresco.solr.client.TenantDbId();
+                    tenantDbId.dbId = dbId;
+                    Object tenantValue = doc.getFieldValue(FIELD_TENANT);
+                    tenantDbId.tenant = tenantValue != null ? tenantValue.toString() : "";
+                    result.add(tenantDbId);
+                }
+            }
+            LOGGER.debug("Found {} documents with a content transform failure", result.size());
+        }
+        catch (SolrServerException e)
+        {
+            throw new IOException("Failed to query for docs with a content transform failure", e);
         }
         return result;
     }

@@ -48,6 +48,7 @@ import org.alfresco.indexing.tracker.repair.RepairTracker;
 import org.alfresco.indexing.tracker.repair.RepairStrategy;
 import org.alfresco.indexing.tracker.repair.UnresolvedModelStrategy;
 import org.alfresco.indexing.tracker.repair.EmptyNodeStrategy;
+import org.alfresco.indexing.tracker.repair.ContentExtractionStrategy;
 import org.alfresco.repo.dictionary.NamespaceDAO;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.AlfrescoModel;
@@ -266,7 +267,7 @@ public class TrackerBootstrap implements ApplicationRunner
         );
         RepairTracker coreRepairTracker = new RepairTracker(
                 trackerProps, repoClient, coreName, infoSrv,
-                repairStrategies, registry, props.getRepairMaxRetries());
+                repairStrategies, new ContentExtractionStrategy(infoSrv), registry, props.getRepairMaxRetries());
         registry.register(coreName, coreRepairTracker);
         scheduler.schedule(coreRepairTracker, coreName, trackerProps);
 

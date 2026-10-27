@@ -225,6 +225,8 @@
                             <exclude>**/org/alfresco/indexing/server/solrj/SolrJQueryService.java</exclude>
                             <exclude>**/org/alfresco/indexing/server/solrj/SolrJQueryServiceTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/tracker/DataModelCallback.java</exclude>
+                            <exclude>**/org/alfresco/indexing/tracker/repair/ContentExtractionStrategy.java</exclude>
+                            <exclude>**/org/alfresco/indexing/tracker/repair/ContentExtractionStrategyTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/tracker/repair/EmptyNodeStrategy.java</exclude>
                             <exclude>**/org/alfresco/indexing/tracker/repair/EmptyNodeStrategyTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/tracker/repair/RepairReport.java</exclude>
@@ -317,6 +319,8 @@
                             <include>**/org/alfresco/indexing/server/solrj/SolrJQueryService.java</include>
                             <include>**/org/alfresco/indexing/server/solrj/SolrJQueryServiceTest.java</include>
                             <include>**/org/alfresco/indexing/tracker/DataModelCallback.java</include>
+                            <include>**/org/alfresco/indexing/tracker/repair/ContentExtractionStrategy.java</include>
+                            <include>**/org/alfresco/indexing/tracker/repair/ContentExtractionStrategyTest.java</include>
                             <include>**/org/alfresco/indexing/tracker/repair/EmptyNodeStrategy.java</include>
                             <include>**/org/alfresco/indexing/tracker/repair/EmptyNodeStrategyTest.java</include>
                             <include>**/org/alfresco/indexing/tracker/repair/RepairReport.java</include>
