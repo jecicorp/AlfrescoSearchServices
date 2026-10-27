@@ -9,6 +9,21 @@ LABEL org.opencontainers.image.source="https://gitlab.com/pristy-oss/pristy-sear
 RUN addgroup -g 33007 -S trackers && adduser -u 33007 -S -G trackers trackers \
     && apk add --no-cache curl
 
+RUN sed -i 's|^mozilla/emSign_|!mozilla/emSign_|' /etc/ca-certificates.conf \
+    && update-ca-certificates \
+    && keytool -list -cacerts -storepass changeit \
+        | grep -i '^cn_emsign_' \
+        | sed -E 's/, [A-Z][a-z]{2} [0-9]{1,2}, [0-9]{4}, trustedCertEntry,.*$//' \
+        | while read -r alias; do keytool -delete -cacerts -storepass changeit -alias "$alias" || exit 1; done \
+    && printf '%s\n' \
+        40F6AF0346A99AA1CD1D555A4E9CCE62C7F9634603EE406615833DC8C8D00367 \
+        1AA0C2709E831BD6E3B5129A00BA41F7EEEF020872F1E6504BF0F6C3F24F3AF3 \
+        125609AA301DA0A249B97A8239CB6A34216F44DCAC9F3954B14292F2E8C8608F \
+        46CD083B47E80402028DF493960EA19C85FE851950D5165F1C7DA4FAA951E2F8 \
+        86A1ECBA089C4A8D3BBE2734C612BA341D813E043CF9E8A862CD5C57A36BBE6B \
+        BC4D809B15189D78DB3E1D8CF4F9726A795DA1643CA5F1358E1DDB0EDC0D7EB3 \
+        >> "$JAVA_HOME/lib/security/blocked.certs"
+
 WORKDIR /app
 
 COPY pristy-indexing-trackers-*.jar /app/pristy-indexing-trackers.jar

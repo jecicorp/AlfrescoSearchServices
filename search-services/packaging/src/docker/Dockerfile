@@ -54,6 +54,21 @@ RUN set -x \
    && echo 'SOLR_SECURITY_MANAGER_ENABLED=false' >> $DIST_DIR/solr.in.sh \
    && echo 'SOLR_MODE="${SOLR_MODE:-user-managed}"' >> $DIST_DIR/solr.in.sh
 
+RUN for root in "Root CA - G1" "Root CA - G2" "Root CA - C1" "Root CA - C2" "ECC Root CA - G3" "ECC Root CA - C3"; do \
+      trust extract --format=pem-bundle \
+        --filter="pkcs11:object=emSign%20$(echo "$root" | sed 's/ /%20/g');type=cert" \
+        "/etc/pki/ca-trust/source/blocklist/emSign_$(echo "$root" | tr ' ' '_').pem" || exit 1; \
+    done \
+   && update-ca-trust extract \
+   && printf '%s\n' \
+        40F6AF0346A99AA1CD1D555A4E9CCE62C7F9634603EE406615833DC8C8D00367 \
+        1AA0C2709E831BD6E3B5129A00BA41F7EEEF020872F1E6504BF0F6C3F24F3AF3 \
+        125609AA301DA0A249B97A8239CB6A34216F44DCAC9F3954B14292F2E8C8608F \
+        46CD083B47E80402028DF493960EA19C85FE851950D5165F1C7DA4FAA951E2F8 \
+        86A1ECBA089C4A8D3BBE2734C612BA341D813E043CF9E8A862CD5C57A36BBE6B \
+        BC4D809B15189D78DB3E1D8CF4F9726A795DA1643CA5F1358E1DDB0EDC0D7EB3 \
+        >> "$JAVA_HOME/lib/security/blocked.certs"
+
 COPY search_config_setup.sh $DIST_DIR/solr/bin/
 RUN chmod +x $DIST_DIR/solr/bin/search_config_setup.sh
 
