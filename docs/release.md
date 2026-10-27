@@ -73,7 +73,7 @@ git push origin develop
 |-----|--------|
 | `maven-build` | Builds the whole reactor except `e2e-test`, runs the unit tests, surfaces them as JUnit reports |
 | `sbom` | `bom-runtime.json` (compile scope) and `bom-full.json` (+ provided), CycloneDX |
-| `dependency-scan` | Trivy over both SBOMs; **CRITICAL on the runtime SBOM fails the pipeline** |
+| `dependency-scan` | Trivy over both SBOMs; **CRITICAL on the runtime SBOM fails the pipeline** (accepted CVEs: `.trivyignore`) |
 | `docker-build-solr` | `jeci/pristy-search-services:1.0.0` and `:latest` |
 | `docker-build-trackers` | `jeci/pristy-indexing-trackers:1.0.0` and `:latest` |
 | `maven-deploy` | All module JARs to the project's GitLab Package Registry |
