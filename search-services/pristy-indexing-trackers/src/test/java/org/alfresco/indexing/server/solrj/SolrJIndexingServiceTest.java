@@ -42,10 +42,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.indexing.server.solrj.LocalDictionaryService;
+import org.alfresco.model.ContentModel;
 import org.alfresco.indexing.server.solrj.SolrJQueryService;
 import org.alfresco.repo.dictionary.DictionaryComponent;
 import org.alfresco.service.cmr.dictionary.AspectDefinition;
@@ -54,12 +57,14 @@ import org.alfresco.service.cmr.dictionary.TypeDefinition;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
+import org.alfresco.solr.client.ContentPropertyValue;
 import org.alfresco.solr.client.Node;
 import org.alfresco.solr.client.Node.SolrApiNodeStatus;
 import org.alfresco.solr.client.NodeMetaData;
 import org.alfresco.solr.client.NodeMetaDataParameters;
 import org.alfresco.solr.client.SOLRAPIClient;
 import org.alfresco.solr.client.StringPropertyValue;
+import org.alfresco.solr.client.TenantDbId;
 import org.alfresco.solr.client.Transaction;
 import org.alfresco.solr.tracker.TrackerStats;
 import org.apache.solr.client.solrj.SolrClient;
@@ -786,6 +791,54 @@ public class SolrJIndexingServiceTest
         ArgumentCaptor<List<String>> captor = ArgumentCaptor.forClass(List.class);
         verify(solrClient).deleteById(eq(COLLECTION), captor.capture());
         assertEquals(Arrays.asList("ERROR-1", "ERROR-2"), captor.getValue());
+    }
+
+    // =========================================================================
+    // Content update
+    // =========================================================================
+
+    @Test
+    public void anUnreachableRepositoryLeavesTheContentToBeFetchedAgain() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Collections.singletonList(contentMetaDataOf(5L)));
+        when(repositoryClient.getTextContent(eq(5L), eq(ContentModel.PROP_CONTENT), any()))
+                .thenThrow(new IOException("GetTextContentResponse return status is 503"));
+
+        assertThrows(IOException.class, () -> serviceWithDeps.updateContent(contentRef(5L)));
+
+        verify(solrClient, never()).add(eq(COLLECTION), any(SolrInputDocument.class));
+    }
+
+    @Test
+    public void aRejectedContentRequestIsRecordedAsATransformFailure() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Collections.singletonList(contentMetaDataOf(5L)));
+        when(repositoryClient.getTextContent(eq(5L), eq(ContentModel.PROP_CONTENT), any()))
+                .thenThrow(new AlfrescoRuntimeException("GetTextContentResponse return status is 404"));
+
+        serviceWithDeps.updateContent(contentRef(5L));
+
+        ArgumentCaptor<SolrInputDocument> captor = ArgumentCaptor.forClass(SolrInputDocument.class);
+        verify(solrClient).add(eq(COLLECTION), captor.capture());
+        assertEquals("TRANSFORM_FAILED",
+                captor.getValue().getFieldValue("content@s__tr_status@" + ContentModel.PROP_CONTENT));
+    }
+
+    private static TenantDbId contentRef(long id)
+    {
+        TenantDbId ref = new TenantDbId();
+        ref.dbId = id;
+        return ref;
+    }
+
+    private static NodeMetaData contentMetaDataOf(long id)
+    {
+        NodeMetaData metadata = metaDataOf(id);
+        metadata.setProperties(Map.of(ContentModel.PROP_CONTENT,
+                new ContentPropertyValue(Locale.ENGLISH, 12L, "UTF-8", "application/pdf", 1L)));
+        return metadata;
     }
 
     private static Node updatedNode(long id)

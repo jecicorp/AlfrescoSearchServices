@@ -965,6 +965,10 @@ public class SolrJIndexingService
                 return true;
             }
         }
+        catch (IOException e)
+        {
+            throw new IOException("Failed to fetch content for DBID=" + dbId + " prop=" + propQName, e);
+        }
         catch (Exception e)
         {
             LOGGER.warn("Failed to fetch content for DBID={} prop={}: {}", dbId, propQName, e.getMessage());

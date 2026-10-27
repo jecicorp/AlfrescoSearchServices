@@ -1068,6 +1068,10 @@ public class SOLRAPIClient
         {
             int status = response.getStatus();
             response.release();
+            if (status >= Status.STATUS_INTERNAL_SERVER_ERROR)
+            {
+                throw new IOException("GetTextContentResponse return status is " + status);
+            }
             throw new AlfrescoRuntimeException("GetTextContentResponse return status is " + status);
         }
 
