@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Version numbers are plain, without a `v` prefix, matching the Git tags.
 
 
+## [1.3.0] - 2026-11-01
+
+### Features
+
+- *(deps)* Upgrade Solr to 9.11.0
+- *(trackers)* Retry failed content transforms
+
+### Bug Fixes
+
+- *(deps)* Accept two Spring 6.2 CVEs until Boot 4
+- *(docker)* Distrust the eMudhra emSign roots
+- *(trackers)* Retry content on repository failure
+
+
 ## [1.2.0] - 2026-10-04
 
 ### Features
