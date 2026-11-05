@@ -490,8 +490,8 @@ curl -s "http://localhost:8085/actuator/repairreport" | python3 -m json.tool
 ```
 
 The third form is retried by fetching the text again, after a delay that doubles with every
-failed attempt (1, 2, 4... minutes): with the default `repair-max-retries` of 10 the node is
-given up after about 8.5 hours. Only `cm:content` is read, and like every other give-up, it is
+failed attempt (1, 2, 4... minutes): with the default `repair-max-retries` of 3 the node is
+given up after about 3 minutes. Only `cm:content` is read, and like every other give-up, it is
 forgotten on restart.
 
 `POST /api/admin/retry` re-queues those error nodes. See

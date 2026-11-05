@@ -53,7 +53,7 @@ public class TrackerProperties
     private int maxLiveSearchers = 2;
     private boolean transformContent = true;
     private String solrHome = "/opt/solr/data";
-    private int repairMaxRetries = 10;
+    private int repairMaxRetries = 3;
     private int schedulerThreadCount = TrackerScheduler.DEFAULT_THREAD_COUNT;
 
     /**
