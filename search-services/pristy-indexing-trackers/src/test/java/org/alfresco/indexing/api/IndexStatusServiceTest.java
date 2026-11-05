@@ -27,6 +27,9 @@ import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_ERR
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_NODE;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_UNINDEXED_NODE;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLID;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_CM_CONTENT_TRANSFORM_EXCEPTION;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_CM_CONTENT_TRANSFORM_STATUS;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_FTSSTATUS;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DBID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DOC_TYPE;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_HAS_INDEXING_ERROR;
@@ -261,6 +264,36 @@ public class IndexStatusServiceTest
         assertEquals(NodeIndexStatus.State.INDEXED, status.cores().get("alfresco").state());
         assertEquals(Long.valueOf(4711L), status.cores().get("alfresco").indexTx());
         assertEquals(Long.valueOf(42L), status.cores().get("alfresco").aclId());
+    }
+
+    @Test
+    public void anIndexedNodeWhoseTextExtractionFailedReportsItsContentStatus() throws Exception
+    {
+        databaseHolds(4711L, SolrApiNodeStatus.UPDATED);
+        SolrDocument doc = nodeDocument(DOC_TYPE_NODE, 4711L);
+        doc.addField(FIELD_FTSSTATUS, "Clean");
+        doc.addField(FIELD_CM_CONTENT_TRANSFORM_STATUS, "TRANSFORM_FAILED");
+        doc.addField(FIELD_CM_CONTENT_TRANSFORM_EXCEPTION, "No transformer for image/heic");
+        indexHolds("alfresco", documents(doc));
+
+        NodeIndexStatus status = service.status(String.valueOf(DBID));
+
+        assertEquals(NodeIndexStatus.State.INDEXED, status.cores().get("alfresco").state());
+        NodeIndexStatus.Content content = status.cores().get("alfresco").content();
+        assertEquals("Clean", content.ftsStatus());
+        assertEquals("TRANSFORM_FAILED", content.transformStatus());
+        assertEquals("No transformer for image/heic", content.transformError());
+    }
+
+    @Test
+    public void aCoreHoldingNoNodeDocumentReportsNoContentStatus() throws Exception
+    {
+        databaseHolds(4711L, SolrApiNodeStatus.UPDATED);
+        indexHolds("alfresco", documents());
+
+        NodeIndexStatus status = service.status(String.valueOf(DBID));
+
+        assertNull(status.cores().get("alfresco").content());
     }
 
     @Test

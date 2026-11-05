@@ -27,8 +27,11 @@ import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_ERR
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_NODE;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.DOC_TYPE_UNINDEXED_NODE;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLID;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_CM_CONTENT_TRANSFORM_EXCEPTION;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_CM_CONTENT_TRANSFORM_STATUS;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DBID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DOC_TYPE;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_FTSSTATUS;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_HAS_INDEXING_ERROR;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_INTXID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_LID;
@@ -39,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import org.alfresco.indexing.api.NodeIndexStatus.Content;
 import org.alfresco.indexing.api.NodeIndexStatus.Core;
 import org.alfresco.indexing.api.NodeIndexStatus.Database;
 import org.alfresco.indexing.api.NodeIndexStatus.DatabaseStatus;
@@ -244,15 +248,16 @@ public class IndexStatusService
     {
         SolrQuery query = luceneQuery(FIELD_DBID + ":" + dbid + " AND " + NODE_DOCUMENTS);
         query.setRows(10);
-        query.setFields(FIELD_DOC_TYPE, FIELD_INTXID, FIELD_ACLID, FIELD_HAS_INDEXING_ERROR);
+        query.setFields(FIELD_DOC_TYPE, FIELD_INTXID, FIELD_ACLID, FIELD_HAS_INDEXING_ERROR,
+                FIELD_FTSSTATUS, FIELD_CM_CONTENT_TRANSFORM_STATUS, FIELD_CM_CONTENT_TRANSFORM_EXCEPTION);
         SolrDocumentList docs = search(coreName, query);
         if (docs == null)
         {
-            return new Core(State.UNVERIFIED, null, null, null, 0L);
+            return new Core(State.UNVERIFIED, null, null, null, 0L, null);
         }
         if (docs.isEmpty())
         {
-            return new Core(State.ABSENT, null, null, null, 0L);
+            return new Core(State.ABSENT, null, null, null, 0L, null);
         }
 
         SolrDocument document = preferred(docs);
@@ -262,7 +267,22 @@ public class IndexStatusService
         boolean indexingError =
                 INDEXING_ERROR_FLAG.equals(stringValue(document, FIELD_HAS_INDEXING_ERROR));
         return new Core(state(docType, indexTx, indexingError, database), docType, indexTx, aclId,
-                docs.getNumFound());
+                docs.getNumFound(), content(docs));
+    }
+
+    private static Content content(SolrDocumentList docs)
+    {
+        for (SolrDocument document : docs)
+        {
+            if (!DOC_TYPE_NODE.equals(stringValue(document, FIELD_DOC_TYPE)))
+            {
+                continue;
+            }
+            return new Content(stringValue(document, FIELD_FTSSTATUS),
+                    stringValue(document, FIELD_CM_CONTENT_TRANSFORM_STATUS),
+                    stringValue(document, FIELD_CM_CONTENT_TRANSFORM_EXCEPTION));
+        }
+        return null;
     }
 
     /**

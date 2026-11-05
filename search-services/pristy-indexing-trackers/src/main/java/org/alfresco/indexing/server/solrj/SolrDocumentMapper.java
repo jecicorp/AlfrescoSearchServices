@@ -100,6 +100,10 @@ public class SolrDocumentMapper
     public static final String FIELD_LAST_INCOMING_CONTENT_VERSION_ID = "LAST_INCOMING_CONTENT_VERSION_ID";
     public static final String FIELD_LATEST_APPLIED_CONTENT_VERSION_ID = "LATEST_APPLIED_CONTENT_VERSION_ID";
     public static final String FIELD_FTSSTATUS = "FTSSTATUS";
+    public static final String FIELD_CM_CONTENT_TRANSFORM_STATUS =
+            "content@s__tr_status@{http://www.alfresco.org/model/content/1.0}content";
+    public static final String FIELD_CM_CONTENT_TRANSFORM_EXCEPTION =
+            "content@s__tr_ex@{http://www.alfresco.org/model/content/1.0}content";
 
     /** Marker value: content is outdated and needs extraction (schema default) */
     public static final long CONTENT_OUTDATED_MARKER = -10;

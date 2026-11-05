@@ -33,6 +33,7 @@ import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ANCEST
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLTXCOMMITTIME;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_ACLTXID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_CASCADE_FLAG;
+import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_CM_CONTENT_TRANSFORM_STATUS;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.CONTENT_OUTDATED_MARKER;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DBID;
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.FIELD_DOC_TYPE;
@@ -101,8 +102,6 @@ public class SolrJQueryService
     static final String DOC_TYPE_STATE = "State";
 
     private static final String AND = " AND ";
-    private static final String FIELD_CM_CONTENT_TRANSFORM_STATUS =
-            "content@s__tr_status@{http://www.alfresco.org/model/content/1.0}content";
     private static final String TRANSFORM_FAILED_STATUS = "transform_failed";
     private static final int BATCH_FACET_TXS = 4096;
     private static final int DEFAULT_FACET_LIMIT = 100;

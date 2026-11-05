@@ -127,8 +127,9 @@ interpolated into a Lucene query, so both guards stay.
   "reference": { "input": "15695", "dbid": 15695, "resolvedBy": "DBID" },
   "database":  { "status": "updated", "tx": 4711 },
   "cores": {
-    "alfresco": { "state": "indexed", "docType": "Node", "indexTx": 4711, "aclId": 42, "docCount": 1 },
-    "archive":  { "state": "absent",  "docType": null,   "indexTx": null, "aclId": null, "docCount": 0 }
+    "alfresco": { "state": "indexed", "docType": "Node", "indexTx": 4711, "aclId": 42, "docCount": 1,
+                  "content": { "ftsStatus": "Clean", "transformStatus": "TRANSFORM_FAILED", "transformError": "..." } },
+    "archive":  { "state": "absent",  "docType": null,   "indexTx": null, "aclId": null, "docCount": 0, "content": null }
   },
   "verdict": "indexed"
 }
@@ -150,6 +151,12 @@ Per-core `state`, read from the document's `DOC_TYPE`, its `INTXID` and its
 An `ErrorNode` decides the state when a core holds one alongside a `Node`
 document: the indexer drops it on every successful attempt, so its presence means
 the last attempt failed.
+
+`content` reports the text extraction of `cm:content`, read from the `Node` document:
+`FTSSTATUS`, the transformation status and its error message. It does not take part in
+`state`: a node can be `indexed` while its text failed to extract (`TRANSFORM_FAILED`),
+which is what the RepairTracker retries as `CONTENT_EXTRACTION`. `content` is `null` when
+the core holds no `Node` document.
 
 `database.status` is `updated`, `deleted`, `unknown` (the repository answered and
 holds no such node) or `unreachable` (the lookup itself failed — `MetadataTracker`

@@ -58,8 +58,21 @@ public record NodeIndexStatus(Reference reference, Database database,
      * @param indexTx  the transaction the indexed document carries, null when absent
      * @param aclId    the ACL the indexed document carries, null when absent
      * @param docCount how many documents this core holds for the node
+     * @param content  the text extraction of the node's {@code cm:content}, null when the
+     *                 core holds no {@code Node} document for it
      */
-    public record Core(State state, String docType, Long indexTx, Long aclId, long docCount) {}
+    public record Core(State state, String docType, Long indexTx, Long aclId, long docCount,
+                       Content content) {}
+
+    /**
+     * @param ftsStatus       the document's {@code FTSSTATUS}: {@code Clean}, {@code Dirty} or
+     *                        {@code New}, null when absent
+     * @param transformStatus the repository's answer when the text of {@code cm:content} was
+     *                        last fetched ({@code OK}, {@code TRANSFORM_FAILED}...), null when it
+     *                        never was
+     * @param transformError  the transformation error message, null when there is none
+     */
+    public record Content(String ftsStatus, String transformStatus, String transformError) {}
 
     /** What a single core holds for the node. */
     public enum State
