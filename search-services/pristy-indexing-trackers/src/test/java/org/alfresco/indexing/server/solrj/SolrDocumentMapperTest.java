@@ -24,9 +24,12 @@ package org.alfresco.indexing.server.solrj;
 
 import static org.alfresco.indexing.server.solrj.SolrDocumentMapper.*;
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -38,6 +41,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import org.alfresco.model.ContentModel;
+import org.alfresco.repo.dictionary.IndexTokenisationMode;
+import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
+import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.StoreRef;
@@ -53,6 +60,7 @@ import org.alfresco.solr.client.PropertyValue;
 import org.alfresco.solr.client.StringPropertyValue;
 import org.alfresco.solr.client.Transaction;
 import org.alfresco.util.Pair;
+import org.springframework.extensions.surf.util.I18NUtil;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.Before;
 import org.junit.Test;
@@ -378,6 +386,118 @@ public class SolrDocumentMapperTest
         Collection<Object> titleValues = doc.getFieldValues(solrField);
         assertNotNull(titleValues);
         assertEquals(2, titleValues.size());
+    }
+
+    private static final QName NOM_BENEFICIAIRE =
+            QName.createQName("https://jeci.fr/model/pristy/social/1.0", "nomBeneficiaire");
+
+    @Test
+    public void aTextPropertyCarriesTheLanguageOfItsNode()
+    {
+        SolrInputDocument doc = dictionaryMapper(IndexTokenisationMode.TRUE, false)
+                .toNodeDoc(node(700L), metadataOf(700L, NOM_BENEFICIAIRE, new StringPropertyValue("ÉTIENNE"), "fr_"));
+
+        assertEquals("\u0000fr\u0000ÉTIENNE", doc.getFieldValue("text@s_stored_t_c__@" + NOM_BENEFICIAIRE));
+    }
+
+    @Test
+    public void aTextPropertyKeepsOnlyTheLanguageOfACountryLocale()
+    {
+        SolrInputDocument doc = dictionaryMapper(IndexTokenisationMode.TRUE, false)
+                .toNodeDoc(node(701L), metadataOf(701L, NOM_BENEFICIAIRE, new StringPropertyValue("RAYMOND"), "en_GB_"));
+
+        assertEquals("\u0000en\u0000RAYMOND", doc.getFieldValue("text@s_stored_t_c__@" + NOM_BENEFICIAIRE));
+    }
+
+    @Test
+    public void everyValueOfAMultiValuedTextPropertyCarriesTheLanguage()
+    {
+        MultiPropertyValue values = new MultiPropertyValue();
+        values.addValue(new StringPropertyValue("Jeanne"));
+        values.addValue(new StringPropertyValue("Marie"));
+
+        SolrInputDocument doc = dictionaryMapper(IndexTokenisationMode.TRUE, true)
+                .toNodeDoc(node(702L), metadataOf(702L, NOM_BENEFICIAIRE, values, "fr_FR_"));
+
+        assertEquals(List.of("\u0000fr\u0000Jeanne", "\u0000fr\u0000Marie"),
+                new ArrayList<>(doc.getFieldValues("text@m_stored_t_c__@" + NOM_BENEFICIAIRE)));
+    }
+
+    @Test
+    public void theFacetFieldOfATextPropertyKeepsTheRawValue()
+    {
+        SolrInputDocument doc = dictionaryMapper(IndexTokenisationMode.BOTH, false)
+                .toNodeDoc(node(703L), metadataOf(703L, NOM_BENEFICIAIRE, new StringPropertyValue("ÉTIENNE"), "fr_"));
+
+        assertEquals("\u0000fr\u0000ÉTIENNE", doc.getFieldValue("text@s_stored_tscs_@" + NOM_BENEFICIAIRE));
+        assertEquals("ÉTIENNE", doc.getFieldValue("text@sd___@" + NOM_BENEFICIAIRE));
+    }
+
+    @Test
+    public void aNodeWithoutLocaleFallsBackOnTheDefaultLanguage()
+    {
+        I18NUtil.setLocale(Locale.ITALIAN);
+        try
+        {
+            SolrInputDocument doc = dictionaryMapper(IndexTokenisationMode.TRUE, false)
+                    .toNodeDoc(node(704L), metadataOf(704L, NOM_BENEFICIAIRE, new StringPropertyValue("SEGUIN"), null));
+
+            assertEquals("\u0000it\u0000SEGUIN", doc.getFieldValue("text@s_stored_t_c__@" + NOM_BENEFICIAIRE));
+        }
+        finally
+        {
+            I18NUtil.setLocale(null);
+        }
+    }
+
+    private static SolrDocumentMapper dictionaryMapper(IndexTokenisationMode mode, boolean multiValued)
+    {
+        LocalDictionaryService dictionary = mock(LocalDictionaryService.class);
+        PropertyDefinition text = propertyDefinition(NOM_BENEFICIAIRE, DataTypeDefinition.TEXT, mode, multiValued, true);
+        PropertyDefinition locale = propertyDefinition(ContentModel.PROP_LOCALE, DataTypeDefinition.LOCALE,
+                IndexTokenisationMode.FALSE, false, false);
+        when(dictionary.getPropertyDefinition(NOM_BENEFICIAIRE)).thenReturn(text);
+        when(dictionary.getPropertyDefinition(ContentModel.PROP_LOCALE)).thenReturn(locale);
+        return new SolrDocumentMapper(false, dictionary);
+    }
+
+    private static PropertyDefinition propertyDefinition(QName name, QName dataTypeName, IndexTokenisationMode mode,
+                                                         boolean multiValued, boolean indexed)
+    {
+        PropertyDefinition definition = mock(PropertyDefinition.class);
+        DataTypeDefinition dataType = mock(DataTypeDefinition.class);
+        when(dataType.getName()).thenReturn(dataTypeName);
+        when(definition.getName()).thenReturn(name);
+        when(definition.getDataType()).thenReturn(dataType);
+        when(definition.getIndexTokenisationMode()).thenReturn(mode);
+        when(definition.isMultiValued()).thenReturn(multiValued);
+        when(definition.isIndexed()).thenReturn(indexed);
+        return definition;
+    }
+
+    private static Node node(long id)
+    {
+        Node node = new Node();
+        node.setId(id);
+        node.setTxnId(1L);
+        return node;
+    }
+
+    private static NodeMetaData metadataOf(long id, QName property, PropertyValue value, String locale)
+    {
+        Map<QName, PropertyValue> properties = new HashMap<>();
+        properties.put(property, value);
+        if (locale != null)
+        {
+            properties.put(ContentModel.PROP_LOCALE, new StringPropertyValue(locale));
+        }
+        NodeMetaData metadata = new NodeMetaData();
+        metadata.setId(id);
+        metadata.setTxnId(1L);
+        metadata.setAclId(1L);
+        metadata.setTenantDomain("");
+        metadata.setProperties(properties);
+        return metadata;
     }
 
     @Test

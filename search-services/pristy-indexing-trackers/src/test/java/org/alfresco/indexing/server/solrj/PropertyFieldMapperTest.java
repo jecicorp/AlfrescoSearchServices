@@ -53,15 +53,15 @@ public class PropertyFieldMapperTest
     @Test
     public void textBOTH_singleValued_producesStoredFieldAndDocValues()
     {
-        // cm:title — TEXT, BOTH, single-valued, NOT cross-locale
+        // cm:title - TEXT, BOTH, single-valued
         PropertyDefinition propDef = mockTextProperty("cm:title",
                 IndexTokenisationMode.BOTH, false);
 
         List<String> fields = mapper.getSolrFieldNames(propDef);
 
         assertEquals("Should produce stored + docValues fields", 2, fields.size());
-        // Stored field: t=tokenised, s=untokenised, _=no crossLocale, s=sort, _=no suggest
-        assertEquals("text@s_stored_ts_s_@{http://www.alfresco.org/model/content/1.0}cm:title",
+        // Stored field: t=tokenised, s=untokenised, c=crossLocale, s=sort, _=no suggest
+        assertEquals("text@s_stored_tscs_@{http://www.alfresco.org/model/content/1.0}cm:title",
                 fields.get(0));
         // DocValues identifier field
         assertEquals("text@sd___@{http://www.alfresco.org/model/content/1.0}cm:title",
@@ -96,8 +96,8 @@ public class PropertyFieldMapperTest
         List<String> fields = mapper.getSolrFieldNames(propDef);
 
         assertEquals(1, fields.size());
-        // t=tokenised, _=no untokenised, _=no crossLocale, _=no sort, _=no suggest
-        assertEquals("text@s_stored_t____@{http://www.alfresco.org/model/content/1.0}cm:description",
+        // t=tokenised, _=no untokenised, c=crossLocale, _=no sort, _=no suggest
+        assertEquals("text@s_stored_t_c__@{http://www.alfresco.org/model/content/1.0}cm:description",
                 fields.get(0));
     }
 
@@ -111,8 +111,8 @@ public class PropertyFieldMapperTest
         List<String> fields = mapper.getSolrFieldNames(propDef);
 
         assertEquals(2, fields.size());
-        // Stored: _=no tokenised, s=untokenised, _=no crossLocale, s=sort, _=no suggest
-        assertEquals("text@s_stored__s_s_@{http://www.alfresco.org/model/content/1.0}cm:sitePreset",
+        // Stored: _=no tokenised, s=untokenised, c=crossLocale, s=sort, _=no suggest
+        assertEquals("text@s_stored__scs_@{http://www.alfresco.org/model/content/1.0}cm:sitePreset",
                 fields.get(0));
         // DocValues identifier field
         assertEquals("text@sd___@{http://www.alfresco.org/model/content/1.0}cm:sitePreset",
@@ -129,8 +129,8 @@ public class PropertyFieldMapperTest
         List<String> fields = mapper.getSolrFieldNames(propDef);
 
         assertEquals(2, fields.size());
-        // Stored: m=multiValued, _=no tokenised, s=untokenised, _=no crossLocale, _=no sort (multiValued), _=no suggest
-        assertEquals("text@m_stored__s___@{http://www.alfresco.org/model/content/1.0}cm:tags",
+        // Stored: m=multiValued, _=no tokenised, s=untokenised, c=crossLocale, _=no sort (multiValued), _=no suggest
+        assertEquals("text@m_stored__sc__@{http://www.alfresco.org/model/content/1.0}cm:tags",
                 fields.get(0));
         // Multi-valued docValues identifier field
         assertEquals("text@md___@{http://www.alfresco.org/model/content/1.0}cm:tags",
@@ -147,9 +147,9 @@ public class PropertyFieldMapperTest
         List<String> fields = mapper.getSolrFieldNames(propDef);
 
         assertEquals(2, fields.size());
-        // Forced to BOTH: t=tokenised, s=untokenised, _=no crossLocale, s=sort, _=no suggest
+        // Forced to BOTH: t=tokenised, s=untokenised, c=crossLocale, s=sort, _=no suggest
         assertTrue("Identifier should have both t and s flags: " + fields.get(0),
-                fields.get(0).contains("_stored_ts_s_@"));
+                fields.get(0).contains("_stored_tscs_@"));
         // DocValues identifier field
         assertTrue("Should have docValues field: " + fields.get(1),
                 fields.get(1).contains("sd___@"));
@@ -168,8 +168,29 @@ public class PropertyFieldMapperTest
         assertEquals(1, fields.size());
         // mltext is always 'm', and no sort flag (mltext)
         assertTrue("Should start with mltext@m_stored_", fields.get(0).startsWith("mltext@m_stored_"));
-        // t=tokenised, s=untokenised, _=no crossLocale, _=no sort (mltext), _=no suggest
-        assertTrue("Should have ts flags: " + fields.get(0), fields.get(0).contains("_stored_ts___@"));
+        // t=tokenised, s=untokenised, c=crossLocale, _=no sort (mltext), _=no suggest
+        assertTrue("Should have ts flags: " + fields.get(0), fields.get(0).contains("_stored_tsc__@"));
+    }
+
+    @Test
+    public void aCustomModelTextPropertyIsCrossLocale()
+    {
+        PropertyDefinition propDef = mockProperty(
+                QName.createQName("https://jeci.fr/model/pristy/social/1.0", "nomBeneficiaire"),
+                DataTypeDefinition.TEXT, IndexTokenisationMode.TRUE, false);
+
+        assertEquals(List.of("text@s_stored_t_c__@{https://jeci.fr/model/pristy/social/1.0}nomBeneficiaire"),
+                mapper.getSolrFieldNames(propDef));
+    }
+
+    @Test
+    public void aContentPropertyIsCrossLocale()
+    {
+        PropertyDefinition propDef = mockProperty(ContentModel.PROP_CONTENT,
+                DataTypeDefinition.CONTENT, IndexTokenisationMode.TRUE, false);
+
+        assertEquals(List.of("content@s_stored_t_c__@" + ContentModel.PROP_CONTENT),
+                mapper.getSolrFieldNames(propDef));
     }
 
     @Test

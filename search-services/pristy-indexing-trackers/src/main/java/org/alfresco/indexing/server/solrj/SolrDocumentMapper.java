@@ -35,9 +35,11 @@ import java.util.regex.Pattern;
 
 import org.alfresco.util.ISO9075;
 
+import org.alfresco.model.ContentModel;
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.NodeRef;
+import org.alfresco.service.cmr.repository.datatype.DefaultTypeConverter;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.solr.client.AclChangeSet;
 import org.alfresco.solr.client.AclReaders;
@@ -54,6 +56,7 @@ import org.alfresco.util.Pair;
 import org.apache.solr.common.SolrInputDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.extensions.surf.util.I18NUtil;
 
 /**
  * Maps Alfresco domain objects (Transaction, AclChangeSet, AclReaders, Node/NodeMetaData)
@@ -67,6 +70,8 @@ import org.slf4j.LoggerFactory;
 public class SolrDocumentMapper
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(SolrDocumentMapper.class);
+
+    private static final String STORED_FIELD_MARKER = "_stored_";
 
     // ---------------------------------------------------------------------------
     // Field name constants — values from org.alfresco.repo.search.adaptor.QueryConstants
@@ -444,6 +449,7 @@ public class SolrDocumentMapper
         Map<QName, PropertyValue> properties = metadata.getProperties();
         if (properties != null)
         {
+            String language = languageOf(properties);
             for (Map.Entry<QName, PropertyValue> entry : properties.entrySet())
             {
                 QName propQName = entry.getKey();
@@ -470,7 +476,7 @@ public class SolrDocumentMapper
                     {
                         for (String solrField : fieldMapper.getSolrFieldNames(propDef))
                         {
-                            addPropertyValue(doc, solrField, value, propDef.isMultiValued());
+                            addPropertyValue(doc, solrField, value, propDef.isMultiValued(), language);
                         }
                     }
                 }
@@ -709,14 +715,18 @@ public class SolrDocumentMapper
 
     /**
      * Adds a property value using a pre-resolved Solr field name from the dictionary.
-     * No prefix is added — the solrField is used directly for string/text values.
+     * A string value bound to a stored text field carries the node language as a
+     * NUL-delimited marker; any other field receives the raw value.
      * For multi-property values, sub-values are added to the same field.
      */
-    void addPropertyValue(SolrInputDocument doc, String solrField, PropertyValue value, boolean multiValued)
+    void addPropertyValue(SolrInputDocument doc, String solrField, PropertyValue value, boolean multiValued,
+                          String language)
     {
-        if (value instanceof StringPropertyValue)
+        if (value instanceof StringPropertyValue stringValue)
         {
-            doc.addField(solrField, ((StringPropertyValue) value).getValue());
+            doc.addField(solrField, solrField.contains(STORED_FIELD_MARKER)
+                    ? localised(language, stringValue.getValue())
+                    : stringValue.getValue());
         }
         else if (value instanceof MLTextPropertyValue)
         {
@@ -733,7 +743,7 @@ public class SolrDocumentMapper
             {
                 if (subValue != null)
                 {
-                    addPropertyValue(doc, solrField, subValue, true);
+                    addPropertyValue(doc, solrField, subValue, true, language);
                 }
             }
         }
@@ -743,6 +753,37 @@ public class SolrDocumentMapper
             // via addContentMetadata() to avoid duplication when multiple
             // indexed fields are generated for the same property.
         }
+    }
+
+    /**
+     * Returns the language of a node: the language of its {@code sys:locale}, or of
+     * {@link I18NUtil#getLocale()} when the node has none. Mirrors upstream
+     * {@code SolrInformationServer.getLocalisedValue}.
+     *
+     * @param properties the node properties
+     * @return the ISO language code, never the full locale
+     */
+    static String languageOf(Map<QName, PropertyValue> properties)
+    {
+        PropertyValue locale = properties.get(ContentModel.PROP_LOCALE);
+        if (!(locale instanceof StringPropertyValue localeValue) || localeValue.getValue() == null)
+        {
+            return I18NUtil.getLocale().getLanguage();
+        }
+        Locale parsed = DefaultTypeConverter.INSTANCE.convert(Locale.class, localeValue.getValue());
+        return parsed != null ? parsed.getLanguage() : I18NUtil.getLocale().getLanguage();
+    }
+
+    /**
+     * Prefixes a value with the NUL-delimited language marker read by {@code MLAnalayser}.
+     *
+     * @param language the ISO language code
+     * @param value    the raw value
+     * @return the marked value
+     */
+    private static String localised(String language, String value)
+    {
+        return "\u0000" + language + "\u0000" + value;
     }
 
     /**

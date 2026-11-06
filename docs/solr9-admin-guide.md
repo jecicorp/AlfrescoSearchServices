@@ -205,6 +205,23 @@ substituted **into `solr.xml`**, so with no matching placeholder in the file the
 inert. Before this refresh existed, the only fixes were to edit the file in place or
 recreate the mount.
 
+### Cross-locale search (`shared.properties`)
+
+The trackers index every `d:text`, `d:mltext` and `d:content` value twice: once analysed in
+the language of the node (`sys:locale`) and once in a language-independent field. Queries
+read the second field only for the data types listed as `alfresco.cross.locale.datatype.*`
+in `solrhome/conf/shared.properties`. The file ships with `text`, `content` and `mltext`
+enabled.
+
+Without those lines a search depends on the language the client sends
+(`Accept-Language`): a French browser finds no `d:text` value at all, and no content or
+`d:mltext` value of a node created in another language.
+
+`shared.properties` is not refreshed like `solr.xml`. On an existing install, uncomment the
+three lines in the mounted file, restart Solr, then run a
+[full re-index](#full-re-index-in-place-vs-bluegreen-near-zero-downtime): documents indexed
+before carry no language-independent field.
+
 ### Repository side: the `solr9` search subsystem
 
 Because Solr is now vanilla and the admin control plane lives in the trackers, the

@@ -966,11 +966,11 @@ public class SolrJIndexingService
                 // parser can match with {en}term, {fr}term etc.
                 // Mirrors upstream SolrInformationServer.languageFrom(locale).
                 //
-                // Write to the stored field (content@s_stored_t____@). The copyField
+                // Write to the stored field (content@s_stored_t_c__@). The copyField
                 // directives in generated_copy_fields.xml populate content@s__lt@ etc.
                 // This also enables highlighting via AlfrescoSolrHighlighter.
                 String language = languageFromLocale(locale);
-                doc.addField("content@s_stored_t____@" + qnameSuffix, "\u0000" + language + "\u0000" + textContent);
+                doc.addField("content@s_stored_t_c__@" + qnameSuffix, "\u0000" + language + "\u0000" + textContent);
                 return true;
             }
         }

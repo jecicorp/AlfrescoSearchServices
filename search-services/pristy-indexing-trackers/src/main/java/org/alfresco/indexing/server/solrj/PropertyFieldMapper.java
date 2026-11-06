@@ -45,6 +45,10 @@ import org.alfresco.service.namespace.QName;
  * from the stored field. This matches the upstream {@code SolrInformationServer}
  * approach and enables highlighting via {@code AlfrescoSolrHighlighter}.</p>
  *
+ * <p>Every text property is flagged cross-locale, so its cross-locale field is always
+ * populated; {@code alfresco.cross.locale.*} in Solr's shared.properties decides whether
+ * queries read it.</p>
+ *
  * <p>For non-text properties (int, long, date, etc.), returns the direct indexing
  * field name as before.</p>
  *
@@ -71,17 +75,6 @@ public class PropertyFieldMapper
         IDENTIFIER_PROPERTIES.add(ContentModel.PROP_MODIFIER);
         IDENTIFIER_PROPERTIES.add(ContentModel.PROP_USERNAME);
         IDENTIFIER_PROPERTIES.add(ContentModel.PROP_AUTHORITY_NAME);
-    }
-
-    /**
-     * Properties configured for cross-locale search. Must match the
-     * {@code alfresco.cross.locale.property.*} entries in shared.properties.
-     */
-    private static final Set<QName> CROSS_LOCALE_PROPERTIES = new HashSet<>();
-    static
-    {
-        CROSS_LOCALE_PROPERTIES.add(ContentModel.PROP_NAME);
-        CROSS_LOCALE_PROPERTIES.add(ContentModel.PROP_LOCK_OWNER);
     }
 
     /**
@@ -193,8 +186,7 @@ public class PropertyFieldMapper
         sb.append(untokenised ? 's' : '_');
 
         // Flag: cross-locale (c)
-        boolean crossLocale = CROSS_LOCALE_PROPERTIES.contains(propertyName);
-        sb.append(crossLocale ? 'c' : '_');
+        sb.append('c');
 
         // Flag: sort (s) — only for TEXT single-valued with untokenised mode
         // MLTEXT and CONTENT never have a sort flag

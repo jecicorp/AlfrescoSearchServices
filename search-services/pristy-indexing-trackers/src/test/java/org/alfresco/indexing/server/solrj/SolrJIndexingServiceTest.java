@@ -854,6 +854,26 @@ public class SolrJIndexingServiceTest
         assertTrue(serviceWithDeps.updateContent(contentRef(5L)));
     }
 
+    @Test
+    public void anExtractedContentIsIndexedIntoTheCrossLocaleField() throws Exception
+    {
+        when(repositoryClient.getNodesMetaData(any(NodeMetaDataParameters.class)))
+                .thenReturn(Collections.singletonList(contentMetaDataOf(5L)));
+        GetTextContentResponse response = mock(GetTextContentResponse.class);
+        when(response.getStatus()).thenReturn(SolrApiContentStatus.OK);
+        when(response.getContent()).thenReturn(new java.io.ByteArrayInputStream(
+                "justificatif".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        when(repositoryClient.getTextContent(eq(5L), eq(ContentModel.PROP_CONTENT), any()))
+                .thenReturn(response);
+
+        assertTrue(serviceWithDeps.updateContent(contentRef(5L)));
+
+        ArgumentCaptor<SolrInputDocument> captor = ArgumentCaptor.forClass(SolrInputDocument.class);
+        verify(solrClient).add(eq(COLLECTION), captor.capture());
+        assertEquals("\u0000en\u0000justificatif",
+                captor.getValue().getFieldValue("content@s_stored_t_c__@" + ContentModel.PROP_CONTENT));
+    }
+
     private static TenantDbId contentRef(long id)
     {
         TenantDbId ref = new TenantDbId();
