@@ -43,6 +43,7 @@ public class TrackerProperties
     private int batchCount = 5000;
     private boolean cascadeTrackingEnabled = true;
     private boolean recordUnindexedNodes = true;
+    private boolean detectContentLanguage = true;
     // Upstream solrcore.properties defaults: alfresco.commitInterval=2000,
     // alfresco.newSearcherInterval=3000. Index visibility (content tracking,
     // e2e waits) depends directly on the effective commit period.
@@ -128,6 +129,16 @@ public class TrackerProperties
     public void setRecordUnindexedNodes(boolean recordUnindexedNodes)
     {
         this.recordUnindexedNodes = recordUnindexedNodes;
+    }
+
+    public boolean isDetectContentLanguage()
+    {
+        return detectContentLanguage;
+    }
+
+    public void setDetectContentLanguage(boolean detectContentLanguage)
+    {
+        this.detectContentLanguage = detectContentLanguage;
     }
 
     public long getCommitInterval()

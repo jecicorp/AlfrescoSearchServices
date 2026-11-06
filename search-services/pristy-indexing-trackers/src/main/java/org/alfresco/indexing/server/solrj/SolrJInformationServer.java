@@ -144,6 +144,10 @@ public class SolrJInformationServer implements InformationServer
         this.indexingService.setTrackerStats(this.trackerStats);
         this.indexingService.setRecordUnindexedNodes(
                 Boolean.parseBoolean(props.getProperty("alfresco.recordUnindexedNodes", "true")));
+        if (Boolean.parseBoolean(props.getProperty("alfresco.index.detectContentLanguage", "false")))
+        {
+            this.indexingService.setContentLanguageDetector(ContentLanguageDetector.shared());
+        }
         this.commitService = new SolrJCommitService(solrClient, collection);
         this.modelService = new SolrJModelService(solrClient, collection);
     }

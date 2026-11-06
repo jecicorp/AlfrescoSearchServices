@@ -86,6 +86,19 @@ public class TrackerBootstrapTest
     }
 
     @Test
+    public void buildTrackerProperties_bridgesContentLanguageDetection()
+    {
+        TrackerBootstrap enabled = new TrackerBootstrap(null, props, null, repoProperties, null, null);
+        assertEquals("true",
+                enabled.buildTrackerProperties("alfresco").getProperty("alfresco.index.detectContentLanguage"));
+
+        props.setDetectContentLanguage(false);
+        TrackerBootstrap disabled = new TrackerBootstrap(null, props, null, repoProperties, null, null);
+        assertEquals("false",
+                disabled.buildTrackerProperties("alfresco").getProperty("alfresco.index.detectContentLanguage"));
+    }
+
+    @Test
     public void buildTrackerProperties_bridgesTuningKnobs()
     {
         props.getTuning().setNodeBatchSize(120);

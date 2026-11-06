@@ -113,6 +113,7 @@ container reach Spring Boot (`--server.port=…` and friends).
 |----------|---------|--------|
 | `alfresco.tracker.batch-count` | `5000` | Number of nodes/ACLs fetched per metadata/ACL tracking call to the Repository. Higher = fewer round-trips and faster bulk/initial indexing, but larger memory spikes and longer single transactions. |
 | `alfresco.tracker.record-unindexed-nodes` | `true` | Whether a node carrying `cm:isIndexed=false` leaves an `UnindexedNode` document behind (bridged to the core property `alfresco.recordUnindexedNodes`, the name Alfresco uses). Turn it off and such a node leaves no trace: `REPORT` stops counting it and `GET /api/v1/index/node` can no longer tell a deliberate exclusion (`unindexed`) from a node that is simply not there (`absent`). Has a per-core override. |
+| `alfresco.tracker.detect-content-language` | `true` | Analyse extracted content in the language OpenNLP detects in its first 10 000 characters, instead of the locale declared on the content (the uploader's session). The detection is kept only when the best language scores at least 1.5 times the second one; otherwise the declared locale stays. Global only. Changing it takes a content re-index to reach existing documents. |
 
 Everything under `alfresco.tracker.tuning.*` has a **per-core override** of the same
 name under `alfresco.tracker.cores.<core>.tuning.*`; an unset override inherits the

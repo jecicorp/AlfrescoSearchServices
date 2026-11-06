@@ -162,6 +162,8 @@
       <dependency.json-smart.version>2.5.2</dependency.json-smart.version>
       <dependency.mime4j.version>0.8.11</dependency.mime4j.version>
       <dependency.tomcat.version>10.1.59</dependency.tomcat.version>
+      <dependency.opennlp.version>2.5.12</dependency.opennlp.version>
+      <dependency.opennlp-models-langdetect.version>1.3.0</dependency.opennlp-models-langdetect.version>
    </properties>
    <dependencyManagement>
       <dependencies>

@@ -208,7 +208,9 @@ recreate the mount.
 ### Cross-locale search (`shared.properties`)
 
 The trackers index every `d:text`, `d:mltext` and `d:content` value twice: once analysed in
-the language of the node (`sys:locale`) and once in a language-independent field. Queries
+the language of the node (`sys:locale`) and once in a language-independent field. Content
+is analysed in the language detected in its text when the detection is clear
+(`alfresco.tracker.detect-content-language`, see `tracker-configuration.md`). Queries
 read the second field only for the data types listed as `alfresco.cross.locale.datatype.*`
 in `solrhome/conf/shared.properties`. The file ships with `text`, `content` and `mltext`
 enabled.

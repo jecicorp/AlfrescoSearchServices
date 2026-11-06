@@ -100,6 +100,7 @@ public class SolrJIndexingService
     private long contentStreamLimit = DEFAULT_CONTENT_STREAM_LIMIT;
     private TrackerStats trackerStats;
     private boolean recordUnindexedNodes = true;
+    private ContentLanguageDetector contentLanguageDetector;
 
     public SolrJIndexingService(SolrClient solrClient, String collection)
     {
@@ -146,6 +147,15 @@ public class SolrJIndexingService
     public void setRecordUnindexedNodes(boolean recordUnindexedNodes)
     {
         this.recordUnindexedNodes = recordUnindexedNodes;
+    }
+
+    /**
+     * Sets the detector that picks the analysis language of extracted content from its text.
+     * When unset, or when it detects nothing, the locale declared on the content is used.
+     */
+    public void setContentLanguageDetector(ContentLanguageDetector contentLanguageDetector)
+    {
+        this.contentLanguageDetector = contentLanguageDetector;
     }
 
     // =========================================================================
@@ -969,7 +979,7 @@ public class SolrJIndexingService
                 // Write to the stored field (content@s_stored_t_c__@). The copyField
                 // directives in generated_copy_fields.xml populate content@s__lt@ etc.
                 // This also enables highlighting via AlfrescoSolrHighlighter.
-                String language = languageFromLocale(locale);
+                String language = contentLanguage(textContent, locale);
                 doc.addField("content@s_stored_t_c__@" + qnameSuffix, "\u0000" + language + "\u0000" + textContent);
                 return true;
             }
@@ -986,6 +996,20 @@ public class SolrJIndexingService
         }
 
         return false;
+    }
+
+    /**
+     * Returns the analysis language of extracted content: the detected one when the detector
+     * is set and answers, otherwise the language of the locale declared on the content.
+     */
+    private String contentLanguage(String textContent, java.util.Locale declaredLocale)
+    {
+        String declared = languageFromLocale(declaredLocale);
+        if (contentLanguageDetector == null)
+        {
+            return declared;
+        }
+        return contentLanguageDetector.detect(textContent).orElse(declared);
     }
 
     /**

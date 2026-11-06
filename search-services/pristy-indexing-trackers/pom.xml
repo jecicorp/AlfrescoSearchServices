@@ -113,6 +113,16 @@
             <artifactId>gson</artifactId>
             <version>2.11.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.opennlp</groupId>
+            <artifactId>opennlp-tools</artifactId>
+            <version>${dependency.opennlp.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.opennlp</groupId>
+            <artifactId>opennlp-models-langdetect</artifactId>
+            <version>${dependency.opennlp-models-langdetect.version}</version>
+        </dependency>
 
         <!-- Test dependencies -->
         <dependency>
@@ -206,6 +216,8 @@
                             <exclude>**/org/alfresco/indexing/config/SslParametersFactoryTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/health/RepositoryHealthIndicator.java</exclude>
                             <exclude>**/org/alfresco/indexing/health/SolrHealthIndicator.java</exclude>
+                            <exclude>**/org/alfresco/indexing/server/solrj/ContentLanguageDetector.java</exclude>
+                            <exclude>**/org/alfresco/indexing/server/solrj/ContentLanguageDetectorTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/server/solrj/JavaBitSetAdapter.java</exclude>
                             <exclude>**/org/alfresco/indexing/server/solrj/JavaBitSetAdapterTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/server/solrj/LinkedHashMapOrderedMap.java</exclude>
@@ -300,6 +312,8 @@
                             <include>**/org/alfresco/indexing/config/SslParametersFactoryTest.java</include>
                             <include>**/org/alfresco/indexing/health/RepositoryHealthIndicator.java</include>
                             <include>**/org/alfresco/indexing/health/SolrHealthIndicator.java</include>
+                            <include>**/org/alfresco/indexing/server/solrj/ContentLanguageDetector.java</include>
+                            <include>**/org/alfresco/indexing/server/solrj/ContentLanguageDetectorTest.java</include>
                             <include>**/org/alfresco/indexing/server/solrj/JavaBitSetAdapter.java</include>
                             <include>**/org/alfresco/indexing/server/solrj/JavaBitSetAdapterTest.java</include>
                             <include>**/org/alfresco/indexing/server/solrj/LinkedHashMapOrderedMap.java</include>
