@@ -181,12 +181,13 @@ public class SolrJIndexingService
     }
 
     /**
-     * Deletes all documents for a given ACL.
-     * Query: {@code ACLID:<aclId>}
+     * Deletes the ACL document of a given ACL, leaving the nodes that reference it.
+     * Query: {@code ACLID:<aclId> AND DOC_TYPE:Acl}
      */
     public void deleteByAclId(Long aclId) throws IOException
     {
-        deleteByQuery(SolrDocumentMapper.FIELD_ACLID + ":" + aclId);
+        deleteByQuery(SolrDocumentMapper.FIELD_ACLID + ":" + aclId + " AND " + SolrDocumentMapper.FIELD_DOC_TYPE + ":"
+                + SolrDocumentMapper.DOC_TYPE_ACL);
     }
 
     /**

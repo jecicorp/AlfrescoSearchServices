@@ -139,13 +139,13 @@ public class SolrJIndexingServiceTest
     }
 
     @Test
-    public void deleteByAclId_shouldDeleteByACLID() throws Exception
+    public void deleteByAclId_shouldDeleteOnlyTheAclDocument() throws Exception
     {
         service.deleteByAclId(7L);
 
         ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
         verify(solrClient).deleteByQuery(eq(COLLECTION), queryCaptor.capture());
-        assertEquals("ACLID:7", queryCaptor.getValue());
+        assertEquals("ACLID:7 AND DOC_TYPE:Acl", queryCaptor.getValue());
     }
 
     @Test
