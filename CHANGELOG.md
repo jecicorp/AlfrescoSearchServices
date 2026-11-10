@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Version numbers are plain, without a `v` prefix, matching the Git tags.
 
 
+## [1.4.0] - 2026-11-10
+
+### Features
+
+- *(trackers)* Report content extraction per core
+- *(trackers)* Detect the language of content
+
+### Bug Fixes
+
+- *(trackers)* Lower repair-max-retries default to 3
+- *(trackers)* Index text properties cross-locale
+- *(trackers)* Keep nodes on acl reindex
+
+
 ## [1.3.0] - 2026-11-01
 
 ### Features
