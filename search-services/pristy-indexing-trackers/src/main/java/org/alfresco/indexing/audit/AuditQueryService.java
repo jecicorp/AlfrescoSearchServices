@@ -71,6 +71,8 @@ public class AuditQueryService
     /**
      * @param query the question
      * @return one page of events, newest first
+     * @throws IllegalArgumentException if a cursor is given together with a start above zero,
+     *             the two paging modes being exclusive
      */
     public AuditPage search(AuditQuery query)
     {

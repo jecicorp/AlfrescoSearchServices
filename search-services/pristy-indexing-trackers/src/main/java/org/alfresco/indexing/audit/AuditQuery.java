@@ -27,6 +27,8 @@ import java.util.List;
 /**
  * One audit question. {@code unfiltered} is the auditor path and must be asked for
  * explicitly; a query that is neither filtered nor explicitly unfiltered is refused.
+ * {@code cursor} and {@code start} are exclusive; {@code start} is zero or more, a negative
+ * value being treated as zero.
  */
 public record AuditQuery(String principal, String eventType, String nodeUuid, String pathPrefix,
         Long fromMs, Long toMs, String folder, List<String> authorities, boolean unfiltered,

@@ -24,7 +24,10 @@ package org.alfresco.indexing.audit;
 
 import java.util.List;
 
-/** A page of audit events, with the cursor that fetches the next one. */
+/**
+ * A page of audit events. A cursor page carries the cursor that fetches the next one;
+ * an offset page carries a null {@code nextCursor}.
+ */
 public record AuditPage(List<AuditEvent> events, long total, String nextCursor)
 {
 }

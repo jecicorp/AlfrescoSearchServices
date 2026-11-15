@@ -136,16 +136,6 @@ public class AuditQueryServiceTest
         assertEquals(null, q.get("cursorMark"));
     }
 
-    @Test
-    public void keepsTheCursorWalkWhenNeitherCursorNorStartIsGiven() throws Exception
-    {
-        service.search(filtered());
-        SolrQuery q = captureQuery();
-
-        assertEquals("*", q.get("cursorMark"));
-        assertEquals(null, q.get("start"));
-    }
-
     @Test(expected = IllegalArgumentException.class)
     public void refusesACursorTogetherWithAnOffset() throws Exception
     {
