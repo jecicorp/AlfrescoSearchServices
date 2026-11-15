@@ -445,11 +445,19 @@ under the folder it happened in even if the node has since moved or been deleted
 | `fromMs`     | Lower bound of the event time, epoch milliseconds            |
 | `toMs`       | Upper bound of the event time, epoch milliseconds            |
 | `cursor`     | `nextCursor` of the previous page; omit for the first page   |
+| `start`      | Offset of first event, default 0; exclusive with `cursor`    |
 | `rows`       | Page size, 1 to 1000, default 50                             |
 
-Events are sorted newest first, ties broken by `id`. Paging uses a Solr cursor, not an offset:
-pass the returned `nextCursor` as `cursor` to get the next page. The last page returns the cursor
-it was given. The response holds `events`, `total` and `nextCursor`.
+Events are sorted newest first, ties broken by `id`. Two paging modes exist and are exclusive:
+
+- `cursor` is a forward walk that cannot miss a row: pass the returned `nextCursor` as `cursor`
+  to get the next page. The last page returns the cursor it was given. Use it for an export.
+- `start` is an offset, for a paginated screen that jumps to an arbitrary page. A page fetched
+  this way carries `nextCursor: null`.
+
+Sending `cursor` together with a `start` above zero answers `400`. Deep offsets cost more than a
+cursor walk, because Solr sorts `start + rows` results on every page. The response holds `events`,
+`total` and `nextCursor`.
 
 ### `GET /api/v1/audit/facets`
 
