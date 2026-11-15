@@ -70,7 +70,7 @@ public class AuditQueryServiceTest
     private AuditQuery filtered()
     {
         return new AuditQuery(null, null, null, null, null, null, null,
-                List.of("abeecher", "GROUP_EVERYONE"), false, null, 50);
+                List.of("abeecher", "GROUP_EVERYONE"), false, null, 50, 0);
     }
 
     @Test
@@ -99,7 +99,7 @@ public class AuditQueryServiceTest
     public void appliesTheFolderScopeOnTheAuditCoreWhenFiltered() throws Exception
     {
         service.search(new AuditQuery(null, null, null, null, null, null, FOLDER,
-                List.of("abeecher"), false, null, 50));
+                List.of("abeecher"), false, null, 50, 0));
         SolrQuery q = captureQuery();
 
         assertTrue(List.of(q.getFilterQueries()).contains("ANCESTOR:\"" + FOLDER + "\""));
@@ -126,10 +126,38 @@ public class AuditQueryServiceTest
     }
 
     @Test
+    public void pagesByOffsetWithoutACursorWhenStartIsSet() throws Exception
+    {
+        service.search(new AuditQuery(null, null, null, null, null, null, null,
+                List.of("abeecher"), false, null, 50, 40));
+        SolrQuery q = captureQuery();
+
+        assertEquals("40", q.get("start"));
+        assertEquals(null, q.get("cursorMark"));
+    }
+
+    @Test
+    public void keepsTheCursorWalkWhenNeitherCursorNorStartIsGiven() throws Exception
+    {
+        service.search(filtered());
+        SolrQuery q = captureQuery();
+
+        assertEquals("*", q.get("cursorMark"));
+        assertEquals(null, q.get("start"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void refusesACursorTogetherWithAnOffset() throws Exception
+    {
+        service.search(new AuditQuery(null, null, null, null, null, null, null,
+                List.of("abeecher"), false, "AoE/Bw==", 50, 40));
+    }
+
+    @Test
     public void omitsThePermissionFilterOnlyWhenUnfilteredIsExplicit() throws Exception
     {
         AuditQuery unfiltered = new AuditQuery(null, null, null, null, null, null, null,
-                null, true, null, 50);
+                null, true, null, 50, 0);
 
         service.search(unfiltered);
         SolrQuery q = captureQuery();
@@ -141,7 +169,7 @@ public class AuditQueryServiceTest
     @Test
     public void keepsTheFolderScopeOnTheAuditCoreWhenUnfiltered() throws Exception
     {
-        service.search(new AuditQuery(null, null, null, null, null, null, FOLDER, null, true, null, 50));
+        service.search(new AuditQuery(null, null, null, null, null, null, FOLDER, null, true, null, 50, 0));
 
         assertEquals(List.of("ANCESTOR:\"" + FOLDER + "\""), List.of(captureQuery().getFilterQueries()));
     }
@@ -150,7 +178,7 @@ public class AuditQueryServiceTest
     public void refusesAnUnfilteredQueryWhenTheServerForbidsIt() throws Exception
     {
         new AuditQueryService(solrClient, "audit", false).search(
-                new AuditQuery(null, null, null, null, null, null, null, null, true, null, 50));
+                new AuditQuery(null, null, null, null, null, null, null, null, true, null, 50, 0));
     }
 
     @Test
@@ -165,14 +193,14 @@ public class AuditQueryServiceTest
     @Test(expected = IllegalArgumentException.class)
     public void refusesAQueryThatIsNeitherFilteredNorExplicitlyUnfiltered() throws Exception
     {
-        service.search(new AuditQuery(null, null, null, null, null, null, null, null, false, null, 50));
+        service.search(new AuditQuery(null, null, null, null, null, null, null, null, false, null, 50, 0));
     }
 
     @Test
     public void turnsEachCriterionIntoItsOwnFilterQuery() throws Exception
     {
         AuditQuery q = new AuditQuery("abeecher", "content-read", null, null, null, null, null,
-                List.of("abeecher"), false, null, 50);
+                List.of("abeecher"), false, null, 50, 0);
 
         service.search(q);
         List<String> fqs = List.of(captureQuery().getFilterQueries());
@@ -185,7 +213,7 @@ public class AuditQueryServiceTest
     public void escapesAValueThatCouldCloseItsOwnQuotedTerm() throws Exception
     {
         service.search(new AuditQuery("ab\"eecher", "ev\"t", "u\"id", "/Company Home\\x*", null, null, null,
-                List.of("abeecher"), false, null, 50));
+                List.of("abeecher"), false, null, 50, 0));
         List<String> fqs = List.of(captureQuery().getFilterQueries());
 
         assertTrue(fqs.contains("EVENT_TYPE:\"ev\\\"t\""));
@@ -240,7 +268,7 @@ public class AuditQueryServiceTest
     public void contributorsCarryThePermissionFilterAndTheEventTypes() throws Exception
     {
         service.contributors(new AuditQuery(null, null, null, null, null, null, FOLDER,
-                List.of("abeecher", "GROUP_EVERYONE"), false, null, 0));
+                List.of("abeecher", "GROUP_EVERYONE"), false, null, 0, 0));
         SolrQuery q = captureQuery();
         List<String> fqs = List.of(q.getFilterQueries());
 
@@ -270,7 +298,7 @@ public class AuditQueryServiceTest
     public void refusesABlankPathPrefix() throws Exception
     {
         service.search(new AuditQuery(null, null, null, " ", null, null, null,
-                List.of("abeecher"), false, null, 50));
+                List.of("abeecher"), false, null, 50, 0));
     }
 
     @Test(expected = IllegalArgumentException.class)

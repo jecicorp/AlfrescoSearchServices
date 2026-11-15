@@ -30,6 +30,6 @@ import java.util.List;
  */
 public record AuditQuery(String principal, String eventType, String nodeUuid, String pathPrefix,
         Long fromMs, Long toMs, String folder, List<String> authorities, boolean unfiltered,
-        String cursor, int rows)
+        String cursor, int rows, int start)
 {
 }

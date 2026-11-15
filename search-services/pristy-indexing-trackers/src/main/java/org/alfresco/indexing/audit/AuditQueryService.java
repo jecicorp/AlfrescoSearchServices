@@ -74,10 +74,23 @@ public class AuditQueryService
      */
     public AuditPage search(AuditQuery query)
     {
+        if (query.cursor() != null && query.start() > 0)
+        {
+            throw new IllegalArgumentException("cursor and start are exclusive; use one or the other");
+        }
+
         SolrQuery solrQuery = baseQuery(query);
         solrQuery.setRows(query.rows());
         solrQuery.set("sort", "EVENT_TIME desc,id asc");
-        solrQuery.set("cursorMark", query.cursor() == null ? "*" : query.cursor());
+
+        if (query.start() > 0)
+        {
+            solrQuery.setStart(query.start());
+        }
+        else
+        {
+            solrQuery.set("cursorMark", query.cursor() == null ? "*" : query.cursor());
+        }
 
         QueryResponse response = execute(solrQuery);
 

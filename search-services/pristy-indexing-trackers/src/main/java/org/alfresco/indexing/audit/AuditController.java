@@ -62,10 +62,11 @@ public class AuditController
             @RequestParam(required = false) List<String> authority,
             @RequestParam(defaultValue = "false") boolean unfiltered,
             @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "50") int rows)
+            @RequestParam(defaultValue = "50") int rows,
+            @RequestParam(defaultValue = "0") int start)
     {
         return auditQueryService.search(new AuditQuery(principal, eventType, nodeUuid, pathPrefix,
-                fromMs, toMs, folder, authority, unfiltered, cursor, Math.min(Math.max(rows, 1), 1000)));
+                fromMs, toMs, folder, authority, unfiltered, cursor, Math.min(Math.max(rows, 1), 1000), Math.max(start, 0)));
     }
 
     @GetMapping("/facets")
@@ -77,7 +78,7 @@ public class AuditController
             @RequestParam(defaultValue = "100") int limit)
     {
         return auditQueryService.facet(new AuditQuery(null, null, null, null, null, null, folder,
-                authority, unfiltered, null, 0), field, limit);
+                authority, unfiltered, null, 0, 0), field, limit);
     }
 
     @GetMapping("/contributors")
@@ -87,7 +88,7 @@ public class AuditController
             @RequestParam(defaultValue = "false") boolean unfiltered)
     {
         return auditQueryService.contributors(new AuditQuery(null, null, null, null, null, null, folder,
-                authority, unfiltered, null, 0));
+                authority, unfiltered, null, 0, 0));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
