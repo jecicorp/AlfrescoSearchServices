@@ -96,6 +96,6 @@ public class ApiCapabilities
     @Bean
     Capability auditSearchCapability(ObjectProvider<AuditQueryService> auditQueryService)
     {
-        return new Capability("audit.search", "1.3", auditQueryService.getIfAvailable() != null);
+        return new Capability("audit.search", "1.5", auditQueryService.getIfAvailable() != null);
     }
 }

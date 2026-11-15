@@ -79,7 +79,7 @@ never has to map a version number to a feature set:
   "capabilities": {
     "admin.actions":         { "since": "1.0", "enabled": true  },
     "admin.backup":          { "since": "1.0", "enabled": false },
-    "audit.search":          { "since": "1.3", "enabled": true  },
+    "audit.search":          { "since": "1.5", "enabled": true  },
     "index.await":           { "since": "1.2", "enabled": true  },
     "index.diagnostic":      { "since": "1.2", "enabled": true  },
     "index.status":          { "since": "1.1", "enabled": true  },
