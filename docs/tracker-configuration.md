@@ -232,10 +232,10 @@ the schedule outright (Spring's marker for a disabled cron).
 
 | Property | Env var | Default | Notes |
 |----------|---------|---------|-------|
-| `alfresco.tracker.server.secure-comms` | `ALFRESCO_TRACKER_SERVER_SECURECOMMS` | `secret` | `none` or `secret`; any other value refuses startup. Under `secret`, every request must carry `X-Alfresco-Search-Secret`. Inbound mTLS (`server.ssl`) is a separate control, not a value of this setting. |
+| `alfresco.tracker.server.secure-comms` | `ALFRESCO_TRACKER_SERVER_SECURECOMMS` | `secret` | `none` or `secret`; any other value refuses startup. Under `secret`, every request except the unauthenticated paths below must carry `X-Alfresco-Search-Secret`. Inbound mTLS (`server.ssl`) is a separate control, not a value of this setting. |
 | `alfresco.tracker.server.shared-secret` | `ALFRESCO_TRACKER_SERVER_SHAREDSECRET` | empty | A blank value under `secret` refuses startup. Must equal the repository's `solr.tracker.sharedSecret` (default `solr.sharedSecret`), or `solr9` admin actions fail with `401`. |
 
-`/actuator/health` is the single unauthenticated path. `management.endpoint.health.show-details`
+The unauthenticated paths are `/actuator/health`, `/indexing.html`, `/api/v1/progress` and `/api/v1/progress/stream` (see [indexing-progress.md](indexing-progress.md)). `management.endpoint.health.show-details`
 now defaults to `never` (`TRACKER_HEALTH_SHOW_DETAILS`).
 
 The trackers expect the exact header name `X-Alfresco-Search-Secret`, so the repository's

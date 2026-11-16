@@ -14,7 +14,7 @@ kept vanilla** and these actions live in the trackers service instead.
   - **Solr-compat alias** - `GET /solr/admin/cores?action=<ACTION>&...`, same response envelope as the old Solr admin, for tools/scripts that still target it.
   - **Pristy indexing API v1** - `/api/v1/*`, a new contract that is not a rewrite of the two above (see [below](#pristy-indexing-api-v1-read-only-get)). `GET /api/v1` advertises the capabilities of the running build; start there.
 - The actuator endpoint `GET /actuator/repairreport` complements these (see [RepairTracker](#error-nodes--repairtracker)).
-- Every request must carry `X-Alfresco-Search-Secret` unless `alfresco.tracker.server.secure-comms` is `none`; `/actuator/health` is the single exemption. The examples below assume `SECRET` holds the value of `alfresco.tracker.server.shared-secret`.
+- Every request must carry `X-Alfresco-Search-Secret` unless `alfresco.tracker.server.secure-comms` is `none`; the only exemptions are `/actuator/health`, `/indexing.html`, `/api/v1/progress` and `/api/v1/progress/stream` (see [indexing-progress.md](indexing-progress.md)). The examples below assume `SECRET` holds the value of `alfresco.tracker.server.shared-secret`.
 
 > The Alfresco control-plane actions (`SUMMARY`, `REPORT`, `REINDEX`, ...) are **not**
 > served by Solr (`:8983`): Solr is vanilla and calling e.g. `action=SUMMARY` on it

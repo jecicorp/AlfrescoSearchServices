@@ -96,8 +96,8 @@ public class ProgressConfiguration implements SchedulingConfigurer, WebMvcConfig
     }
 
     /**
-     * Cross-origin access is off until an origin is named, so the endpoints keep the
-     * same exposure as the rest of the admin surface unless an operator opts in.
+     * Cross-origin access is off until an origin is named. The progress endpoints
+     * carry no shared secret, unlike the rest of the admin surface.
      */
     @Override
     public void addCorsMappings(CorsRegistry registry)
