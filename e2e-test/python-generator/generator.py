@@ -34,6 +34,7 @@ JAVA_OPTS = ('-Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.pass
 MTLS_OPTS = ('-Dsolr.port.ssl=8983 -Dsolr.secureComms=https ')
 HTTP_OPTS = ('-Dsolr.secureComms=none')
 SECRET_OPTS = ('-Dsolr.secureComms=secret -Dsolr.sharedSecret=secret')
+MTLS_TRACKER_OPTS = ('-Dsolr.tracker.secureComms=secret -Dsolr.tracker.sharedSecret=secret')
 JAVA_TOOL_OPTIONS = ('-Dencryption.keystore.type=JCEKS '
         '-Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding '
         '-Dencryption.keyAlgorithm=DESede '
@@ -66,7 +67,9 @@ def getJavaOpts(includeAMQ, includeTransform, includeShare, solrHost, solrBaseUr
     transformOpts = (TRANSFORM_OPTS if includeTransform else '')
     solrBaseUrlOpts = '-Dsolr.baseUrl=' + solrBaseUrl
     shareTransformOpts = (SHARE_TRANSFORM_OPTS if includeShare and includeTransform else '')
-    if communication in ('mtls', 'https'):
+    if communication == 'mtls':
+        commOpts = MTLS_OPTS + MTLS_TRACKER_OPTS
+    elif communication == 'https':
         commOpts = MTLS_OPTS
     elif communication == 'none':
         commOpts = HTTP_OPTS
@@ -463,6 +466,10 @@ if __name__ == '__main__':
     elif args.communication == 'https':
         # https profile: full mTLS on both Solr and repository sides (set by addTrackersHttpsConfig below)
         trackersEnv['ALFRESCO_TRACKER_SERVER_SECURECOMMS'] = 'none'
+    elif args.communication == 'mtls':
+        trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS'] = 'none'
+        trackersEnv['ALFRESCO_TRACKER_SERVER_SECURECOMMS'] = 'secret'
+        trackersEnv['ALFRESCO_TRACKER_SERVER_SHAREDSECRET'] = 'secret'
     else:
         trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS'] = 'none'
         trackersEnv['ALFRESCO_TRACKER_SERVER_SECURECOMMS'] = 'none'
