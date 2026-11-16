@@ -24,6 +24,9 @@ alfresco:
         trust-store: ""
         trust-store-password: ""
         trust-store-type: PKCS12
+    server:
+      secure-comms: ${ALFRESCO_TRACKER_SERVER_SECURECOMMS:secret}
+      shared-secret: ${ALFRESCO_TRACKER_SERVER_SHAREDSECRET:}
     cron:
       metadata: "0/5 * * * * ?"
       acl: "0/5 * * * * ?"
@@ -89,7 +92,7 @@ management:
         include: health,info,prometheus,repairreport
   endpoint:
     health:
-      show-details: always
+      show-details: ${TRACKER_HEALTH_SHOW_DETAILS:never}
 
 logging:
   level:

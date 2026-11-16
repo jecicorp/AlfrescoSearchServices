@@ -257,6 +257,7 @@
                             <exclude>**/org/alfresco/indexing/audit/*.java</exclude>
                             <exclude>**/org/alfresco/indexing/diagnostic/*.java</exclude>
                             <exclude>**/org/alfresco/indexing/await/*.java</exclude>
+                            <exclude>**/org/alfresco/indexing/security/*.java</exclude>
                             <exclude>**/org/alfresco/indexing/tracker/TrackerSchedulerTriggerTest.java</exclude>
                             <exclude>**/org/alfresco/indexing/tracker/CommitListener.java</exclude>
                             <exclude>**/org/alfresco/indexing/tracker/CommitTrackerListenerTest.java</exclude>
@@ -354,6 +355,7 @@
                             <include>**/org/alfresco/indexing/audit/*.java</include>
                             <include>**/org/alfresco/indexing/diagnostic/*.java</include>
                             <include>**/org/alfresco/indexing/await/*.java</include>
+                            <include>**/org/alfresco/indexing/security/*.java</include>
                             <include>**/org/alfresco/indexing/tracker/TrackerSchedulerTriggerTest.java</include>
                             <include>**/org/alfresco/indexing/tracker/CommitListener.java</include>
                             <include>**/org/alfresco/indexing/tracker/CommitTrackerListenerTest.java</include>
