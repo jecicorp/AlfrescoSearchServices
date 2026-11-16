@@ -238,6 +238,9 @@ the schedule outright (Spring's marker for a disabled cron).
 `/actuator/health` is the single unauthenticated path. `management.endpoint.health.show-details`
 now defaults to `never` (`TRACKER_HEALTH_SHOW_DETAILS`).
 
+The trackers expect the exact header name `X-Alfresco-Search-Secret`, so the repository's
+`solr.sharedSecret.header` must keep its default.
+
 ### Internal content settings (not externally configurable today)
 
 Both ContentTracker knobs are now configurable as
