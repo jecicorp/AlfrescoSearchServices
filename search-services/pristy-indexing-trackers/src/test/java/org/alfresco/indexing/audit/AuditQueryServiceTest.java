@@ -171,6 +171,22 @@ public class AuditQueryServiceTest
     }
 
     @Test
+    public void refusesAnUnfilteredQueryThatCarriesAnAuthoritySet() throws Exception
+    {
+        try
+        {
+            service.search(new AuditQuery(null, null, null, null, null, null, null,
+                    List.of("abeecher"), true, null, 50, 0));
+        }
+        catch (IllegalArgumentException e)
+        {
+            assertEquals("an unfiltered query carries no authority set", e.getMessage());
+            return;
+        }
+        throw new AssertionError("expected IllegalArgumentException");
+    }
+
+    @Test
     public void turnsEachCriterionIntoItsOwnFilterQuery() throws Exception
     {
         AuditQuery q = new AuditQuery("abeecher", "content-read", null, null, null, null, null,
