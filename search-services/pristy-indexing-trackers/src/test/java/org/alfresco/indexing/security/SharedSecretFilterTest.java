@@ -115,4 +115,20 @@ public class SharedSecretFilterTest
         assertNull(chain.getRequest());
         assertEquals(401, response.getStatus());
     }
+
+    @Test
+    public void guardsASubPathOfTheHealthProbe() throws Exception
+    {
+        run("secret", "/actuator/health/liveness", null);
+        assertNull(chain.getRequest());
+        assertEquals(401, response.getStatus());
+    }
+
+    @Test
+    public void guardsTheHealthPathWithATrailingSlash() throws Exception
+    {
+        run("secret", "/actuator/health/", null);
+        assertNull(chain.getRequest());
+        assertEquals(401, response.getStatus());
+    }
 }

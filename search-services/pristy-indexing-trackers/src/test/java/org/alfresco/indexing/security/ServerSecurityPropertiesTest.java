@@ -22,6 +22,7 @@
  */
 package org.alfresco.indexing.security;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -76,6 +77,48 @@ public class ServerSecurityPropertiesTest
         {
             assertTrue(e.getMessage().contains("alfresco.tracker.server.secure-comms"));
             assertTrue(e.getMessage().contains("secrt"));
+        }
+    }
+
+    @Test
+    public void acceptsAMixedCaseModeWithSurroundingBlanks()
+    {
+        ServerSecurityProperties properties = properties("  Secret ", "s3cret");
+        properties.validate();
+        assertEquals("secret", properties.getSecureComms());
+    }
+
+    @Test
+    public void refusesToStartWithANullMode()
+    {
+        try
+        {
+            properties(null, "s3cret").validate();
+            fail("expected IllegalStateException");
+        }
+        catch (IllegalStateException e)
+        {
+            assertTrue(e.getMessage().contains("alfresco.tracker.server.secure-comms"));
+        }
+    }
+
+    @Test
+    public void trimsTheSharedSecret()
+    {
+        assertEquals("s3cret", properties("secret", "s3cret\n").getSharedSecret());
+    }
+
+    @Test
+    public void refusesAWhitespaceOnlySecret()
+    {
+        try
+        {
+            properties("secret", "\n ").validate();
+            fail("expected IllegalStateException");
+        }
+        catch (IllegalStateException e)
+        {
+            assertTrue(e.getMessage().contains("alfresco.tracker.server.shared-secret"));
         }
     }
 }

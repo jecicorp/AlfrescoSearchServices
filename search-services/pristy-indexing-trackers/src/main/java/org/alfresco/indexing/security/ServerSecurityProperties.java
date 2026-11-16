@@ -48,7 +48,10 @@ public class ServerSecurityProperties
         this.secureComms = secureComms == null ? null : secureComms.trim().toLowerCase(Locale.ROOT);
     }
     public String getSharedSecret() { return sharedSecret; }
-    public void setSharedSecret(String sharedSecret) { this.sharedSecret = sharedSecret; }
+    public void setSharedSecret(String sharedSecret)
+    {
+        this.sharedSecret = sharedSecret == null ? null : sharedSecret.trim();
+    }
 
     public boolean isNone()
     {
