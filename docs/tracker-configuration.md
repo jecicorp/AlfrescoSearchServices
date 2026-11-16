@@ -233,7 +233,7 @@ the schedule outright (Spring's marker for a disabled cron).
 
 | Property | Env var | Default | Notes |
 |----------|---------|---------|-------|
-| `alfresco.tracker.server.secure-comms` | `ALFRESCO_TRACKER_SERVER_SECURECOMMS` | `secret` | `none` or `secret`. Under `secret`, every request must carry `X-Alfresco-Search-Secret`. Inbound mTLS (`server.ssl`) is a separate control, not a value of this setting. |
+| `alfresco.tracker.server.secure-comms` | `ALFRESCO_TRACKER_SERVER_SECURECOMMS` | `secret` | `none` or `secret`; any other value refuses startup. Under `secret`, every request must carry `X-Alfresco-Search-Secret`. Inbound mTLS (`server.ssl`) is a separate control, not a value of this setting. |
 | `alfresco.tracker.server.shared-secret` | `ALFRESCO_TRACKER_SERVER_SHAREDSECRET` | empty | A blank value under `secret` refuses startup. Must equal the repository's `solr.tracker.sharedSecret` (default `solr.sharedSecret`), or `solr9` admin actions fail with `401`. |
 
 `/actuator/health` is the single unauthenticated path. `management.endpoint.health.show-details`
