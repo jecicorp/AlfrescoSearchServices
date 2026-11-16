@@ -56,6 +56,8 @@ public class SolrE2eActionTest extends AbstractE2EFunctionalTest
     private String trackerServer;
     @Value("${tracker.port:8085}")
     private int trackerPort;
+    @Value("${tracker.secret:}")
+    private String trackerSecret;
 
     private TrackerAdminClient trackerAdmin;
 
@@ -68,7 +70,7 @@ public class SolrE2eActionTest extends AbstractE2EFunctionalTest
     @BeforeClass(alwaysRun = true)
     public void dataPreparation() throws Exception
     {
-        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort);
+        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort, trackerSecret);
 
         // Create a new document
         FolderModel folder = new FolderModel("folder-aspect");

@@ -54,13 +54,15 @@ public class SolrE2ESummaryTest extends AbstractE2EFunctionalTest
     private String trackerServer;
     @Value("${tracker.port:8085}")
     private int trackerPort;
+    @Value("${tracker.secret:}")
+    private String trackerSecret;
 
     private TrackerAdminClient trackerAdmin;
 
     @BeforeClass(alwaysRun = true)
     public void setupTrackerClient()
     {
-        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort);
+        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort, trackerSecret);
     }
 
     /** The maximum time to wait for a report to update (in ms). */

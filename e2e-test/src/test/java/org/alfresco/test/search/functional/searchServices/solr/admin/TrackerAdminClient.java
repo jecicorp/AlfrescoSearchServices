@@ -48,6 +48,8 @@ public class TrackerAdminClient
     /** Optional RestAssured config that carries TLS/mTLS settings. Null = plain HTTP. */
     private final RestAssuredConfig restAssuredConfig;
 
+    private final String sharedSecret;
+
     /**
      * Creates a plain-HTTP (or basic-HTTPS without client cert) client.
      *
@@ -57,8 +59,22 @@ public class TrackerAdminClient
      */
     public TrackerAdminClient(String scheme, String server, int port)
     {
+        this(scheme, server, port, null);
+    }
+
+    /**
+     * Creates a plain-HTTP client that sends the inbound shared secret header.
+     *
+     * @param scheme "http" or "https"
+     * @param server hostname or IP of the tracker admin service
+     * @param port   port of the tracker admin service (default 8085)
+     * @param sharedSecret value of {@code X-Alfresco-Search-Secret}; null or blank sends no header
+     */
+    public TrackerAdminClient(String scheme, String server, int port, String sharedSecret)
+    {
         this.baseUrl = scheme + "://" + server + ":" + port;
         this.restAssuredConfig = null;
+        this.sharedSecret = sharedSecret;
     }
 
     /**
@@ -71,6 +87,7 @@ public class TrackerAdminClient
     {
         this.baseUrl = baseUrl;
         this.restAssuredConfig = restAssuredConfig;
+        this.sharedSecret = null;
     }
 
     /**
@@ -125,6 +142,11 @@ public class TrackerAdminClient
         if (restAssuredConfig != null)
         {
             spec = spec.config(restAssuredConfig);
+        }
+
+        if (sharedSecret != null && !sharedSecret.isBlank())
+        {
+            spec = spec.header("X-Alfresco-Search-Secret", sharedSecret);
         }
 
         Response response = spec.get("/cores").andReturn();

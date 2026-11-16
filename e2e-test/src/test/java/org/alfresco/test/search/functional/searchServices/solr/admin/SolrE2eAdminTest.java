@@ -61,13 +61,15 @@ public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
     private String trackerServer;
     @Value("${tracker.port:8085}")
     private int trackerPort;
+    @Value("${tracker.secret:}")
+    private String trackerSecret;
 
     private TrackerAdminClient trackerAdmin;
 
     @BeforeClass(alwaysRun = true)
     public void setupTrackerClient()
     {
-        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort);
+        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort, trackerSecret);
     }
 
     // SOLR default response status codes (returned in responseHeader.status)
