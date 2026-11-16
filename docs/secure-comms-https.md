@@ -134,6 +134,7 @@ ALFRESCO_TRACKER_REPOSITORY_SSL_TRUST_STORE_TYPE=PKCS12
 ### L4 — Admin server (`:8085`)
 
 ```bash
+ALFRESCO_TRACKER_SERVER_SECURECOMMS=none
 TRACKER_SERVER_SSL_ENABLED=true
 TRACKER_SERVER_SSL_KEY_STORE=/run/secrets/trackers.p12
 TRACKER_SERVER_SSL_KEY_STORE_PASSWORD=changeit
@@ -142,6 +143,9 @@ TRACKER_SERVER_SSL_TRUST_STORE_PASSWORD=changeit
 ```
 
 The admin server always requires a client certificate (`client-auth: need`).
+Inbound mTLS is the guard here, so the inbound mode must be `none`: the default
+`secret` refuses startup without a shared secret, and the repository presents a
+client certificate and sends no `X-Alfresco-Search-Secret` header.
 
 ---
 
@@ -196,7 +200,8 @@ In `https` mode, either:
    the `trackers` container.
 5. Set `ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS=https` +
    `ALFRESCO_TRACKER_REPOSITORY_SSL_*` on `trackers`.
-6. Set `TRACKER_SERVER_SSL_ENABLED=true` + `TRACKER_SERVER_SSL_*` on `trackers`.
+6. Set `ALFRESCO_TRACKER_SERVER_SECURECOMMS=none` + `TRACKER_SERVER_SSL_ENABLED=true` +
+   `TRACKER_SERVER_SSL_*` on `trackers`.
 7. Add the Alfresco `-D` props (§5) for L1.
 8. Update `ALFRESCO_TRACKER_SOLR_URL` to `https://solr:8983/solr`.
 9. Disable or reconfigure the Caddy `:8984` block (§6).
