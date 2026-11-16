@@ -57,7 +57,7 @@ public class AuditQueryServiceTest
         Mockito.when(response.getResults()).thenReturn(new SolrDocumentList());
         Mockito.when(response.getNextCursorMark()).thenReturn("AoE/Bw==");
         Mockito.when(solrClient.query(Mockito.eq("audit"), Mockito.any(SolrQuery.class))).thenReturn(response);
-        this.service = new AuditQueryService(solrClient, "audit", true);
+        this.service = new AuditQueryService(solrClient, "audit");
     }
 
     private SolrQuery captureQuery() throws Exception
@@ -162,22 +162,6 @@ public class AuditQueryServiceTest
         service.search(new AuditQuery(null, null, null, null, null, null, FOLDER, null, true, null, 50, 0));
 
         assertEquals(List.of("ANCESTOR:\"" + FOLDER + "\""), List.of(captureQuery().getFilterQueries()));
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void refusesAnUnfilteredQueryWhenTheServerForbidsIt() throws Exception
-    {
-        new AuditQueryService(solrClient, "audit", false).search(
-                new AuditQuery(null, null, null, null, null, null, null, null, true, null, 50, 0));
-    }
-
-    @Test
-    public void stillServesAFilteredQueryWhenUnfilteredIsForbidden() throws Exception
-    {
-        new AuditQueryService(solrClient, "audit", false).search(filtered());
-
-        assertTrue(List.of(captureQuery().getFilterQueries()).stream()
-                .anyMatch(f -> f.contains("fromIndex=alfresco")));
     }
 
     @Test(expected = IllegalArgumentException.class)

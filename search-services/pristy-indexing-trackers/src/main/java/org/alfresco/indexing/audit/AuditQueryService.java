@@ -56,16 +56,13 @@ public class AuditQueryService
 
     private final SolrClient solrClient;
     private final String core;
-    private final boolean allowUnfiltered;
 
     public AuditQueryService(
             SolrClient solrClient,
-            @Value("${alfresco.tracker.audit.core:audit}") String core,
-            @Value("${alfresco.tracker.audit.allow-unfiltered:true}") boolean allowUnfiltered)
+            @Value("${alfresco.tracker.audit.core:audit}") String core)
     {
         this.solrClient = solrClient;
         this.core = core;
-        this.allowUnfiltered = allowUnfiltered;
     }
 
     /**
@@ -164,10 +161,6 @@ public class AuditQueryService
 
         if (query.unfiltered())
         {
-            if (!allowUnfiltered)
-            {
-                throw new IllegalArgumentException("unfiltered audit queries are disabled on this server");
-            }
             if (query.authorities() != null && !query.authorities().isEmpty())
             {
                 throw new IllegalArgumentException("an unfiltered query carries no authority set");

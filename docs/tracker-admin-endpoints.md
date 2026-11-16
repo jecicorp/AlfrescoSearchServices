@@ -428,8 +428,6 @@ inside the stack.
 
 A query must either carry at least one `authority` or set `unfiltered=true`; otherwise it is
 refused with `400`. An unfiltered query must carry no `authority`. A blank `folder` is a `400`.
-When `alfresco.tracker.audit.allow-unfiltered` is `false`, every `unfiltered=true` query is refused
-with `400` (default `true`).
 
 A `folder` scope applies on both paths, against the audit core's own `ANCESTOR` field and never
 through the permission join. It matches the ancestry recorded on the event, so an event is found
