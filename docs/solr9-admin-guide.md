@@ -302,6 +302,7 @@ You do **not** need to relearn day-to-day search administration:
 | Container `Up`, nothing works, requests answer `404` | Solr's `CoreContainer` failed to start while Jetty kept serving — the container healthcheck reports `unhealthy`, `docker ps` alone does not. Read the first 50 log lines: `SOLR_MODE=solrcloud` without `ZK_HOST` fails this way (*Cannot start Solr in cloud mode - no cloud config provided*), as does an unloadable schema. |
 | Admin page / admin action fails with `ConnectException: Connection refused` | `solr.tracker.host` not set (defaults to `localhost`) or the trackers admin port unreachable from ACS. In `https` mode also check `solr.tracker.port.ssl` and that the trackers admin server has TLS enabled. See *Repository side: the `solr9` search subsystem*. |
 | Admin page / admin action fails with `401` | The trackers run with `alfresco.tracker.server.secure-comms: secret` and the repository's `solr.tracker.sharedSecret` does not match `alfresco.tracker.server.shared-secret`. |
+| Admin page / admin action fails with `401`, not `Connection refused` | The repository has `solr.tracker.secureComms=none` while the trackers run in `secret` mode: the repository sends no header. Set the repository to `secret` with the same secret. |
 | OOTBee "Solr Tracking" page shows *Web Script Status 500* / `coreNames`/`… Active` null | Repository not on the `solr9` subsystem, or an `ootbee-support-tools` build that predates `solr9` support. Set `index.subsystem.name=solr9` and deploy an addon build with `solr9` support. |
 
 ## Container health
@@ -322,25 +323,26 @@ exempts a path, and the probe carries no secret.
 
 Indexing reports and maintenance actions are served by the **trackers** service on
 `:8085` (Solr stays vanilla — the old `/solr/admin/cores?action=…` handler now
-lives here). The most useful:
+lives here). Every request carries the shared secret; the examples assume `SECRET`
+holds the value of `alfresco.tracker.server.shared-secret`. The most useful:
 
 ```bash
 # Is indexing caught up? (per-core stats + TXLag/AclTXLag)
-curl -s "http://<trackers>:8085/api/admin/summary" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://<trackers>:8085/api/admin/summary" | python3 -m json.tool
 
 # Index consistency report (missing/duplicated/error docs)
-curl -s "http://<trackers>:8085/api/admin/report?core=alfresco" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://<trackers>:8085/api/admin/report?core=alfresco" | python3 -m json.tool
 
 # Status of one node (by DBID)
-curl -s "http://<trackers>:8085/api/admin/node-report?nodeid=<DBID>&core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://<trackers>:8085/api/admin/node-report?nodeid=<DBID>&core=alfresco"
 
 # Reindex a node / transaction / AFTS query on demand
-curl -s -X POST "http://<trackers>:8085/api/admin/reindex?nodeid=<DBID>&core=alfresco"
-curl -s -X POST "http://<trackers>:8085/api/admin/reindex?txid=<TXID>&core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://<trackers>:8085/api/admin/reindex?nodeid=<DBID>&core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://<trackers>:8085/api/admin/reindex?txid=<TXID>&core=alfresco"
 
 # Inspect and retry error nodes
-curl -s  "http://<trackers>:8085/actuator/repairreport"
-curl -s -X POST "http://<trackers>:8085/api/admin/retry?core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://<trackers>:8085/actuator/repairreport"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://<trackers>:8085/api/admin/retry?core=alfresco"
 ```
 
 Full action list, parameters and the Solr-compat alias:
@@ -361,10 +363,10 @@ last snapshot and re-index only the **delta** since it was taken.
 
 ```bash
 # On-demand backup of all cores (into the configured location)
-curl -s -X POST "http://<trackers>:8085/api/admin/backup"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://<trackers>:8085/api/admin/backup"
 
 # Restore a core from the latest snapshot, then let the tracker catch up the delta
-curl -s -X POST "http://<trackers>:8085/api/admin/restore?core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://<trackers>:8085/api/admin/restore?core=alfresco"
 ```
 
 Scheduled backups are opt-in — enable and tune them per core with
@@ -480,8 +482,8 @@ the swap.
    slower crons via `ALFRESCO_TRACKER_CORES_ALFRESCOREBUILD_*` overrides during catch-up.
 3. **Wait until it has caught up.** Compare it to the live core and confirm consistency:
    ```bash
-   curl -s "http://<trackers>:8085/api/admin/summary" | python3 -m json.tool
-   curl -s "http://<trackers>:8085/api/admin/report?core=alfresco-rebuild" | python3 -m json.tool
+   curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://<trackers>:8085/api/admin/summary" | python3 -m json.tool
+   curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://<trackers>:8085/api/admin/report?core=alfresco-rebuild" | python3 -m json.tool
    ```
    Proceed only when `TXLag`/`AclTXLag` ≈ 0 **and** the report shows no missing/error docs.
    (Heed the silent-skip behaviour: trust `summary`/`report`, not the HTTP status code.)
