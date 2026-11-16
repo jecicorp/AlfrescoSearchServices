@@ -45,6 +45,11 @@ public class AuditPurgeScheduler
     private final String core;
     private final int retentionDays;
 
+    /**
+     * @param solrClient    the client of the Solr instance holding the audit core
+     * @param core          the name of the audit core
+     * @param retentionDays how many days of events are kept; zero or less disables the purge
+     */
     public AuditPurgeScheduler(SolrClient solrClient,
             @Value("${alfresco.tracker.audit.core:audit}") String core,
             @Value("${alfresco.tracker.audit.retention-days:1825}") int retentionDays)
@@ -70,6 +75,7 @@ public class AuditPurgeScheduler
         return "EVENT_TIME:[* TO NOW-" + retentionDays + "DAYS]";
     }
 
+    /** Deletes the events older than the retention; a failure is logged, never raised. */
     @Scheduled(cron = "${alfresco.tracker.audit.purge-cron:0 30 3 * * ?}")
     public void purge()
     {

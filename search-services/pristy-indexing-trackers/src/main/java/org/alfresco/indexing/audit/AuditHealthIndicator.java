@@ -38,6 +38,11 @@ public class AuditHealthIndicator implements HealthIndicator
     private final Supplier<Long> lag;
     private final long threshold;
 
+    /**
+     * @param running   whether the audit listener container is running
+     * @param lag       the committed lag of the audit consumer group
+     * @param threshold the lag above which the indicator reports down
+     */
     public AuditHealthIndicator(BooleanSupplier running, Supplier<Long> lag, long threshold)
     {
         this.running = running;
@@ -45,6 +50,10 @@ public class AuditHealthIndicator implements HealthIndicator
         this.threshold = threshold;
     }
 
+    /**
+     * @return {@code DOWN} when the container is stopped, when the lag cannot be measured,
+     *         or when the lag exceeds the threshold; {@code UP} otherwise
+     */
     @Override
     public Health health()
     {

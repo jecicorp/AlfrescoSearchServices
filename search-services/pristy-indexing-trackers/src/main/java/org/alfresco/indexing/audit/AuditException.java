@@ -25,6 +25,10 @@ package org.alfresco.indexing.audit;
 /** Raised when an audit operation fails against the audit core. */
 public class AuditException extends RuntimeException
 {
+    /**
+     * @param message what failed, with the event or query coordinates when there are any
+     * @param cause   the underlying failure
+     */
     public AuditException(String message, Throwable cause)
     {
         super(message, cause);

@@ -50,6 +50,11 @@ public class AuditIndexer
     private final AuditDocumentMapper mapper;
     private final String core;
 
+    /**
+     * @param solrClient the client of the Solr instance holding the audit core
+     * @param mapper     the mapper turning an event into its document
+     * @param core       the name of the audit core
+     */
     public AuditIndexer(SolrClient solrClient, AuditDocumentMapper mapper,
             @Value("${alfresco.tracker.audit.core:audit}") String core)
     {

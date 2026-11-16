@@ -52,6 +52,9 @@ public class AuditDocumentMapper
 
     private final ObjectMapper objectMapper;
 
+    /**
+     * @param objectMapper the mapper serialising the event properties into PROPERTIES_JSON
+     */
     public AuditDocumentMapper(ObjectMapper objectMapper)
     {
         this.objectMapper = objectMapper;

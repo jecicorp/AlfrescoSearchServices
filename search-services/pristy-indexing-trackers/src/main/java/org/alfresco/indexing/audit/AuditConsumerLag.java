@@ -47,6 +47,11 @@ public class AuditConsumerLag implements Supplier<Long>
     private final String topic;
     private final String groupId;
 
+    /**
+     * @param consumerFactory the factory opening a short lived consumer to read the offsets
+     * @param topic           the audit topic
+     * @param groupId         the consumer group whose committed offsets are read
+     */
     public AuditConsumerLag(ConsumerFactory<String, AuditEventMessage> consumerFactory,
             String topic, String groupId)
     {
