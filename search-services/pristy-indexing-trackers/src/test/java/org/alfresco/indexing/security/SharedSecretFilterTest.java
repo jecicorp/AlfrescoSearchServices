@@ -107,4 +107,12 @@ public class SharedSecretFilterTest
         run("none", "/api/v1", null);
         assertNotNull(chain.getRequest());
     }
+
+    @Test
+    public void guardsWhenSecureCommsIsUnknown() throws Exception
+    {
+        run("secrt", "/api/v1", null);
+        assertNull(chain.getRequest());
+        assertEquals(401, response.getStatus());
+    }
 }

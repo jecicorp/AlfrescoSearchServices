@@ -63,4 +63,19 @@ public class ServerSecurityPropertiesTest
     {
         properties("none", "").validate();
     }
+
+    @Test
+    public void refusesToStartWithAnUnknownSecureCommsValue()
+    {
+        try
+        {
+            properties("secrt", "s3cret").validate();
+            fail("expected IllegalStateException");
+        }
+        catch (IllegalStateException e)
+        {
+            assertTrue(e.getMessage().contains("alfresco.tracker.server.secure-comms"));
+            assertTrue(e.getMessage().contains("secrt"));
+        }
+    }
 }

@@ -53,7 +53,7 @@ public class SharedSecretFilter extends OncePerRequestFilter
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
         FilterChain chain) throws ServletException, IOException
     {
-        if (!properties.isSecretRequired() || HEALTH_PATH.equals(request.getRequestURI()))
+        if (properties.isNone() || HEALTH_PATH.equals(request.getRequestURI()))
         {
             chain.doFilter(request, response);
             return;

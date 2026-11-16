@@ -22,6 +22,8 @@
  */
 package org.alfresco.indexing.security;
 
+import java.util.Locale;
+
 import jakarta.annotation.PostConstruct;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -41,19 +43,28 @@ public class ServerSecurityProperties
     private String sharedSecret = "";
 
     public String getSecureComms() { return secureComms; }
-    public void setSecureComms(String secureComms) { this.secureComms = secureComms; }
+    public void setSecureComms(String secureComms)
+    {
+        this.secureComms = secureComms == null ? null : secureComms.trim().toLowerCase(Locale.ROOT);
+    }
     public String getSharedSecret() { return sharedSecret; }
     public void setSharedSecret(String sharedSecret) { this.sharedSecret = sharedSecret; }
 
-    public boolean isSecretRequired()
+    public boolean isNone()
     {
-        return MODE_SECRET.equalsIgnoreCase(secureComms);
+        return MODE_NONE.equals(secureComms);
     }
 
     @PostConstruct
     void validate()
     {
-        if (!isSecretRequired())
+        if (!MODE_NONE.equals(secureComms) && !MODE_SECRET.equals(secureComms))
+        {
+            throw new IllegalStateException(
+                "alfresco.tracker.server.secure-comms must be 'none' or 'secret', got '"
+                    + secureComms + "'");
+        }
+        if (isNone())
         {
             return;
         }
