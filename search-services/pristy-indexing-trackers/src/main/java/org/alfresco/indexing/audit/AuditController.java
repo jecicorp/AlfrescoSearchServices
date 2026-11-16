@@ -45,11 +45,29 @@ public class AuditController
 {
     private final AuditQueryService auditQueryService;
 
+    /**
+     * @param auditQueryService the service that runs the questions against the audit core
+     */
     public AuditController(AuditQueryService auditQueryService)
     {
         this.auditQueryService = auditQueryService;
     }
 
+    /**
+     * @param principal  the actor to match, or null for every actor
+     * @param eventType  the event type to match, or null for every type
+     * @param nodeUuid   the node to match, or null for every node
+     * @param pathPrefix the prefix the event path must carry, or null for no path restriction
+     * @param fromMs     the inclusive lower bound of the event time, in epoch milliseconds, or null
+     * @param toMs       the inclusive upper bound of the event time, in epoch milliseconds, or null
+     * @param folder     the folder the events sit under, or null for the whole repository
+     * @param authority  the authority set the caller reads with
+     * @param unfiltered true to read every event, which carries no authority set
+     * @param cursor     the cursor of the previous page, exclusive with a start above zero
+     * @param rows       the page size, clamped to 1000
+     * @param start      the offset of the first row, clamped to zero
+     * @return one page of events, newest first
+     */
     @GetMapping("/events")
     public AuditPage events(
             @RequestParam(required = false) String principal,
@@ -69,6 +87,14 @@ public class AuditController
                 fromMs, toMs, folder, authority, unfiltered, cursor, Math.min(Math.max(rows, 1), 1000), Math.max(start, 0)));
     }
 
+    /**
+     * @param field      the field to count on, among the facetable fields of the audit core
+     * @param folder     the folder the events sit under, or null for the whole repository
+     * @param authority  the authority set the caller reads with
+     * @param unfiltered true to count every event, which carries no authority set
+     * @param limit      the maximum number of values; zero or less asks for as many as the cap allows
+     * @return each value of the field and how many events carry it
+     */
     @GetMapping("/facets")
     public Map<String, Long> facets(
             @RequestParam String field,
@@ -81,6 +107,12 @@ public class AuditController
                 authority, unfiltered, null, 0, 0), field, limit);
     }
 
+    /**
+     * @param folder     the folder whose contributors are counted
+     * @param authority  the authority set the caller reads with
+     * @param unfiltered true to count every event, which carries no authority set
+     * @return each contributor and how many contributing events carry their name
+     */
     @GetMapping("/contributors")
     public Map<String, Long> contributors(
             @RequestParam String folder,
@@ -91,6 +123,7 @@ public class AuditController
                 authority, unfiltered, null, 0, 0));
     }
 
+    /** @return {@code 400} with the reason the query breaks the contract */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> badRequest(RuntimeException e)
     {

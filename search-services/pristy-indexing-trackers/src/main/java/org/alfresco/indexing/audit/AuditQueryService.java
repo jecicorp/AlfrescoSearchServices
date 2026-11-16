@@ -57,6 +57,10 @@ public class AuditQueryService
     private final SolrClient solrClient;
     private final String core;
 
+    /**
+     * @param solrClient the client of the Solr instance holding the audit core
+     * @param core       the name of the audit core
+     */
     public AuditQueryService(
             SolrClient solrClient,
             @Value("${alfresco.tracker.audit.core:audit}") String core)
