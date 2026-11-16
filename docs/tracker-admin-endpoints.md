@@ -455,8 +455,9 @@ Events are sorted newest first, ties broken by `id`. Two paging modes exist and 
   this way carries `nextCursor: null`.
 
 Sending `cursor` together with a `start` above zero answers `400`. Deep offsets cost more than a
-cursor walk, because Solr sorts `start + rows` results on every page. The response holds `events`,
-`total` and `nextCursor`.
+cursor walk, because Solr sorts `start + rows` results on every page, so a `start` above
+`alfresco.tracker.audit.max-offset` (default 10000) answers `400` as well: walk the pages with
+`cursor` instead. The response holds `events`, `total` and `nextCursor`.
 
 ### `GET /api/v1/audit/facets`
 
@@ -469,7 +470,7 @@ Returns a map of value to event count.
 
 `folder` is required. Returns a map of user name to the number of contributing events
 (`create-node`, `content-update`, `update-properties`, `create-version`, `check-in`) under that
-folder.
+folder, the most frequent contributors first and at most 1000 of them.
 
 ```bash
 curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/v1/audit/events?authority=abeecher&authority=GROUP_EVERYONE&rows=20"

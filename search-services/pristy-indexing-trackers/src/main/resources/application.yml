@@ -52,6 +52,7 @@ alfresco:
     audit:
       enabled: ${ALFRESCO_TRACKER_AUDIT_ENABLED:false}
       core: ${ALFRESCO_TRACKER_AUDIT_CORE:audit}
+      max-offset: ${ALFRESCO_TRACKER_AUDIT_MAX_OFFSET:10000}
       topic: ${ALFRESCO_TRACKER_AUDIT_TOPIC:audit-pristy}
       group-id: ${ALFRESCO_TRACKER_AUDIT_GROUP_ID:pristy-audit-indexer}
       bootstrap-servers: ${ALFRESCO_TRACKER_AUDIT_BOOTSTRAP_SERVERS:kafka:9092}

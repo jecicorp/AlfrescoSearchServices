@@ -58,34 +58,44 @@ public class AuditQueryService
     private final SolrClient solrClient;
     private final String core;
     private final List<String> contentCores;
+    private final int maxOffset;
 
     /**
      * @param solrClient the client of the Solr instance holding the audit core
      * @param core       the name of the audit core
      * @param properties the tracker configuration, whose tracked collections are the cores
      *            the permission filter joins against
+     * @param maxOffset  the highest offset an offset-paged query may ask for
      */
     public AuditQueryService(
             SolrClient solrClient,
             @Value("${alfresco.tracker.audit.core:audit}") String core,
-            TrackerProperties properties)
+            TrackerProperties properties,
+            @Value("${alfresco.tracker.audit.max-offset:10000}") int maxOffset)
     {
         this.solrClient = solrClient;
         this.core = core;
         this.contentCores = properties.getSolr().getCollections();
+        this.maxOffset = maxOffset;
     }
 
     /**
      * @param query the question
      * @return one page of events, newest first
      * @throws IllegalArgumentException if a cursor is given together with a start above zero,
-     *             the two paging modes being exclusive
+     *             the two paging modes being exclusive, or if the start is above the
+     *             configured maximum offset
      */
     public AuditPage search(AuditQuery query)
     {
         if (query.cursor() != null && query.start() > 0)
         {
             throw new IllegalArgumentException("cursor and start are exclusive; use one or the other");
+        }
+        if (query.start() > maxOffset)
+        {
+            throw new IllegalArgumentException("start is above the maximum offset " + maxOffset
+                    + "; walk the pages with cursor instead");
         }
 
         SolrQuery solrQuery = baseQuery(query);
@@ -135,7 +145,12 @@ public class AuditQueryService
         return counts(execute(solrQuery).getFacetField(field));
     }
 
-    /** Who contributed to the folder the query names, and how many times. */
+    /**
+     * Who contributed to the folder the query names, and how many times.
+     *
+     * @param query the question whose folder scopes the count
+     * @return the most frequent contributors first, as many as the facet cap allows
+     */
     public Map<String, Long> contributors(AuditQuery query)
     {
         SolrQuery solrQuery = baseQuery(query);
@@ -143,7 +158,7 @@ public class AuditQueryService
         solrQuery.addFilterQuery("EVENT_TYPE:(\"" + String.join("\" OR \"", CONTRIBUTING_EVENTS) + "\")");
         solrQuery.setFacet(true);
         solrQuery.addFacetField("PRINCIPAL");
-        solrQuery.setFacetLimit(-1);
+        solrQuery.setFacetLimit(MAX_FACET_LIMIT);
         solrQuery.setFacetMinCount(1);
 
         return counts(execute(solrQuery).getFacetField("PRINCIPAL"));

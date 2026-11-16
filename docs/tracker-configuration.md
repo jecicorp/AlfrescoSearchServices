@@ -208,6 +208,7 @@ so no purge runs.
 |----------|---------|---------|--------|
 | `alfresco.tracker.audit.enabled` | `ALFRESCO_TRACKER_AUDIT_ENABLED` | `false` | Turns the audit feature on, purge included. |
 | `alfresco.tracker.audit.core` | `ALFRESCO_TRACKER_AUDIT_CORE` | `audit` | Solr core holding the audit events. |
+| `alfresco.tracker.audit.max-offset` | `ALFRESCO_TRACKER_AUDIT_MAX_OFFSET` | `10000` | Highest `start` an offset-paged query may ask for. Above it the query answers `400`, since Solr sorts `start + rows` results on every page. |
 | `alfresco.tracker.audit.topic` | `ALFRESCO_TRACKER_AUDIT_TOPIC` | `audit-pristy` | Kafka topic the indexer consumes. |
 | `alfresco.tracker.audit.group-id` | `ALFRESCO_TRACKER_AUDIT_GROUP_ID` | `pristy-audit-indexer` | Kafka consumer group. |
 | `alfresco.tracker.audit.bootstrap-servers` | `ALFRESCO_TRACKER_AUDIT_BOOTSTRAP_SERVERS` | `kafka:9092` | Kafka bootstrap servers. |

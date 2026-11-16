@@ -60,7 +60,7 @@ public class AuditQueryServiceTest
         Mockito.when(solrClient.query(Mockito.eq("audit"), Mockito.any(SolrQuery.class))).thenReturn(response);
         TrackerProperties properties = new TrackerProperties();
         properties.getSolr().setCollections(List.of("alfresco", "archive"));
-        this.service = new AuditQueryService(solrClient, "audit", properties);
+        this.service = new AuditQueryService(solrClient, "audit", properties, 10000);
     }
 
     private SolrQuery captureQuery() throws Exception
@@ -137,6 +137,22 @@ public class AuditQueryServiceTest
 
         assertEquals("40", q.get("start"));
         assertEquals(null, q.get("cursorMark"));
+    }
+
+    @Test
+    public void pagesByOffsetUpToTheMaximum() throws Exception
+    {
+        service.search(new AuditQuery(null, null, null, null, null, null, null,
+                List.of("abeecher"), false, null, 50, 10000));
+
+        assertEquals("10000", captureQuery().get("start"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void refusesAnOffsetAboveTheMaximum() throws Exception
+    {
+        service.search(new AuditQuery(null, null, null, null, null, null, null,
+                List.of("abeecher"), false, null, 50, 10001));
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -269,6 +285,15 @@ public class AuditQueryServiceTest
         assertEquals("READER:(\"abeecher\" OR \"GROUP_EVERYONE\")", q.get("auditReaderQuery"));
         assertTrue(fqs.contains(
                 "EVENT_TYPE:(\"create-node\" OR \"content-update\" OR \"update-properties\" OR \"create-version\" OR \"check-in\")"));
+    }
+
+    @Test
+    public void capsTheContributorsFacetLikeAnyOtherFacet() throws Exception
+    {
+        service.contributors(new AuditQuery(null, null, null, null, null, null, FOLDER,
+                List.of("abeecher"), false, null, 0, 0));
+
+        assertEquals("1000", captureQuery().get("facet.limit"));
     }
 
     @Test
