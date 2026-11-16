@@ -46,9 +46,9 @@ def solr_doc_types(solr_url, core, secret, timeout):
     return {name: int(counts.get(name, 0)) for name in DOC_TYPES}
 
 
-def tracker_summary(trackers_url, core, timeout):
+def tracker_summary(trackers_url, core, secret, timeout):
     url = "{}/api/admin/summary?core={}".format(trackers_url.rstrip("/"), core)
-    payload = http_json(url, None, timeout)
+    payload = http_json(url, secret, timeout)
     report = payload.get(core, {})
     transactions = report.get("TX", {}) or {}
     lag = report.get("TX Lag", "")
@@ -127,7 +127,7 @@ def sample(args, containers):
         row.update({name: None for name in DOC_TYPES})
         row["solr_error"] = str(error)[:120]
     try:
-        row.update(tracker_summary(args.trackers_url, args.core, args.http_timeout))
+        row.update(tracker_summary(args.trackers_url, args.core, args.search_secret, args.http_timeout))
         row["trackers_error"] = ""
     except (urllib.error.URLError, OSError, KeyError, ValueError) as error:
         row.update({"tx_indexed_id": None, "tx_server_id": None, "tx_remaining": None,
