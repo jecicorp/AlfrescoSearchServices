@@ -14,6 +14,7 @@ kept vanilla** and these actions live in the trackers service instead.
   - **Solr-compat alias** - `GET /solr/admin/cores?action=<ACTION>&...`, same response envelope as the old Solr admin, for tools/scripts that still target it.
   - **Pristy indexing API v1** - `/api/v1/*`, a new contract that is not a rewrite of the two above (see [below](#pristy-indexing-api-v1-read-only-get)). `GET /api/v1` advertises the capabilities of the running build; start there.
 - The actuator endpoint `GET /actuator/repairreport` complements these (see [RepairTracker](#error-nodes--repairtracker)).
+- Every request must carry `X-Alfresco-Search-Secret` unless `alfresco.tracker.server.secure-comms` is `none`; `/actuator/health` is the single exemption. The examples below assume `SECRET` holds the value of `alfresco.tracker.server.shared-secret`.
 
 > The Alfresco control-plane actions (`SUMMARY`, `REPORT`, `REINDEX`, ...) are **not**
 > served by Solr (`:8983`): Solr is vanilla and calling e.g. `action=SUMMARY` on it
@@ -49,19 +50,19 @@ and `action` otherwise.
 
 ```bash
 # Overall index health for the live core
-curl -s "http://localhost:8085/api/admin/report?core=alfresco" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/admin/report?core=alfresco" | python3 -m json.tool
 
 # Per-core stats + tracking lag
-curl -s "http://localhost:8085/api/admin/summary?core=alfresco" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/admin/summary?core=alfresco" | python3 -m json.tool
 
 # Only the alfresco + archive cores, only TX-lag and FTS metrics
-curl -s "http://localhost:8085/api/admin/summary?cores=alfresco,archive&metrics=tx,fts" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/admin/summary?cores=alfresco,archive&metrics=tx,fts" | python3 -m json.tool
 
 # Is node 15695 indexed? (DBID)
-curl -s "http://localhost:8085/api/admin/node-report?nodeid=15695&core=alfresco" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/admin/node-report?nodeid=15695&core=alfresco" | python3 -m json.tool
 
 # Solr-compat equivalent
-curl -s "http://localhost:8085/solr/admin/cores?action=NODEREPORT&nodeid=15695&core=alfresco" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/solr/admin/cores?action=NODEREPORT&nodeid=15695&core=alfresco" | python3 -m json.tool
 ```
 
 ## Pristy indexing API v1 (read-only, `GET`)
@@ -189,9 +190,9 @@ predates the API. That is the whole reason the descriptor exists.
 
 ```bash
 # By DBID, UUID or noderef - same answer
-curl -s "http://localhost:8085/api/v1/index/node?ref=15695" | python3 -m json.tool
-curl -s "http://localhost:8085/api/v1/index/node?ref=3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b" | python3 -m json.tool
-curl -s "http://localhost:8085/api/v1/index/node?ref=workspace://SpacesStore/3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/v1/index/node?ref=15695" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/v1/index/node?ref=3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/v1/index/node?ref=workspace://SpacesStore/3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b" | python3 -m json.tool
 ```
 
 ### Why not `NODEREPORT`
@@ -324,10 +325,10 @@ Under `alfresco.tracker.diagnostic`, defaults in `TrackerProperties.DiagnosticCo
 | `stream-timeout-millis` | `0` | SSE connection timeout; `0` means none |
 
 ```bash
-curl -s -X POST "http://localhost:8085/api/v1/index/diagnostic?user=admin" | python3 -m json.tool
-curl -s "http://localhost:8085/api/v1/index/diagnostic" | python3 -m json.tool
-curl -N "http://localhost:8085/api/v1/index/diagnostic/stream"
-curl -s -X DELETE "http://localhost:8085/api/v1/index/diagnostic" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://localhost:8085/api/v1/index/diagnostic?user=admin" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/v1/index/diagnostic" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -N "http://localhost:8085/api/v1/index/diagnostic/stream"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X DELETE "http://localhost:8085/api/v1/index/diagnostic" | python3 -m json.tool
 ```
 
 ## Waiting for nodes to become searchable (`POST /api/v1/index/await`)
@@ -405,7 +406,7 @@ Under `alfresco.tracker.await`, defaults in `TrackerProperties.AwaitConfig`.
 | `max-waiters` | `10000` | nodes awaited at once across every request; beyond this, `503` |
 
 ```bash
-curl -N -X POST -H 'Content-Type: application/json' \
+curl -H "X-Alfresco-Search-Secret: $SECRET" -N -X POST -H 'Content-Type: application/json' \
   -d '{"dbids":[1234,1235],"timeout":20000}' \
   "http://localhost:8085/api/v1/index/await"
 ```
@@ -473,8 +474,8 @@ Returns a map of value to event count.
 folder.
 
 ```bash
-curl -s "http://localhost:8085/api/v1/audit/events?authority=abeecher&authority=GROUP_EVERYONE&rows=20"
-curl -s "http://localhost:8085/api/v1/audit/facets?field=EVENT_TYPE&unfiltered=true"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/v1/audit/events?authority=abeecher&authority=GROUP_EVERYONE&rows=20"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/v1/audit/facets?field=EVENT_TYPE&unfiltered=true"
 ```
 
 ### Health: `audit` in `/actuator/health`
@@ -515,27 +516,27 @@ The retention purge runs on a schedule and trims everything older than `alfresco
 
 ```bash
 # Reindex a single node (by DBID)
-curl -s -X POST "http://localhost:8085/api/admin/reindex?nodeid=15695&core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://localhost:8085/api/admin/reindex?nodeid=15695&core=alfresco"
 
 # Reindex a whole transaction
-curl -s -X POST "http://localhost:8085/api/admin/reindex?txid=29200&core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://localhost:8085/api/admin/reindex?txid=29200&core=alfresco"
 
 # Reindex by AFTS query (e.g. one type or subtree)
-curl -s -X POST "http://localhost:8085/api/admin/reindex?query=TYPE:%22cm:content%22&core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://localhost:8085/api/admin/reindex?query=TYPE:%22cm:content%22&core=alfresco"
 
 # Retry everything currently flagged as an error node
-curl -s -X POST "http://localhost:8085/api/admin/retry?core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://localhost:8085/api/admin/retry?core=alfresco"
 
 # On-demand backup of all cores into the configured location
-curl -s -X POST "http://localhost:8085/api/admin/backup"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://localhost:8085/api/admin/backup"
 
 # Restore the alfresco core from the latest snapshot
-curl -s -X POST "http://localhost:8085/api/admin/restore?core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://localhost:8085/api/admin/restore?core=alfresco"
 
 # Restore from an explicit location: pass the PARENT directory (the same value
 # as the backup 'location'), NOT the per-core subdirectory. The service appends
 # /<core> itself - the snapshot below is read from /mnt/adhoc/alfresco.
-curl -s -X POST "http://localhost:8085/api/admin/restore?core=alfresco&location=/mnt/adhoc"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://localhost:8085/api/admin/restore?core=alfresco&location=/mnt/adhoc"
 ```
 
 For both `backup` and `restore`, `location` is the **parent** directory: the
@@ -587,7 +588,7 @@ good, with nothing in `REPORT` to show it.
 Inspect them with:
 
 ```bash
-curl -s "http://localhost:8085/actuator/repairreport" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/actuator/repairreport" | python3 -m json.tool
 ```
 
 The third form is retried by fetching the text again, after a delay that doubles with every
@@ -621,17 +622,17 @@ the orphaned nodes in the repository) then takes effect on the next restart or r
 
 ```bash
 # "Is my reindex caught up?" - watch TXLag / AclTXLag trend toward 0
-curl -s "http://localhost:8085/api/admin/summary" | python3 -m json.tool
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/admin/summary" | python3 -m json.tool
 
 # "Did node X get indexed?" - dbNodeStatus vs indexLeafDoc
-curl -s "http://localhost:8085/api/admin/node-report?nodeid=<DBID>&core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/api/admin/node-report?nodeid=<DBID>&core=alfresco"
 
 # "Reindex everything under a folder / of a type"
-curl -s -X POST "http://localhost:8085/api/admin/reindex?query=<AFTS>&core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://localhost:8085/api/admin/reindex?query=<AFTS>&core=alfresco"
 
 # "Find and re-run failed nodes"
-curl -s "http://localhost:8085/actuator/repairreport"
-curl -s -X POST "http://localhost:8085/api/admin/retry?core=alfresco"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s "http://localhost:8085/actuator/repairreport"
+curl -H "X-Alfresco-Search-Secret: $SECRET" -s -X POST "http://localhost:8085/api/admin/retry?core=alfresco"
 ```
 
 ## See also

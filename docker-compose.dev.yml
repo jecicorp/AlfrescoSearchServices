@@ -119,6 +119,8 @@ services:
       # L3 (tracker → repo): secret channel
       ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS: secret
       ALFRESCO_TRACKER_REPOSITORY_SHAREDSECRET: secret
+      ALFRESCO_TRACKER_SERVER_SECURECOMMS: secret
+      ALFRESCO_TRACKER_SERVER_SHAREDSECRET: secret
       ALFRESCO_TRACKER_AUDIT_ENABLED: "false"
       ALFRESCO_TRACKER_AUDIT_BOOTSTRAP_SERVERS: kafka:9092
       # --- https/mTLS variant (commented out — keep secret above for default dev stack) ---

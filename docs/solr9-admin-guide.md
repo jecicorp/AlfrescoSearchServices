@@ -301,6 +301,7 @@ You do **not** need to relearn day-to-day search administration:
 | ACL deny filtering questions | See [debugging.md](debugging.md) (`processedDenies`). |
 | Container `Up`, nothing works, requests answer `404` | Solr's `CoreContainer` failed to start while Jetty kept serving — the container healthcheck reports `unhealthy`, `docker ps` alone does not. Read the first 50 log lines: `SOLR_MODE=solrcloud` without `ZK_HOST` fails this way (*Cannot start Solr in cloud mode - no cloud config provided*), as does an unloadable schema. |
 | Admin page / admin action fails with `ConnectException: Connection refused` | `solr.tracker.host` not set (defaults to `localhost`) or the trackers admin port unreachable from ACS. In `https` mode also check `solr.tracker.port.ssl` and that the trackers admin server has TLS enabled. See *Repository side: the `solr9` search subsystem*. |
+| Admin page / admin action fails with `401` | The trackers run with `alfresco.tracker.server.secure-comms: secret` and the repository's `solr.tracker.sharedSecret` does not match `alfresco.tracker.server.shared-secret`. |
 | OOTBee "Solr Tracking" page shows *Web Script Status 500* / `coreNames`/`… Active` null | Repository not on the `solr9` subsystem, or an `ootbee-support-tools` build that predates `solr9` support. Set `index.subsystem.name=solr9` and deploy an addon build with `solr9` support. |
 
 ## Container health

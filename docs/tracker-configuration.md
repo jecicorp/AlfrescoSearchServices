@@ -229,6 +229,16 @@ The retention is measured on `EVENT_TIME`, the event's own time and not its inde
 the topic re-indexes old events and the next run removes them again. A `purge-cron` of `-` disables
 the schedule outright (Spring's marker for a disabled cron).
 
+### Inbound authentication - `alfresco.tracker.server.*`
+
+| Property | Env var | Default | Notes |
+|----------|---------|---------|-------|
+| `alfresco.tracker.server.secure-comms` | `ALFRESCO_TRACKER_SERVER_SECURECOMMS` | `secret` | `none` or `secret`. Under `secret`, every request must carry `X-Alfresco-Search-Secret`. Inbound mTLS (`server.ssl`) is a separate control, not a value of this setting. |
+| `alfresco.tracker.server.shared-secret` | `ALFRESCO_TRACKER_SERVER_SHAREDSECRET` | empty | A blank value under `secret` refuses startup. Must equal the repository's `solr.tracker.sharedSecret` (default `solr.sharedSecret`), or `solr9` admin actions fail with `401`. |
+
+`/actuator/health` is the single unauthenticated path. `management.endpoint.health.show-details`
+now defaults to `never` (`TRACKER_HEALTH_SHOW_DETAILS`).
+
 ### Internal content settings (not externally configurable today)
 
 Both ContentTracker knobs are now configurable as

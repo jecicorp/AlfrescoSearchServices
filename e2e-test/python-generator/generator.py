@@ -458,11 +458,14 @@ if __name__ == '__main__':
     if args.communication == 'secret':
         trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS'] = 'secret'
         trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SHAREDSECRET'] = 'secret'
+        trackersEnv['ALFRESCO_TRACKER_SERVER_SECURECOMMS'] = 'secret'
+        trackersEnv['ALFRESCO_TRACKER_SERVER_SHAREDSECRET'] = 'secret'
     elif args.communication == 'https':
         # https profile: full mTLS on both Solr and repository sides (set by addTrackersHttpsConfig below)
-        pass
+        trackersEnv['ALFRESCO_TRACKER_SERVER_SECURECOMMS'] = 'none'
     else:
         trackersEnv['ALFRESCO_TRACKER_REPOSITORY_SECURECOMMS'] = 'none'
+        trackersEnv['ALFRESCO_TRACKER_SERVER_SECURECOMMS'] = 'none'
     trackersNode = {
         'build': {'context': './trackers', 'dockerfile': 'Dockerfile.trackers'},
         'environment': trackersEnv,
