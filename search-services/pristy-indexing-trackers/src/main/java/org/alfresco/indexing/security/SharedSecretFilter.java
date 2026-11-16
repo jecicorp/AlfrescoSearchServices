@@ -25,6 +25,7 @@ package org.alfresco.indexing.security;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Set;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -35,12 +36,18 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Refuses with 401 every request that does not carry the shared secret in {@link #HEADER},
- * except the health probe. Lets everything through when the mode is {@code none}.
+ * except the health probe and the progress surface. Lets everything through when the mode is {@code none}.
  */
 public class SharedSecretFilter extends OncePerRequestFilter
 {
     public static final String HEADER = "X-Alfresco-Search-Secret";
     public static final String HEALTH_PATH = "/actuator/health";
+    public static final String PROGRESS_PAGE_PATH = "/indexing.html";
+    public static final String PROGRESS_SNAPSHOT_PATH = "/api/v1/progress";
+    public static final String PROGRESS_STREAM_PATH = "/api/v1/progress/stream";
+
+    private static final Set<String> EXEMPT_PATHS = Set.of(HEALTH_PATH, PROGRESS_PAGE_PATH,
+        PROGRESS_SNAPSHOT_PATH, PROGRESS_STREAM_PATH);
 
     private final ServerSecurityProperties properties;
 
@@ -53,7 +60,7 @@ public class SharedSecretFilter extends OncePerRequestFilter
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
         FilterChain chain) throws ServletException, IOException
     {
-        if (properties.isNone() || HEALTH_PATH.equals(request.getRequestURI()))
+        if (properties.isNone() || EXEMPT_PATHS.contains(request.getRequestURI()))
         {
             chain.doFilter(request, response);
             return;

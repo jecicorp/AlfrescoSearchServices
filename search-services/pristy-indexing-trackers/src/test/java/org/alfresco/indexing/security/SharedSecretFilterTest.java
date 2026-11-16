@@ -131,4 +131,49 @@ public class SharedSecretFilterTest
         assertNull(chain.getRequest());
         assertEquals(401, response.getStatus());
     }
+
+    @Test
+    public void letsTheProgressPageThrough() throws Exception
+    {
+        run("secret", "/indexing.html", null);
+        assertNotNull(chain.getRequest());
+    }
+
+    @Test
+    public void letsTheProgressSnapshotThrough() throws Exception
+    {
+        run("secret", "/api/v1/progress", null);
+        assertNotNull(chain.getRequest());
+    }
+
+    @Test
+    public void letsTheProgressStreamThrough() throws Exception
+    {
+        run("secret", "/api/v1/progress/stream", null);
+        assertNotNull(chain.getRequest());
+    }
+
+    @Test
+    public void guardsAPathThatMerelyStartsLikeTheProgressApi() throws Exception
+    {
+        run("secret", "/api/v1/progressreport", null);
+        assertNull(chain.getRequest());
+        assertEquals(401, response.getStatus());
+    }
+
+    @Test
+    public void guardsAPathThatMerelyStartsLikeTheProgressPage() throws Exception
+    {
+        run("secret", "/indexing.html.bak", null);
+        assertNull(chain.getRequest());
+        assertEquals(401, response.getStatus());
+    }
+
+    @Test
+    public void guardsTheAuditApi() throws Exception
+    {
+        run("secret", "/api/v1/audit/events", null);
+        assertNull(chain.getRequest());
+        assertEquals(401, response.getStatus());
+    }
 }
