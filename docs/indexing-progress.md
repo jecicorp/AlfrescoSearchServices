@@ -160,10 +160,10 @@ explicit value costs nothing.
 
 ## Reading the API from another origin
 
-Cross-origin access is off until an origin is named, so the endpoints keep the exposure of
-the rest of the admin surface by default. `EventSource` sends no custom header and needs no
+Cross-origin access is off until an origin is named. `EventSource` sends no custom header and needs no
 preflight, but it is still subject to CORS: without the header the browser reports a bare
 connection error.
+The opt-in applies to the snapshot and the stream, which the shared secret does not guard.
 
 ```yaml
 alfresco:
@@ -236,6 +236,18 @@ from memory.
 
 ## Security
 
-`:8085` carries no authentication of its own — in `secureComms=https` it is protected by
-mTLS, otherwise by nothing. These endpoints are read-only and expose counters, not content,
-but they follow the exposure of the rest of the admin surface. Do not publish the port.
+The rest of `:8085` requires `X-Alfresco-Search-Secret` when
+`alfresco.tracker.server.secure-comms` is `secret`, which is the default. These three
+paths are deliberately **not** authenticated, because a browser cannot present a header on
+a page load or on an `EventSource`:
+
+- `/indexing.html`
+- `/api/v1/progress`
+- `/api/v1/progress/stream`
+
+They are read-only and expose core names, tracker names, an active flag, done and remaining
+counts, a rate, an ETA and a trend. No document content, no node names, no user names.
+
+Anyone who reaches the port can read indexing state and volumes. No setting closes these
+three paths while leaving the rest open: the network boundary is the only control, so the
+port still belongs on a trusted network. Do not publish it.
