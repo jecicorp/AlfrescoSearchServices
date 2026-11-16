@@ -22,6 +22,7 @@
  */
 package org.alfresco.indexing.audit;
 
+import org.alfresco.indexing.config.TrackerProperties;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.response.QueryResponse;
@@ -57,7 +58,9 @@ public class AuditQueryServiceTest
         Mockito.when(response.getResults()).thenReturn(new SolrDocumentList());
         Mockito.when(response.getNextCursorMark()).thenReturn("AoE/Bw==");
         Mockito.when(solrClient.query(Mockito.eq("audit"), Mockito.any(SolrQuery.class))).thenReturn(response);
-        this.service = new AuditQueryService(solrClient, "audit");
+        TrackerProperties properties = new TrackerProperties();
+        properties.getSolr().setCollections(List.of("alfresco", "archive"));
+        this.service = new AuditQueryService(solrClient, "audit", properties);
     }
 
     private SolrQuery captureQuery() throws Exception
@@ -90,7 +93,7 @@ public class AuditQueryServiceTest
         SolrQuery q = captureQuery();
 
         Map<String, String> params = AuditPermissionFilter
-                .build(List.of("abeecher", "GROUP_EVERYONE")).params();
+                .build(List.of("abeecher", "GROUP_EVERYONE"), List.of("alfresco", "archive")).params();
         assertEquals(6, params.size());
         params.forEach((name, value) -> assertEquals(value, q.get(name)));
     }

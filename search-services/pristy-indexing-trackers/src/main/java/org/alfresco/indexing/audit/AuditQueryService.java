@@ -22,6 +22,7 @@
  */
 package org.alfresco.indexing.audit;
 
+import org.alfresco.indexing.config.TrackerProperties;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.response.FacetField;
@@ -56,17 +57,22 @@ public class AuditQueryService
 
     private final SolrClient solrClient;
     private final String core;
+    private final List<String> contentCores;
 
     /**
      * @param solrClient the client of the Solr instance holding the audit core
      * @param core       the name of the audit core
+     * @param properties the tracker configuration, whose tracked collections are the cores
+     *            the permission filter joins against
      */
     public AuditQueryService(
             SolrClient solrClient,
-            @Value("${alfresco.tracker.audit.core:audit}") String core)
+            @Value("${alfresco.tracker.audit.core:audit}") String core,
+            TrackerProperties properties)
     {
         this.solrClient = solrClient;
         this.core = core;
+        this.contentCores = properties.getSolr().getCollections();
     }
 
     /**
@@ -172,7 +178,8 @@ public class AuditQueryService
         }
         else
         {
-            AuditPermissionFilter.Filter filter = AuditPermissionFilter.build(query.authorities());
+            AuditPermissionFilter.Filter filter =
+                    AuditPermissionFilter.build(query.authorities(), contentCores);
             solrQuery.addFilterQuery(filter.fq());
             filter.params().forEach(solrQuery::set);
         }

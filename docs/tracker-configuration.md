@@ -220,6 +220,11 @@ The Solr image builds the `audit` core from the `audit` template only for the co
 `SOLR_AUDIT_CORE` to the same name, or the core is built from the Alfresco template and the
 permission join matches nothing.
 
+A filtered audit query joins the content cores listed in `alfresco.tracker.solr.collections`, on the
+ACL each node carries there. A deployment that renames those cores must keep that list in step, or
+every filtered query answers `400 Cross-core join: no such core`. Unfiltered queries are unaffected,
+since they add no permission filter.
+
 The Solr retention and the Kafka topic retention are aligned by hand. Nothing enforces that they
 match: set the topic retention to the same duration as `retention-days`. The configured value is
 logged at startup.

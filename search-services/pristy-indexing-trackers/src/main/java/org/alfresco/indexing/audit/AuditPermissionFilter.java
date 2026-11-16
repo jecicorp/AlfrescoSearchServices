@@ -54,11 +54,12 @@ public final class AuditPermissionFilter
     }
 
     /**
-     * @param authorities the caller's authorities; never empty, never holding a blank entry
+     * @param authorities  the caller's authorities; never empty, never holding a blank entry
+     * @param contentCores the content cores holding the nodes, joined on their ACL; never empty
      * @return the filter query and the parameters it references
-     * @throws IllegalArgumentException if the authority set is unusable
+     * @throws IllegalArgumentException if the authority set or the core list is unusable
      */
-    public static Filter build(List<String> authorities)
+    public static Filter build(List<String> authorities, List<String> contentCores)
     {
         if (authorities == null || authorities.isEmpty())
         {
@@ -72,6 +73,14 @@ public final class AuditPermissionFilter
         {
             throw new IllegalArgumentException(
                     "an authority contains a comma, which request parameter binding would split in two");
+        }
+        if (contentCores == null || contentCores.isEmpty())
+        {
+            throw new IllegalArgumentException("an audit query joins at least one content core");
+        }
+        if (contentCores.stream().anyMatch(c -> c == null || c.isBlank()))
+        {
+            throw new IllegalArgumentException("a content core name is null or blank");
         }
 
         String quoted = authorities.stream()
@@ -87,10 +96,10 @@ public final class AuditPermissionFilter
 
         params.put(SCOPE, "{!bool filter=$" + TYPE + " must=$" + READER + " must_not=$" + DENIED + "}");
 
-        String fq = "{!lucene}"
-                + "_query_:\"{!join fromIndex=alfresco from=DBID to=NODE_DBID v=$" + SCOPE + "}\""
-                + " OR "
-                + "_query_:\"{!join fromIndex=archive from=DBID to=NODE_DBID v=$" + SCOPE + "}\"";
+        String fq = "{!lucene}" + contentCores.stream()
+                .map(core -> "_query_:\"{!join fromIndex=" + core.trim()
+                        + " from=DBID to=NODE_DBID v=$" + SCOPE + "}\"")
+                .collect(Collectors.joining(" OR "));
 
         return new Filter(fq, params);
     }
