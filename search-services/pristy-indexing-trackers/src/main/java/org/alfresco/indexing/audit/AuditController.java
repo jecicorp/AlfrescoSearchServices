@@ -94,6 +94,7 @@ public class AuditController
      * @param unfiltered true to count every event, which carries no authority set
      * @param limit      the maximum number of values; zero or less asks for as many as the cap allows
      * @param prefix     the prefix every returned value must start with, or null for every value
+     * @param contains   the text every returned value must hold, whatever its case, or null for every value
      * @return each value of the field and how many events carry it
      */
     @GetMapping("/facets")
@@ -103,10 +104,11 @@ public class AuditController
             @RequestParam(required = false) List<String> authority,
             @RequestParam(defaultValue = "false") boolean unfiltered,
             @RequestParam(defaultValue = "100") int limit,
-            @RequestParam(required = false) String prefix)
+            @RequestParam(required = false) String prefix,
+            @RequestParam(required = false) String contains)
     {
         return auditQueryService.facet(new AuditQuery(null, null, null, null, null, null, folder,
-                authority, unfiltered, null, 0, 0), field, limit, prefix);
+                authority, unfiltered, null, 0, 0), field, limit, prefix, contains);
     }
 
     /**

@@ -30,6 +30,7 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.util.ClientUtils;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrException;
+import org.apache.solr.common.params.FacetParams;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -124,12 +125,13 @@ public class AuditQueryService
     }
 
     /**
-     * @param field  the field to facet on
-     * @param limit  the maximum number of values; zero or less asks for as many as the cap allows
-     * @param prefix the prefix every returned value must start with, or null for every value
+     * @param field    the field to facet on
+     * @param limit    the maximum number of values; zero or less asks for as many as the cap allows
+     * @param prefix   the prefix every returned value must start with, or null for every value
+     * @param contains the text every returned value must hold, whatever its case, or null for every value
      * @return each value and how many events carry it
      */
-    public Map<String, Long> facet(AuditQuery query, String field, int limit, String prefix)
+    public Map<String, Long> facet(AuditQuery query, String field, int limit, String prefix, String contains)
     {
         if (!FACETABLE.contains(field))
         {
@@ -145,6 +147,11 @@ public class AuditQueryService
         if (prefix != null && !prefix.isBlank())
         {
             solrQuery.setFacetPrefix(field, prefix);
+        }
+        if (contains != null && !contains.isBlank())
+        {
+            solrQuery.set("f." + field + "." + FacetParams.FACET_CONTAINS, contains);
+            solrQuery.set("f." + field + "." + FacetParams.FACET_CONTAINS_IGNORE_CASE, true);
         }
 
         return counts(execute(solrQuery).getFacetField(field));

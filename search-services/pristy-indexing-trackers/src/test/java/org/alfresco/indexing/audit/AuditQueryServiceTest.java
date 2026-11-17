@@ -236,7 +236,7 @@ public class AuditQueryServiceTest
     @Test(expected = IllegalArgumentException.class)
     public void refusesAFacetFieldOutsideTheAllowedSet() throws Exception
     {
-        service.facet(filtered(), "PROPERTIES_JSON", 10, null);
+        service.facet(filtered(), "PROPERTIES_JSON", 10, null, null);
     }
 
     @Test
@@ -267,7 +267,7 @@ public class AuditQueryServiceTest
     @Test
     public void facetCarriesThePermissionFilter() throws Exception
     {
-        service.facet(filtered(), "PRINCIPAL", 10, null);
+        service.facet(filtered(), "PRINCIPAL", 10, null, null);
         SolrQuery q = captureQuery();
 
         assertTrue(List.of(q.getFilterQueries()).stream().anyMatch(f -> f.contains("fromIndex=alfresco")));
@@ -300,7 +300,7 @@ public class AuditQueryServiceTest
     @Test
     public void clampsTheFacetLimit() throws Exception
     {
-        service.facet(filtered(), "PATH", 5000, null);
+        service.facet(filtered(), "PATH", 5000, null, null);
 
         assertEquals("1000", captureQuery().get("facet.limit"));
     }
@@ -308,7 +308,7 @@ public class AuditQueryServiceTest
     @Test
     public void sendsTheFacetPrefixToSolr() throws Exception
     {
-        service.facet(filtered(), "PATH", 10, "/Sites/marketing");
+        service.facet(filtered(), "PATH", 10, "/Sites/marketing", null);
 
         assertEquals("/Sites/marketing", captureQuery().get("f.PATH.facet.prefix"));
     }
@@ -316,7 +316,7 @@ public class AuditQueryServiceTest
     @Test
     public void sendsNoFacetPrefixWhenNoneIsGiven() throws Exception
     {
-        service.facet(filtered(), "PATH", 10, null);
+        service.facet(filtered(), "PATH", 10, null, null);
 
         assertNull(captureQuery().get("f.PATH.facet.prefix"));
     }
@@ -324,15 +324,33 @@ public class AuditQueryServiceTest
     @Test
     public void sendsNoFacetPrefixWhenItIsBlank() throws Exception
     {
-        service.facet(filtered(), "PATH", 10, "  ");
+        service.facet(filtered(), "PATH", 10, "  ", null);
 
         assertNull(captureQuery().get("f.PATH.facet.prefix"));
     }
 
     @Test
+    public void sendsTheFacetContainsToSolrWithoutCase() throws Exception
+    {
+        service.facet(filtered(), "PRINCIPAL", 10, null, "dupont");
+        SolrQuery q = captureQuery();
+
+        assertEquals("dupont", q.get("f.PRINCIPAL.facet.contains"));
+        assertEquals("true", q.get("f.PRINCIPAL.facet.contains.ignoreCase"));
+    }
+
+    @Test
+    public void sendsNoFacetContainsWhenItIsBlank() throws Exception
+    {
+        service.facet(filtered(), "PRINCIPAL", 10, null, "  ");
+
+        assertNull(captureQuery().get("f.PRINCIPAL.facet.contains"));
+    }
+
+    @Test
     public void readsANonPositiveFacetLimitAsTheCapRatherThanAsOneValue() throws Exception
     {
-        service.facet(filtered(), "PATH", -1, null);
+        service.facet(filtered(), "PATH", -1, null, null);
 
         assertEquals("1000", captureQuery().get("facet.limit"));
     }

@@ -465,8 +465,10 @@ cursor walk, because Solr sorts `start + rows` results on every page, so a `star
 `NODE_TYPE`, `MIMETYPE`; any other value is a `400`. `limit` caps the number of values
 (default 100, maximum 1000); zero or less asks for as many as that maximum allows.
 `prefix` keeps only the values starting with it, matched on the indexed term, so it is
-case sensitive; blank or absent, every value is counted. Returns a map of value to event
-count.
+case sensitive; blank or absent, every value is counted. `contains` keeps only the values
+holding it, whatever their case; it reads every term of the field rather than entering the
+sorted dictionary at one point, so it suits a field of a few thousand values such as
+`PRINCIPAL`, not `PATH`. Returns a map of value to event count.
 
 ### `GET /api/v1/audit/contributors`
 
