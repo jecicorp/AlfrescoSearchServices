@@ -124,11 +124,12 @@ public class AuditQueryService
     }
 
     /**
-     * @param field the field to facet on
-     * @param limit the maximum number of values; zero or less asks for as many as the cap allows
+     * @param field  the field to facet on
+     * @param limit  the maximum number of values; zero or less asks for as many as the cap allows
+     * @param prefix the prefix every returned value must start with, or null for every value
      * @return each value and how many events carry it
      */
-    public Map<String, Long> facet(AuditQuery query, String field, int limit)
+    public Map<String, Long> facet(AuditQuery query, String field, int limit, String prefix)
     {
         if (!FACETABLE.contains(field))
         {
@@ -141,6 +142,10 @@ public class AuditQueryService
         solrQuery.addFacetField(field);
         solrQuery.setFacetLimit(limit <= 0 ? MAX_FACET_LIMIT : Math.min(limit, MAX_FACET_LIMIT));
         solrQuery.setFacetMinCount(1);
+        if (prefix != null && !prefix.isBlank())
+        {
+            solrQuery.setFacetPrefix(field, prefix);
+        }
 
         return counts(execute(solrQuery).getFacetField(field));
     }

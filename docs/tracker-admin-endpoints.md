@@ -464,7 +464,9 @@ cursor walk, because Solr sorts `start + rows` results on every page, so a `star
 `field` is required and must be one of `PRINCIPAL`, `EVENT_TYPE`, `PATH`, `SITE_ID`,
 `NODE_TYPE`, `MIMETYPE`; any other value is a `400`. `limit` caps the number of values
 (default 100, maximum 1000); zero or less asks for as many as that maximum allows.
-Returns a map of value to event count.
+`prefix` keeps only the values starting with it, matched on the indexed term, so it is
+case sensitive; blank or absent, every value is counted. Returns a map of value to event
+count.
 
 ### `GET /api/v1/audit/contributors`
 

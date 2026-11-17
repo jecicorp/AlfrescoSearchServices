@@ -40,6 +40,7 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class AuditQueryServiceTest
@@ -235,7 +236,7 @@ public class AuditQueryServiceTest
     @Test(expected = IllegalArgumentException.class)
     public void refusesAFacetFieldOutsideTheAllowedSet() throws Exception
     {
-        service.facet(filtered(), "PROPERTIES_JSON", 10);
+        service.facet(filtered(), "PROPERTIES_JSON", 10, null);
     }
 
     @Test
@@ -266,7 +267,7 @@ public class AuditQueryServiceTest
     @Test
     public void facetCarriesThePermissionFilter() throws Exception
     {
-        service.facet(filtered(), "PRINCIPAL", 10);
+        service.facet(filtered(), "PRINCIPAL", 10, null);
         SolrQuery q = captureQuery();
 
         assertTrue(List.of(q.getFilterQueries()).stream().anyMatch(f -> f.contains("fromIndex=alfresco")));
@@ -299,15 +300,39 @@ public class AuditQueryServiceTest
     @Test
     public void clampsTheFacetLimit() throws Exception
     {
-        service.facet(filtered(), "PATH", 5000);
+        service.facet(filtered(), "PATH", 5000, null);
 
         assertEquals("1000", captureQuery().get("facet.limit"));
     }
 
     @Test
+    public void sendsTheFacetPrefixToSolr() throws Exception
+    {
+        service.facet(filtered(), "PATH", 10, "/Sites/marketing");
+
+        assertEquals("/Sites/marketing", captureQuery().get("f.PATH.facet.prefix"));
+    }
+
+    @Test
+    public void sendsNoFacetPrefixWhenNoneIsGiven() throws Exception
+    {
+        service.facet(filtered(), "PATH", 10, null);
+
+        assertNull(captureQuery().get("f.PATH.facet.prefix"));
+    }
+
+    @Test
+    public void sendsNoFacetPrefixWhenItIsBlank() throws Exception
+    {
+        service.facet(filtered(), "PATH", 10, "  ");
+
+        assertNull(captureQuery().get("f.PATH.facet.prefix"));
+    }
+
+    @Test
     public void readsANonPositiveFacetLimitAsTheCapRatherThanAsOneValue() throws Exception
     {
-        service.facet(filtered(), "PATH", -1);
+        service.facet(filtered(), "PATH", -1, null);
 
         assertEquals("1000", captureQuery().get("facet.limit"));
     }
