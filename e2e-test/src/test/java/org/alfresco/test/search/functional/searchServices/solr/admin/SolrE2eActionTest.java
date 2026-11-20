@@ -33,11 +33,9 @@ import org.alfresco.rest.core.RestResponse;
 import org.alfresco.rest.search.RestRequestQueryModel;
 import org.alfresco.rest.search.SearchRequest;
 import org.alfresco.rest.search.SearchResponse;
-import org.alfresco.test.search.functional.AbstractE2EFunctionalTest;
 import org.alfresco.utility.data.CustomObjectTypeProperties;
 import org.alfresco.utility.model.FileModel;
 import org.alfresco.utility.model.FolderModel;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -47,19 +45,8 @@ import org.testng.annotations.Test;
  * Tests validating the results of SOLR REST API Actions
  */
 @Configuration
-public class SolrE2eActionTest extends AbstractE2EFunctionalTest
+public class SolrE2eActionTest extends AbstractTrackerAdminE2ETest
 {
-
-    @Value("${tracker.scheme:http}")
-    private String trackerScheme;
-    @Value("${tracker.server:localhost}")
-    private String trackerServer;
-    @Value("${tracker.port:8085}")
-    private int trackerPort;
-    @Value("${tracker.secret:}")
-    private String trackerSecret;
-
-    private TrackerAdminClient trackerAdmin;
 
     // DBID (sys:node-dbid) value for the document
     Integer dbId;
@@ -70,8 +57,6 @@ public class SolrE2eActionTest extends AbstractE2EFunctionalTest
     @BeforeClass(alwaysRun = true)
     public void dataPreparation() throws Exception
     {
-        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort, trackerSecret);
-
         // Create a new document
         FolderModel folder = new FolderModel("folder-aspect");
         dataContent.usingUser(testUser).usingSite(testSite).createCustomContent(folder, "cmis:folder",

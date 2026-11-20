@@ -37,34 +37,14 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 
 import org.alfresco.rest.core.RestResponse;
-import org.alfresco.test.search.functional.AbstractE2EFunctionalTest;
 import org.alfresco.utility.Utility;
 import org.alfresco.utility.model.FileModel;
 import org.alfresco.utility.model.FileType;
-import org.springframework.beans.factory.annotation.Value;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /** E2E tests for the SUMMARY admin report. */
-public class SolrE2ESummaryTest extends AbstractE2EFunctionalTest
+public class SolrE2ESummaryTest extends AbstractTrackerAdminE2ETest
 {
-    @Value("${tracker.scheme:http}")
-    private String trackerScheme;
-    @Value("${tracker.server:localhost}")
-    private String trackerServer;
-    @Value("${tracker.port:8085}")
-    private int trackerPort;
-    @Value("${tracker.secret:}")
-    private String trackerSecret;
-
-    private TrackerAdminClient trackerAdmin;
-
-    @BeforeClass(alwaysRun = true)
-    public void setupTrackerClient()
-    {
-        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort, trackerSecret);
-    }
-
     /** The maximum time to wait for a report to update (in ms). */
     private static final int MAX_TIME = 60 * 1000;
     /** The frequency to check the report (in ms). */

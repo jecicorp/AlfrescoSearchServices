@@ -91,6 +91,21 @@ public class TrackerAdminClient
         this.sharedSecret = sharedSecret;
     }
 
+    String baseUrl()
+    {
+        return baseUrl;
+    }
+
+    RestAssuredConfig restAssuredConfig()
+    {
+        return restAssuredConfig;
+    }
+
+    String sharedSecret()
+    {
+        return sharedSecret;
+    }
+
     /**
      * Factory method — creates a client configured for Pristy mTLS.
      *
@@ -118,6 +133,31 @@ public class TrackerAdminClient
         RestAssuredConfig config = RestAssured.config().sslConfig(sslConfig);
         String baseUrl = "https://" + server + ":" + port;
         return new TrackerAdminClient(baseUrl, config, sharedSecret);
+    }
+
+    /**
+     * Picks the client matching the configuration: an mTLS client when the scheme is https and a
+     * client keystore path is set, a plain client otherwise.
+     *
+     * @param scheme         "http" or "https"
+     * @param server         hostname or IP of the tracker admin service
+     * @param port           port of the tracker admin service
+     * @param sharedSecret   value of {@code X-Alfresco-Search-Secret}; null or blank sends no header
+     * @param keyStorePath   PKCS12 client keystore; null or blank selects a client without client certificate
+     * @param keyStorePass   keystore password
+     * @param trustStorePath PKCS12 truststore
+     * @param trustStorePass truststore password
+     * @return the client to use against the tracker admin service
+     */
+    public static TrackerAdminClient fromSettings(String scheme, String server, int port, String sharedSecret,
+            String keyStorePath, String keyStorePass, String trustStorePath, String trustStorePass)
+    {
+        boolean https = "https".equalsIgnoreCase(scheme);
+        if (!https || keyStorePath == null || keyStorePath.isBlank())
+        {
+            return new TrackerAdminClient(scheme, server, port, sharedSecret);
+        }
+        return withMtls(server, port, keyStorePath, keyStorePass, trustStorePath, trustStorePass, sharedSecret);
     }
 
     public RestResponse getAction(String action, String... params)

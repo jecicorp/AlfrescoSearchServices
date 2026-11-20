@@ -33,11 +33,8 @@ import java.util.Map;
 
 import org.alfresco.rest.core.RestResponse;
 import org.alfresco.search.TestGroup;
-import org.alfresco.test.search.functional.AbstractE2EFunctionalTest;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static java.util.Collections.emptyList;
@@ -52,25 +49,8 @@ import static java.util.Collections.emptyList;
  *
  */
 @Configuration
-public class SolrE2eAdminTest extends AbstractE2EFunctionalTest
+public class SolrE2eAdminTest extends AbstractTrackerAdminE2ETest
 {
-
-    @Value("${tracker.scheme:http}")
-    private String trackerScheme;
-    @Value("${tracker.server:localhost}")
-    private String trackerServer;
-    @Value("${tracker.port:8085}")
-    private int trackerPort;
-    @Value("${tracker.secret:}")
-    private String trackerSecret;
-
-    private TrackerAdminClient trackerAdmin;
-
-    @BeforeClass(alwaysRun = true)
-    public void setupTrackerClient()
-    {
-        trackerAdmin = new TrackerAdminClient(trackerScheme, trackerServer, trackerPort, trackerSecret);
-    }
 
     // SOLR default response status codes (returned in responseHeader.status)
     private static final Integer SOLR_RESPONSE_STATUS_OK = 0;
