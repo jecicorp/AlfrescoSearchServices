@@ -70,18 +70,18 @@ public class AuditController
      */
     @GetMapping("/events")
     public AuditPage events(
-            @RequestParam(required = false) String principal,
-            @RequestParam(required = false) String eventType,
-            @RequestParam(required = false) String nodeUuid,
-            @RequestParam(required = false) String pathPrefix,
-            @RequestParam(required = false) Long fromMs,
-            @RequestParam(required = false) Long toMs,
-            @RequestParam(required = false) String folder,
-            @RequestParam(required = false) List<String> authority,
-            @RequestParam(defaultValue = "false") boolean unfiltered,
-            @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "50") int rows,
-            @RequestParam(defaultValue = "0") int start)
+            @RequestParam(value = "principal", required = false) String principal,
+            @RequestParam(value = "eventType", required = false) String eventType,
+            @RequestParam(value = "nodeUuid", required = false) String nodeUuid,
+            @RequestParam(value = "pathPrefix", required = false) String pathPrefix,
+            @RequestParam(value = "fromMs", required = false) Long fromMs,
+            @RequestParam(value = "toMs", required = false) Long toMs,
+            @RequestParam(value = "folder", required = false) String folder,
+            @RequestParam(value = "authority", required = false) List<String> authority,
+            @RequestParam(value = "unfiltered", defaultValue = "false") boolean unfiltered,
+            @RequestParam(value = "cursor", required = false) String cursor,
+            @RequestParam(value = "rows", defaultValue = "50") int rows,
+            @RequestParam(value = "start", defaultValue = "0") int start)
     {
         return auditQueryService.search(new AuditQuery(principal, eventType, nodeUuid, pathPrefix,
                 fromMs, toMs, folder, authority, unfiltered, cursor, Math.min(Math.max(rows, 1), 1000), Math.max(start, 0)));
@@ -99,13 +99,13 @@ public class AuditController
      */
     @GetMapping("/facets")
     public Map<String, Long> facets(
-            @RequestParam String field,
-            @RequestParam(required = false) String folder,
-            @RequestParam(required = false) List<String> authority,
-            @RequestParam(defaultValue = "false") boolean unfiltered,
-            @RequestParam(defaultValue = "100") int limit,
-            @RequestParam(required = false) String prefix,
-            @RequestParam(required = false) String contains)
+            @RequestParam("field") String field,
+            @RequestParam(value = "folder", required = false) String folder,
+            @RequestParam(value = "authority", required = false) List<String> authority,
+            @RequestParam(value = "unfiltered", defaultValue = "false") boolean unfiltered,
+            @RequestParam(value = "limit", defaultValue = "100") int limit,
+            @RequestParam(value = "prefix", required = false) String prefix,
+            @RequestParam(value = "contains", required = false) String contains)
     {
         return auditQueryService.facet(new AuditQuery(null, null, null, null, null, null, folder,
                 authority, unfiltered, null, 0, 0), field, limit, prefix, contains);
@@ -119,9 +119,9 @@ public class AuditController
      */
     @GetMapping("/contributors")
     public Map<String, Long> contributors(
-            @RequestParam String folder,
-            @RequestParam(required = false) List<String> authority,
-            @RequestParam(defaultValue = "false") boolean unfiltered)
+            @RequestParam("folder") String folder,
+            @RequestParam(value = "authority", required = false) List<String> authority,
+            @RequestParam(value = "unfiltered", defaultValue = "false") boolean unfiltered)
     {
         return auditQueryService.contributors(new AuditQuery(null, null, null, null, null, null, folder,
                 authority, unfiltered, null, 0, 0));

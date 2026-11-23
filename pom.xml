@@ -106,6 +106,7 @@
       <maven.build.sourceVersion>17</maven.build.sourceVersion>
       <maven.compiler.source>17</maven.compiler.source>
       <maven.compiler.target>17</maven.compiler.target>
+      <maven.compiler.parameters>true</maven.compiler.parameters>
       <solr.base.version>9.11.0</solr.base.version>
       <solr.version>${solr.base.version}</solr.version>
       <!-- Solr 9 decouples its version from Lucene; Solr 9.11.0 ships Lucene 9.12.3. -->
