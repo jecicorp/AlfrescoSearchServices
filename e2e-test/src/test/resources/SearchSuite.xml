@@ -19,9 +19,13 @@
                 <exclude name="org.alfresco.test.search.functional.searchServices.cmis"/>
                 <exclude name="org.alfresco.test.search.functional.searchServices.search.rm"/>
                 <exclude name="org.alfresco.test.search.functional.searchServices.search.fingerprint"/>
-                <exclude name="org.alfresco.test.search.functional.searchServices.search.crosslocale"/>
             </package>
         </packages>
+        <groups>
+            <run>
+                <exclude name="CROSS_LOCALE_SUPPORT_DISABLED"/>
+            </run>
+        </groups>
         <!-- Despite this class is included in Search Services package, needs to be excluded in order to be executed as the last one -->
 		<classes>
 			<class name="org.alfresco.test.search.functional.searchServices.AuditPermissionEquivalenceTest" />

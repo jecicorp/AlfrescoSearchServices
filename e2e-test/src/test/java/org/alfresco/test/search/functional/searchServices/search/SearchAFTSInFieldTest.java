@@ -137,19 +137,21 @@ public class SearchAFTSInFieldTest extends AbstractE2EFunctionalTest
         "@cm:title");
 
         // For each field name, check that queries return consistent results with / out ''
+        Set<String> expectedNames = Set.of(file2.getName(), file3.getName());
+
         fieldNames.forEach(fieldName ->
         {
             String query = fieldName + ":" + file2.getName();
             boolean fileFound = isContentInSearchResults(query, file2.getName(), true);
             Assert.assertTrue(fileFound, "File Not found for query: " + query);
 
-            testSearchQuery(query, 1, SearchLanguage.AFTS);
+            testSearchQueryUnordered(query, expectedNames, SearchLanguage.AFTS);
 
             query = fieldName + ":'" + file2.getName() + "\'";
             fileFound = isContentInSearchResults(query, file2.getName(), true);
             Assert.assertTrue(fileFound, "File Not found for query: " + query);
 
-            testSearchQuery(query, 1, SearchLanguage.AFTS);
+            testSearchQueryUnordered(query, expectedNames, SearchLanguage.AFTS);
         });
     }
 

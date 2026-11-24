@@ -28,6 +28,8 @@ package org.alfresco.test.search.functional.searchServices.search;
 import org.alfresco.test.search.functional.AbstractSearchExactTermTest;
 import org.testng.annotations.Test;
 
+import static org.alfresco.search.TestGroup.CROSS_LOCALE_SUPPORT_DISABLED;
+
 /**
  * Tests including all different tokenization (false, true, both) modes with Exact Term queries.
  * Since Search Services are not configured with Cross Locale enabled, some errors and omissions are expected.
@@ -46,6 +48,7 @@ import org.testng.annotations.Test;
  * Since cm:name is the only one declared as Cross Locale by default in shared.properties, 
  * these kind of queries are being executed only for cm:name property.
  */
+@Test(groups = CROSS_LOCALE_SUPPORT_DISABLED)
 public class SearchExactTermTest extends AbstractSearchExactTermTest
 {
     
