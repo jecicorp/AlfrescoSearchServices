@@ -28,6 +28,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -38,6 +41,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -50,11 +54,32 @@ import static org.testng.Assert.assertTrue;
  */
 public class AuditPermissionEquivalenceTest
 {
-    private static final String SOLR = System.getProperty("solr.url", "http://localhost:8983/solr");
-    private static final String SECRET = System.getProperty("solr.secret", "secret");
-    private static final String ADMIN = System.getProperty("alfresco.admin", "admin");
+    private static final Properties E2E = loadE2eProperties();
+    private static final String SOLR = E2E.getProperty("solr.scheme", "http") + "://"
+            + E2E.getProperty("solr.server", "localhost") + ":"
+            + E2E.getProperty("solr.port", "8083") + "/solr";
+    private static final String SECRET = E2E.getProperty("solr.secret", "secret");
+    private static final String ADMIN = E2E.getProperty("admin.user", "admin");
     private static final String SCOPE = "{!bool filter=$auditType must=$auditReader must_not=$auditDenied}";
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static Properties loadE2eProperties()
+    {
+        Properties properties = new Properties();
+        try (InputStream in = AuditPermissionEquivalenceTest.class.getResourceAsStream("/default.properties"))
+        {
+            if (in != null)
+            {
+                properties.load(in);
+            }
+        }
+        catch (IOException e)
+        {
+            throw new UncheckedIOException(e);
+        }
+        properties.putAll(System.getProperties());
+        return properties;
+    }
 
     private static JsonNode query(String... nameValuePairs) throws Exception
     {
@@ -110,7 +135,7 @@ public class AuditPermissionEquivalenceTest
 
     private static List<String> readersInTheRepository() throws Exception
     {
-        JsonNode values = query("q", "*:*", "fq", "DOC_TYPE:Acl",
+        JsonNode values = query("q", "{!join from=ACLID to=ACLID}DOC_TYPE:Node", "fq", "DOC_TYPE:Acl",
                 "facet", "true", "facet.field", "READER",
                 "facet.limit", "40", "facet.mincount", "1")
                 .path("facet_counts").path("facet_fields").path("READER");
