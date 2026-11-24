@@ -175,3 +175,6 @@ Issues and merge requests are welcome on
 
 [LGPL v3](LICENSE). Alfresco-derived sources keep their original copyright headers;
 Solr-derived sources keep the Apache License 2.0.
+
+"Pristy" is a registered trademark of Jeci SARL (INPI FR 4801689). This license
+grants no right to use it.
