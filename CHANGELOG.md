@@ -8,6 +8,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Version numbers are plain, without a `v` prefix, matching the Git tags.
 
 
+## [1.5.0] - 2026-11-25
+
+### Breaking Changes
+
+- *(trackers)* The trackers API now requires the shared secret by default
+  (`ALFRESCO_TRACKER_SERVER_SECURECOMMS=secret`), and a blank
+  `ALFRESCO_TRACKER_SERVER_SHAREDSECRET` refuses startup. Set it to the repository's
+  `solr.tracker.sharedSecret` (default `solr.sharedSecret`) before upgrading, or set
+  `ALFRESCO_TRACKER_SERVER_SECURECOMMS=none` to keep the 1.4 behaviour.
+
+### Features
+
+- *(audit)* Add vanilla audit solr core
+- *(audit)* Map kafka events to solr documents
+- *(audit)* Consume audit topic into solr
+- *(audit)* Build the permission filter
+- *(audit)* Serve audit queries over api v1
+- *(audit)* Purge the index on retention
+- *(audit)* Report consumer lag as health
+- *(audit)* Let an operator forbid unfiltered reads
+- *(audit)* Page the audit api by offset
+- *(trackers)* Guard the API with a shared secret
+- *(trackers)* Exempt the progress surface
+- *(audit)* Filter a facet on a value prefix
+- *(audit)* Add a contains filter to the facets
+
+### Documentation
+
+- *(audit)* Declare the lag threshold setting
+- *(audit)* Document the authority divergence
+- *(api)* Explain capability since vs snapshot
+- *(audit)* Document paging modes, drop dup test
+- *(audit)* Document offset paging on events
+- *(trackers)* Document the inbound secret
+- *(trackers)* Note invalid secure-comms refuses
+- *(mtls)* Set the inbound mode for mTLS
+- *(admin)* Add the secret to the recipes
+- *(trackers)* Pin the expected header name
+- *(progress)* State the exemption and its cost
+- *(trackers)* Name every unauthenticated path
+- *(audit)* Javadoc the audit api contract
+- *(audit)* Javadoc the audit indexing classes
+- Index release docs and add trademark notice
+
+### Refactor
+
+- *(trackers)* Drop unused AuditConfig
+- *(audit)* Drop the allow-unfiltered flag
+
+### Styling
+
+- *(audit)* End AuditIndexer with a newline
+
+### Testing
+
+- *(audit)* Exempt audit from schema check
+- *(audit)* Pin the audit.search capability gate
+- *(audit)* Pin the permission filter equivalence
+- *(audit)* Mirror the production filter shape
+- *(audit)* Pin privileged authority widening
+- *(audit)* Harden the equivalence test guards
+- *(audit)* Exercise the cross-core join end to end
+- *(e2e)* Send the trackers shared secret
+- *(audit)* Pin the unfiltered authority refusal
+- *(e2e)* Cover and wire the mTLS admin client
+- *(e2e)* Create the audit core in the e2e stack
+- *(audit)* Make the equivalence test portable
+- *(e2e)* Align search tests with cross-locale
+- *(progress)* Cover the progress CORS mapping
+
+
 ## [1.4.0] - 2026-11-10
 
 ### Features
